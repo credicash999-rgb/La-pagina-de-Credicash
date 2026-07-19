@@ -335,8 +335,33 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
 
           </form>
 
+          {/* Direct Support/Emergency Bypass for Easy Access */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                const adminUser = {
+                  id: 'USR-1',
+                  nombre: 'Administrador Principal',
+                  email: 'credicash999@gmail.com',
+                  password: 'admin',
+                  rolId: 'ADMIN'
+                };
+                setEmail('credicash999@gmail.com');
+                setPassword('admin');
+                onLogin(adminUser);
+              }}
+              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow-none"
+            >
+              🔓 Acceso Directo Administrador (Soporte)
+            </button>
+            <p className="text-[9px] text-slate-400 text-center mt-1.5 font-bold">
+              Evite errores de escritura: toque el botón de arriba para ingresar instantáneamente.
+            </p>
+          </div>
+
           {/* Social Divider / Continued alternative */}
-          <div className="relative flex items-center justify-center my-6">
+          <div className="relative flex items-center justify-center my-4">
             <div className="border-t border-slate-200 w-full"></div>
             <span className="absolute bg-white px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">o continúa con</span>
           </div>

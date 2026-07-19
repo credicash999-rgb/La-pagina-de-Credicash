@@ -9,6 +9,16 @@ import {
   Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol 
 } from './types';
 
+import { 
+  getSavedFirebaseConfig, 
+  initializeFirebase, 
+  isFirebaseEnabled, 
+  isAutoSyncEnabled,
+  uploadDocToFirestore, 
+  deleteDocFromFirestore,
+  syncToGoogleSheet
+} from './lib/firebaseSync';
+
 // Import Views
 import DashboardView from './components/DashboardView';
 import ClientesView from './components/ClientesView';
@@ -457,6 +467,13 @@ export default function App() {
     setIsLoggedIn(false);
   };
 
+  // Initialize Firebase client on mount if enabled
+  useEffect(() => {
+    if (isFirebaseEnabled()) {
+      initializeFirebase();
+    }
+  }, []);
+
   // Load state from local storage on mount
   useEffect(() => {
     const getOrSeed = <T,>(key: string, seed: T): T => {
@@ -658,12 +675,21 @@ export default function App() {
     const list = [...clientes, nuevo];
     setClientes(list);
     saveToLocalStorage(STORAGE_KEYS.CLIENTES, list);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('clientes', nuevo.id, nuevo);
+    }
+    syncToGoogleSheet('add_cliente', nuevo);
   };
 
   const handleUpdateCliente = (updated: Cliente) => {
     const list = clientes.map(c => c.id === updated.id ? updated : c);
     setClientes(list);
     saveToLocalStorage(STORAGE_KEYS.CLIENTES, list);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('clientes', updated.id, updated);
+    }
   };
 
   const handleAddOperacion = (nuevaOp: Operacion, nuevasCuotas: Cuota[]) => {
@@ -696,18 +722,33 @@ export default function App() {
       const updatedCli = { ...selectedCliente, estado: 'ACTIVO' as const };
       handleUpdateCliente(updatedCli);
     }
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('operaciones', nuevaOp.id, nuevaOp);
+      nuevasCuotas.forEach(c => uploadDocToFirestore('cuotas', c.id, c));
+      uploadDocToFirestore('transacciones', outlayTrx.id, outlayTrx);
+    }
+    syncToGoogleSheet('add_prestamo', { operacion: nuevaOp, cuotas: nuevasCuotas });
   };
 
   const handleUpdateOperacion = (updated: Operacion) => {
     const list = operaciones.map(o => o.id === updated.id ? updated : o);
     setOperaciones(list);
     saveToLocalStorage(STORAGE_KEYS.OPERACIONES, list);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('operaciones', updated.id, updated);
+    }
   };
 
   const handleAddCuotas = (nuevasCuotas: Cuota[]) => {
     const list = [...cuotas, ...nuevasCuotas];
     setCuotas(list);
     saveToLocalStorage(STORAGE_KEYS.CUOTAS, list);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      nuevasCuotas.forEach(c => uploadDocToFirestore('cuotas', c.id, c));
+    }
   };
 
   const handleAddPago = (
@@ -753,29 +794,52 @@ export default function App() {
         handleUpdateCliente({ ...selectedCli, estado: targetState });
       }
     }
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('pagos', nuevoPago.id, nuevoPago);
+      updatedCuotasList.forEach(c => uploadDocToFirestore('cuotas', c.id, c));
+      uploadDocToFirestore('transacciones', tesoreriaTrx.id, tesoreriaTrx);
+    }
+    syncToGoogleSheet('add_pago', { pago: nuevoPago, cuotas: updatedCuotasList, operacion: updatedOperacion });
   };
 
   const handleUpdateConfiguracion = (newConfig: Configuracion) => {
     setConfiguracion(newConfig);
     saveToLocalStorage(STORAGE_KEYS.CONFIGURACION, newConfig);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('system_config', 'global', newConfig);
+    }
   };
 
   const handleAddFeriado = (nuevo: Feriado) => {
     const list = [...feriados, nuevo];
     setFeriados(list);
     saveToLocalStorage(STORAGE_KEYS.FERIADOS, list);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('feriados', nuevo.fecha, nuevo);
+    }
   };
 
   const handleDeleteFeriado = (fecha: string) => {
     const list = feriados.filter(f => f.fecha !== fecha);
     setFeriados(list);
     saveToLocalStorage(STORAGE_KEYS.FERIADOS, list);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      deleteDocFromFirestore('feriados', fecha);
+    }
   };
 
   const handleAddTransaccion = (nuevaTrx: TransaccionTesoreria) => {
     const list = [...transacciones, nuevaTrx];
     setTransacciones(list);
     saveToLocalStorage(STORAGE_KEYS.TRANSACCIONES, list);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('transacciones', nuevaTrx.id, nuevaTrx);
+    }
   };
 
   const handleClearDatabase = () => {

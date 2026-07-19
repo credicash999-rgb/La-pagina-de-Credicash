@@ -7,8 +7,23 @@ import React, { useState } from 'react';
 import { Configuracion, Feriado, Cliente, Operacion, Cuota, Pago, TransaccionTesoreria } from '../types';
 import { 
   Settings, Calendar, Percent, Plus, Trash2, CheckCircle2, 
-  HelpCircle, ShieldCheck, DollarSign, Download, Upload, FileSpreadsheet, Database
+  HelpCircle, ShieldCheck, DollarSign, Download, Upload, FileSpreadsheet, Database,
+  Cloud, Check, X, Wifi, AlertTriangle, FileText, Lock
 } from 'lucide-react';
+import { 
+  getSavedFirebaseConfig, 
+  saveFirebaseConfig, 
+  isFirebaseEnabled, 
+  setFirebaseEnabled, 
+  isAutoSyncEnabled, 
+  setAutoSyncEnabled, 
+  getGoogleSheetUrl, 
+  saveGoogleSheetUrl,
+  uploadAllToFirestore,
+  downloadAllFromFirestore,
+  initializeFirebase,
+  syncToGoogleSheet
+} from '../lib/firebaseSync';
 import { 
   exportClientesToCSV, 
   exportOperacionesToCSV, 
@@ -83,6 +98,107 @@ export default function ConfiguracionView({
   // Holiday form states
   const [nuevaFecha, setNuevaFecha] = useState('');
   const [nuevaDesc, setNuevaDesc] = useState('');
+
+  // Firebase & Google Sheets Sync States
+  const [fbConfig, setFbConfig] = useState(() => getSavedFirebaseConfig() || {
+    apiKey: '',
+    authDomain: '',
+    projectId: '',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: ''
+  });
+  const [fbEnabled, setFbEnabledState] = useState(() => isFirebaseEnabled());
+  const [autoSync, setAutoSyncState] = useState(() => isAutoSyncEnabled());
+  const [sheetUrl, setSheetUrlState] = useState(() => getGoogleSheetUrl());
+  
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [syncMsg, setSyncMsg] = useState('');
+
+  const handleTestFirebase = () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      // Save configuration first
+      saveFirebaseConfig(fbConfig);
+      const initialized = initializeFirebase();
+      if (initialized) {
+        setTestResult('success');
+      } else {
+        setTestResult('error');
+      }
+    } catch (e) {
+      console.error(e);
+      setTestResult('error');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleSaveSyncSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveFirebaseConfig(fbConfig);
+    setFirebaseEnabled(fbEnabled);
+    setAutoSyncEnabled(autoSync);
+    saveGoogleSheetUrl(sheetUrl);
+    
+    if (fbEnabled) {
+      initializeFirebase();
+    }
+    alert('¡Ajustes de sincronización guardados con éxito!');
+  };
+
+  const handleFullUpload = async () => {
+    setSyncStatus('syncing');
+    setSyncMsg('Preparando carga masiva de datos...');
+    try {
+      const result = await uploadAllToFirestore({
+        clientes,
+        operaciones,
+        cuotas,
+        pagos,
+        transacciones,
+        configuracion,
+        feriados
+      });
+      if (result.success) {
+        setSyncStatus('success');
+        setSyncMsg('¡Todos los datos locales han sido respaldados con éxito en Firestore!');
+        alert('¡Respaldo en la nube completado con éxito!');
+      } else {
+        setSyncStatus('error');
+        setSyncMsg(`Error en la carga: ${result.error}`);
+      }
+    } catch (e: any) {
+      setSyncStatus('error');
+      setSyncMsg(`Fallo de conexión: ${e.message}`);
+    }
+  };
+
+  const handleFullDownload = async () => {
+    if (!confirm('¿Está seguro de que desea descargar los datos de la nube? Esto reemplazará TODOS los datos locales actuales de su computador por la información en Firebase.')) {
+      return;
+    }
+    setSyncStatus('syncing');
+    setSyncMsg('Conectando y descargando información de Firestore...');
+    try {
+      const result = await downloadAllFromFirestore();
+      if (result.success && result.data) {
+        onRestoreBackup(result.data);
+        setSyncStatus('success');
+        setSyncMsg('¡Información restaurada con éxito desde Firestore!');
+        alert('¡Sincronización completada! Los datos de la nube han sido cargados localmente.');
+      } else {
+        setSyncStatus('error');
+        setSyncMsg(`Error en la descarga: ${result.error}`);
+      }
+    } catch (e: any) {
+      setSyncStatus('error');
+      setSyncMsg(`Fallo de conexión: ${e.message}`);
+    }
+  };
 
   const handleSaveRates = (e: React.FormEvent) => {
     e.preventDefault();
@@ -739,6 +855,341 @@ export default function ConfiguracionView({
               </div>
             </div>
 
+          </div>
+
+        </div>
+      </div>
+
+      {/* Cloud & Sync Section */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+          <Cloud className="w-5 h-5 text-blue-600" />
+          Sincronización en la Nube (Firebase & Google Sheets)
+        </h3>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
+          
+          {/* Left Side: Firebase Settings */}
+          <div className="space-y-4 border-r border-slate-100 lg:pr-6">
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-orange-500" />
+                Configurar Base de Datos Firebase
+              </h4>
+              <span className={`px-2 py-0.5 text-[9px] font-bold rounded-sm uppercase tracking-wide flex items-center gap-1 ${fbEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+                {fbEnabled ? <Wifi className="w-2.5 h-2.5" /> : null}
+                {fbEnabled ? 'Activo' : 'Inactivo'}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Complete los campos inferiores con las credenciales de su proyecto Firebase (consola Firebase &gt; Configuración del proyecto &gt; Sus Apps). 
+              Esto permitirá subir toda su información financiera de forma segura, duradera y acceder desde cualquier computador.
+            </p>
+
+            <form onSubmit={handleSaveSyncSettings} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">API Key</label>
+                  <input
+                    type="password"
+                    value={fbConfig.apiKey}
+                    onChange={(e) => setFbConfig({ ...fbConfig, apiKey: e.target.value })}
+                    placeholder="AIzaSy..."
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Project ID</label>
+                  <input
+                    type="text"
+                    value={fbConfig.projectId}
+                    onChange={(e) => setFbConfig({ ...fbConfig, projectId: e.target.value })}
+                    placeholder="credicash-app"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Auth Domain</label>
+                  <input
+                    type="text"
+                    value={fbConfig.authDomain}
+                    onChange={(e) => setFbConfig({ ...fbConfig, authDomain: e.target.value })}
+                    placeholder="credicash-app.firebaseapp.com"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Storage Bucket</label>
+                  <input
+                    type="text"
+                    value={fbConfig.storageBucket}
+                    onChange={(e) => setFbConfig({ ...fbConfig, storageBucket: e.target.value })}
+                    placeholder="credicash-app.appspot.com"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Messaging Sender ID</label>
+                  <input
+                    type="text"
+                    value={fbConfig.messagingSenderId}
+                    onChange={(e) => setFbConfig({ ...fbConfig, messagingSenderId: e.target.value })}
+                    placeholder="1234567890"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">App ID</label>
+                  <input
+                    type="text"
+                    value={fbConfig.appId}
+                    onChange={(e) => setFbConfig({ ...fbConfig, appId: e.target.value })}
+                    placeholder="1:123:web:abc"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Toggles */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={fbEnabled}
+                    onChange={(e) => setFbEnabledState(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500/20 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-700">Habilitar conexión activa a Firebase</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none pl-6">
+                  <input
+                    type="checkbox"
+                    checked={autoSync}
+                    onChange={(e) => setAutoSyncState(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500/20 w-4 h-4 cursor-pointer"
+                    disabled={!fbEnabled}
+                  />
+                  <span className="text-[11px] text-slate-500">Auto-guardar en la nube al ingresar un cliente, préstamo o pago</span>
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestFirebase}
+                  disabled={isTesting}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  {isTesting ? 'Probando...' : 'Probar Conexión'}
+                  {testResult === 'success' && <Check className="w-4 h-4 text-emerald-600" />}
+                  {testResult === 'error' && <X className="w-4 h-4 text-rose-600" />}
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-md hover:shadow-none flex-1 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  Guardar Ajustes de Nube
+                </button>
+              </div>
+            </form>
+
+            {/* Cloud actions */}
+            {fbEnabled && (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 pt-3">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Panel de Sincronización Manual</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={handleFullUpload}
+                    disabled={syncStatus === 'syncing'}
+                    className="p-3 bg-white hover:bg-amber-50 hover:text-amber-700 text-slate-700 rounded-lg border border-slate-200 hover:border-amber-200 text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all text-center shadow-xs"
+                  >
+                    <Upload className="w-5 h-5 text-amber-500" />
+                    <span>Subir a Firebase</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFullDownload}
+                    disabled={syncStatus === 'syncing'}
+                    className="p-3 bg-white hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-lg border border-slate-200 hover:border-blue-200 text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all text-center shadow-xs"
+                  >
+                    <Download className="w-5 h-5 text-blue-500" />
+                    <span>Descargar de Firebase</span>
+                  </button>
+                </div>
+
+                {syncStatus !== 'idle' && (
+                  <div className={`p-2 rounded text-[11px] font-bold flex items-center gap-1.5 ${
+                    syncStatus === 'syncing' ? 'bg-amber-50 text-amber-800' :
+                    syncStatus === 'success' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'
+                  }`}>
+                    {syncStatus === 'syncing' ? <Cloud className="w-3.5 h-3.5 animate-bounce text-amber-500" /> : <Check className="w-3.5 h-3.5" />}
+                    <span>{syncMsg}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right Side: Google Sheets Integration */}
+          <div className="space-y-4 lg:pl-2">
+            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-600" />
+              Sincronizar con Google Sheets (Excel)
+            </h4>
+
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Envíe automáticamente un duplicado en tiempo real de cada cliente registrado y cuota cobrada directamente a su planilla de cálculo personal de Google Drive.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                  Google Apps Script Web App URL
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={sheetUrl}
+                    onChange={(e) => {
+                      setSheetUrlState(e.target.value);
+                      saveGoogleSheetUrl(e.target.value);
+                    }}
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono pr-8 focus:outline-hidden focus:border-blue-500 focus:bg-white"
+                  />
+                  <span className="absolute right-3 top-2 flex h-2 w-2">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${sheetUrl ? 'bg-emerald-400' : 'bg-slate-300'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${sheetUrl ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Pega la URL de la aplicación web que generaste desde tu hoja de cálculo.
+                </p>
+              </div>
+
+              {/* Steps Guide Accordion */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <span className="text-[10px] font-bold text-[#1E803B] uppercase tracking-widest flex items-center gap-1">
+                  <FileText className="w-4 h-4 shrink-0" />
+                  GUÍA PASO A PASO PARA CONECTAR:
+                </span>
+                
+                <ol className="list-decimal list-inside text-[11px] text-slate-600 space-y-2 leading-relaxed">
+                  <li>Abre tu hoja de cálculo: <a href="https://docs.google.com/spreadsheets/d/1tI37AbnjOyB6BtluAIBOUAdIOTsCbvej3YJ6ykLb8YM/edit?pli=1" target="_blank" rel="noreferrer" className="text-blue-600 font-bold underline hover:text-blue-800">Ver Planilla</a>.</li>
+                  <li>Ve a <b>Extensiones</b> &gt; <b>Apps Script</b>.</li>
+                  <li>Crea 3 hojas en tu planilla llamadas exactamente: <b className="font-mono text-slate-800">Clientes</b>, <b className="font-mono text-slate-800">Préstamos</b> y <b className="font-mono text-slate-800">Pagos</b>.</li>
+                  <li>Borra todo el código que aparezca y pega el siguiente script:</li>
+                </ol>
+
+                <div className="relative">
+                  <textarea
+                    readOnly
+                    value={`function doPost(e) {
+  try {
+    var requestData = JSON.parse(e.postData.contents);
+    var action = requestData.action;
+    var data = requestData.data;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    if (action === "add_cliente") {
+      var sheet = ss.getSheetByName("Clientes") || ss.getSheets()[0];
+      sheet.appendRow([
+        data.id, data.nombre, data.apellido, data.dni,
+        data.telefono, data.direccion, data.estado,
+        new Date().toISOString().split('T')[0]
+      ]);
+    } else if (action === "add_prestamo") {
+      var sheet = ss.getSheetByName("Préstamos") || ss.getSheets()[0];
+      var op = data.operacion;
+      sheet.appendRow([
+        op.id, op.idCliente, op.nombreCliente, op.capitalEntregado,
+        op.cantidadCuotas, op.frecuenciaPago, op.valorCuota,
+        op.montoTotalPagar, op.estado, op.fechaOtorgamiento
+      ]);
+    } else if (action === "add_pago") {
+      var sheet = ss.getSheetByName("Pagos") || ss.getSheets()[0];
+      var pago = data.pago;
+      sheet.appendRow([
+        pago.id, pago.idOperacion, pago.numeroCuota, pago.montoPagado,
+        pago.fechaPago, pago.metodoPago, pago.cobradorNombre
+      ]);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ "status": "success" }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ "status": "error", "message": error.toString() }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}`}
+                    rows={6}
+                    className="w-full p-2 bg-slate-900 text-slate-200 rounded-lg text-[10px] font-mono focus:outline-hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`function doPost(e) {
+  try {
+    var requestData = JSON.parse(e.postData.contents);
+    var action = requestData.action;
+    var data = requestData.data;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    if (action === "add_cliente") {
+      var sheet = ss.getSheetByName("Clientes") || ss.getSheets()[0];
+      sheet.appendRow([
+        data.id, data.nombre, data.apellido, data.dni,
+        data.telefono, data.direccion, data.estado,
+        new Date().toISOString().split('T')[0]
+      ]);
+    } else if (action === "add_prestamo") {
+      var sheet = ss.getSheetByName("Préstamos") || ss.getSheets()[0];
+      var op = data.operacion;
+      sheet.appendRow([
+        op.id, op.idCliente, op.nombreCliente, op.capitalEntregado,
+        op.cantidadCuotas, op.frecuenciaPago, op.valorCuota,
+        op.montoTotalPagar, op.estado, op.fechaOtorgamiento
+      ]);
+    } else if (action === "add_pago") {
+      var sheet = ss.getSheetByName("Pagos") || ss.getSheets()[0];
+      var pago = data.pago;
+      sheet.appendRow([
+        pago.id, pago.idOperacion, pago.numeroCuota, pago.montoPagado,
+        pago.fechaPago, pago.metodoPago, pago.cobradorNombre
+      ]);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ "status": "success" }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ "status": "error", "message": error.toString() }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}`);
+                      alert('¡Código de Apps Script copiado al portapapeles!');
+                    }}
+                    className="absolute right-2 top-2 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[9px] uppercase tracking-wide cursor-pointer transition-colors"
+                  >
+                    Copiar Código
+                  </button>
+                </div>
+
+                <ol start={5} className="list-decimal list-inside text-[11px] text-slate-600 space-y-2 leading-relaxed">
+                  <li>Presiona el ícono de <b>Guardar</b> (disco duro) en Apps Script.</li>
+                  <li>Haz clic en <b>Implementar</b> (Deploy) &gt; <b>Nueva implementación</b>.</li>
+                  <li>Selecciona tipo: <b>Aplicación web</b>.</li>
+                  <li>En "Quién tiene acceso" selecciona obligatoriamente: <b>Cualquier persona</b> (Anyone).</li>
+                  <li>Haz clic en <b>Implementar</b>, autoriza los permisos con tu cuenta de Google y copia la <b>URL de la aplicación web</b> generada para pegarla arriba.</li>
+                </ol>
+              </div>
+            </div>
           </div>
 
         </div>
