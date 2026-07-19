@@ -725,7 +725,7 @@ export default function OperacionesView({
         </div>
       )}
     </div>
-  )}
+  }
 </div>
 
 
