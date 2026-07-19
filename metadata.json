@@ -1,0 +1,6 @@
+{
+  "name": "Credi-Cash | Sistema Maestro",
+  "description": "Sistema profesional de gestión de créditos con simulación de cuotas, cobranzas y dashboard analítico.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

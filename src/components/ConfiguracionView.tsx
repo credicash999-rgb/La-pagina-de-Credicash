@@ -1,0 +1,790 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { Configuracion, Feriado, Cliente, Operacion, Cuota, Pago, TransaccionTesoreria } from '../types';
+import { 
+  Settings, Calendar, Percent, Plus, Trash2, CheckCircle2, 
+  HelpCircle, ShieldCheck, DollarSign, Download, Upload, FileSpreadsheet, Database
+} from 'lucide-react';
+import { 
+  exportClientesToCSV, 
+  exportOperacionesToCSV, 
+  exportCuotasToCSV, 
+  exportPagosToCSV, 
+  exportTesoreriaToCSV, 
+  downloadFullBackupJSON,
+  exportAllToZIP
+} from '../utils/exportHelper';
+
+interface ConfiguracionViewProps {
+  configuracion: Configuracion;
+  feriados: Feriado[];
+  clientes: Cliente[];
+  operaciones: Operacion[];
+  cuotas: Cuota[];
+  pagos: Pago[];
+  transacciones: TransaccionTesoreria[];
+  onUpdateConfiguracion: (config: Configuracion) => void;
+  onAddFeriado: (feriado: Feriado) => void;
+  onDeleteFeriado: (fecha: string) => void;
+  onClearDatabase: () => void;
+  onResetToSeed: () => void;
+  onRestoreBackup: (data: any) => void;
+}
+
+export default function ConfiguracionView({
+  configuracion,
+  feriados,
+  clientes,
+  operaciones,
+  cuotas,
+  pagos,
+  transacciones,
+  onUpdateConfiguracion,
+  onAddFeriado,
+  onDeleteFeriado,
+  onClearDatabase,
+  onResetToSeed,
+  onRestoreBackup,
+}: ConfiguracionViewProps) {
+  
+  // Rate edit states
+  const [interesDiario, setInteresDiario] = useState(configuracion.interesDiario);
+  const [interesSemanal, setInteresSemanal] = useState(configuracion.interesSemanal);
+  const [interesQuincenal, setInteresQuincenal] = useState(configuracion.interesQuincenal);
+  const [interesMensual, setInteresMensual] = useState(configuracion.interesMensual);
+  const [tasaMensualBase, setTasaMensualBase] = useState(configuracion.tasaMensualBase);
+
+  // New Goal & Minimum Payments states
+  const [metaCobranzaMonto, setMetaCobranzaMonto] = useState(configuracion.metaCobranzaMonto ?? 3000000);
+  const [metaCobranzaPlazo, setMetaCobranzaPlazo] = useState(configuracion.metaCobranzaPlazo ?? 'mensual');
+  const [pagoMinimoCuotas, setPagoMinimoCuotas] = useState(configuracion.pagoMinimoCuotas ?? 2);
+
+  // Mora alerts thresholds states
+  const [moraDiarioAvisoDias, setMoraDiarioAvisoDias] = useState(configuracion.moraDiarioAvisoDias ?? 1);
+  const [moraDiarioLlamarDias, setMoraDiarioLlamarDias] = useState(configuracion.moraDiarioLlamarDias ?? 2);
+  const [moraDiarioCobradorDias, setMoraDiarioCobradorDias] = useState(configuracion.moraDiarioCobradorDias ?? 6);
+
+  const [moraSemanalAvisoDias, setMoraSemanalAvisoDias] = useState(configuracion.moraSemanalAvisoDias ?? 2);
+  const [moraSemanalLlamarDias, setMoraSemanalLlamarDias] = useState(configuracion.moraSemanalLlamarDias ?? 4);
+  const [moraSemanalCobradorDias, setMoraSemanalCobradorDias] = useState(configuracion.moraSemanalCobradorDias ?? 7);
+
+  const [moraQuincenalAvisoDias, setMoraQuincenalAvisoDias] = useState(configuracion.moraQuincenalAvisoDias ?? 2);
+  const [moraQuincenalLlamarDias, setMoraQuincenalLlamarDias] = useState(configuracion.moraQuincenalLlamarDias ?? 5);
+  const [moraQuincenalCobradorDias, setMoraQuincenalCobradorDias] = useState(configuracion.moraQuincenalCobradorDias ?? 8);
+
+  const [moraMensualAvisoDias, setMoraMensualAvisoDias] = useState(configuracion.moraMensualAvisoDias ?? 1);
+  const [moraMensualLlamarDias, setMoraMensualLlamarDias] = useState(configuracion.moraMensualLlamarDias ?? 2);
+  const [moraMensualCobradorDias, setMoraMensualCobradorDias] = useState(configuracion.moraMensualCobradorDias ?? 2);
+
+  // Holiday form states
+  const [nuevaFecha, setNuevaFecha] = useState('');
+  const [nuevaDesc, setNuevaDesc] = useState('');
+
+  const handleSaveRates = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateConfiguracion({
+      interesDiario,
+      interesSemanal,
+      interesQuincenal,
+      interesMensual,
+      tasaMensualBase,
+      metaCobranzaMonto,
+      metaCobranzaPlazo,
+      pagoMinimoCuotas,
+      moraDiarioAvisoDias,
+      moraDiarioLlamarDias,
+      moraDiarioCobradorDias,
+      moraSemanalAvisoDias,
+      moraSemanalLlamarDias,
+      moraSemanalCobradorDias,
+      moraQuincenalAvisoDias,
+      moraQuincenalLlamarDias,
+      moraQuincenalCobradorDias,
+      moraMensualAvisoDias,
+      moraMensualLlamarDias,
+      moraMensualCobradorDias,
+    });
+    alert('¡Configuración de Tasas, Metas y Políticas de Alertas guardada con éxito!');
+  };
+
+  const handleAddFeriadoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nuevaFecha || !nuevaDesc) {
+      alert('Por favor complete la fecha y la descripción del feriado.');
+      return;
+    }
+    
+    // Check if duplicate
+    if (feriados.some(f => f.fecha === nuevaFecha)) {
+      alert('Ya existe un feriado registrado para esta fecha.');
+      return;
+    }
+
+    onAddFeriado({
+      fecha: nuevaFecha,
+      descripcion: nuevaDesc,
+      seCobra: false, // Default: no se cobra
+    });
+
+    setNuevaFecha('');
+    setNuevaDesc('');
+  };
+
+  return (
+    <div id="configuracion-section" className="space-y-6">
+      
+      {/* Header */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <Settings className="w-5 h-5 text-blue-600" />
+          Configuración Global del Sistema Maestro
+        </h2>
+        <p className="text-xs text-slate-500 mt-1">
+          Ajuste los parámetros financieros fundamentales, la tasa mensual base y el calendario de exclusión de cobro (domingos y feriados).
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Left Card: Interest Rates Config */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Percent className="w-4 h-4 text-blue-600" />
+            Parámetros y Tasas de Interés
+          </h3>
+
+          <form onSubmit={handleSaveRates} className="space-y-4">
+            <div className="space-y-4">
+              
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Tasa Mensual de Interés Diario (%)
+                  </label>
+                  <span className="text-[10px] text-[#1E803B] font-bold">20 cuotas por mes</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step={0.1}
+                    value={interesDiario}
+                    onChange={(e) => setInteresDiario(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Tasa mensual aplicada a créditos diarios. Por ejemplo, 50% de interés mensual sobre el capital.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Tasa Mensual de Interés Semanal (%)
+                  </label>
+                  <span className="text-[10px] text-[#1E803B] font-bold">4 cuotas por mes</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step={0.1}
+                    value={interesSemanal}
+                    onChange={(e) => setInteresSemanal(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Tasa mensual aplicada a créditos semanales. Un plan de 8 cuotas semanales equivale a 2 meses.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Tasa Mensual de Interés Quincenal (%)
+                  </label>
+                  <span className="text-[10px] text-[#1E803B] font-bold">2 cuotas por mes</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step={0.1}
+                    value={interesQuincenal}
+                    onChange={(e) => setInteresQuincenal(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Tasa mensual aplicada a créditos quincenales. Un plan de 4 cuotas quincenales equivale a 2 meses.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Tasa Mensual de Interés Mensual (%)
+                  </label>
+                  <span className="text-[10px] text-[#1E803B] font-bold">1 cuota por mes</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step={0.1}
+                    value={interesMensual}
+                    onChange={(e) => setInteresMensual(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Tasa de interés mensual aplicada directamente sobre la cantidad de meses totales del préstamo.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Tasa Mensual Base de Respaldo (%)
+                  </label>
+                  <span className="text-[10px] text-slate-400">Para cálculos de amortización extraordinaria</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step={0.1}
+                    value={tasaMensualBase}
+                    onChange={(e) => setTasaMensualBase(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                </div>
+              </div>
+
+              {/* Sub-section: Metas de Cobranza y Gestión de Mora */}
+              <div className="pt-4 border-t border-slate-100 space-y-4">
+                <h4 className="text-[10px] font-extrabold text-[#1E803B] uppercase tracking-wider">
+                  Metas de Cobranza y Alertas de Mora
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                      Meta de Cobranza ($)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">$</span>
+                      <input
+                        type="number"
+                        value={metaCobranzaMonto}
+                        onChange={(e) => setMetaCobranzaMonto(Number(e.target.value))}
+                        className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:outline-hidden focus:border-blue-500 focus:bg-white"
+                        placeholder="Monto meta"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                      Plazo de la Meta
+                    </label>
+                    <select
+                      value={metaCobranzaPlazo}
+                      onChange={(e) => setMetaCobranzaPlazo(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:outline-hidden focus:border-blue-500 focus:bg-white cursor-pointer"
+                    >
+                      <option value="diario">Diario</option>
+                      <option value="semanal">Semanal</option>
+                      <option value="quincenal">Quincenal</option>
+                      <option value="mensual">Mensual</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Pago Mínimo Requerido (Cuotas para Alerta)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={pagoMinimoCuotas}
+                    onChange={(e) => setPagoMinimoCuotas(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:outline-hidden focus:border-blue-500 focus:bg-white"
+                    placeholder="E.g., 2 cuotas"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Cantidad de cuotas vencidas que el cobrador requiere saldar para evitar la advertencia de pago mínimo en el panel.
+                  </p>
+                </div>
+
+                {/* Políticas de Alertas y Cobranza por Frecuencia */}
+                <div className="pt-4 border-t border-slate-100 space-y-4 text-left">
+                  <h4 className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-100 px-3.5 py-1.5 rounded-lg uppercase tracking-wider inline-block">
+                    Políticas de Alertas por Frecuencia
+                  </h4>
+                  
+                  <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    {/* DIARIA */}
+                    <div className="space-y-2 border-b border-slate-200/60 pb-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-black text-slate-800">Crédito DIARIO</span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded uppercase">Días de Mora</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Aviso Regular</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraDiarioAvisoDias}
+                            onChange={(e) => setMoraDiarioAvisoDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraDiarioLlamarDias}
+                            onChange={(e) => setMoraDiarioLlamarDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraDiarioCobradorDias}
+                            onChange={(e) => setMoraDiarioCobradorDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SEMANAL */}
+                    <div className="space-y-2 border-b border-slate-200/60 pb-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-black text-slate-800">Crédito SEMANAL</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Aviso Regular</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraSemanalAvisoDias}
+                            onChange={(e) => setMoraSemanalAvisoDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraSemanalLlamarDias}
+                            onChange={(e) => setMoraSemanalLlamarDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraSemanalCobradorDias}
+                            onChange={(e) => setMoraSemanalCobradorDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* MENSUAL */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-black text-slate-800">Crédito MENSUAL</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Aviso Regular</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraMensualAvisoDias}
+                            onChange={(e) => setMoraMensualAvisoDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraMensualLlamarDias}
+                            onChange={(e) => setMoraMensualLlamarDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={moraMensualCobradorDias}
+                            onChange={(e) => setMoraMensualCobradorDias(Math.max(1, Number(e.target.value)))}
+                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Guardar Configuración Financiera
+            </button>
+          </form>
+
+          {/* Guidelines notes */}
+          <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-2 text-xs text-slate-500">
+            <h4 className="font-bold text-slate-700 uppercase flex items-center gap-1">
+              <ShieldCheck className="w-4 h-4 text-blue-600" />
+              Filosofía del Negocio Credi-Cash
+            </h4>
+            <p>
+              1. <b>Frecuencia Diaria:</b> Siempre aplica exactamente un único mes de interés, sin importar la cantidad de cuotas (por defecto 20 cuotas).
+            </p>
+            <p>
+              2. <b>Frecuencias Mayoristas (Semanal, Quincenal, Mensual):</b> Los meses de financiamiento se computan en base a la cantidad de cuotas, multiplicándose la tasa por mes por la duración del préstamo.
+            </p>
+          </div>
+        </div>
+
+        {/* Right Card: Calendario de Feriados (No Cobra) */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Calendar className="w-5 h-5 text-blue-600" />
+            Calendario de Feriados No Cobrables
+          </h3>
+
+          {/* Form to add custom holiday */}
+          <form onSubmit={handleAddFeriadoSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-1">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Fecha de Exclusión
+              </label>
+              <input
+                type="date"
+                required
+                value={nuevaFecha}
+                onChange={(e) => setNuevaFecha(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-blue-500"
+              />
+            </div>
+            <div className="md:col-span-2 flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Descripción (Feriado nacional o interno)
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Día de la Independencia"
+                  value={nuevaDesc}
+                  onChange={(e) => setNuevaDesc(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-blue-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer shadow-md hover:shadow-none"
+                title="Agregar Feriado"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </form>
+
+          {/* Calendar exclusion rules explanation */}
+          <div className="bg-amber-50 border border-amber-200/60 p-3.5 rounded-lg text-xs text-amber-800 space-y-1.5">
+            <p className="font-bold uppercase tracking-wider flex items-center gap-1 text-[10px]">
+              <Calendar className="w-4 h-4 shrink-0" />
+              REGLAS DEL CRONOGRAMA AUTOMÁTICO:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-amber-700 text-[11px]">
+              <li><b>Domingos:</b> Nunca se cobra. Se corre automáticamente al siguiente día hábil.</li>
+              <li><b>Feriados:</b> Si el vencimiento programado coincide con un feriado de la lista inferior, se pospone al siguiente día hábil.</li>
+            </ul>
+          </div>
+
+          {/* Holidays list */}
+          <div className="space-y-2">
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Feriados Cargados</h4>
+            
+            <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-[220px] overflow-y-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                    <th className="py-2 px-4">Fecha</th>
+                    <th className="py-2 px-4">Descripción</th>
+                    <th className="py-2 px-4 text-center">Se Cobra</th>
+                    <th className="py-2 px-4 text-center">Eliminar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
+                  {feriados.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-slate-400 italic">
+                        No hay feriados nacionales o locales configurados.
+                      </td>
+                    </tr>
+                  ) : (
+                    [...feriados]
+                      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+                      .map((f) => (
+                        <tr key={f.fecha} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 px-4 font-mono font-bold text-slate-800">{f.fecha}</td>
+                          <td className="py-2.5 px-4">{f.descripcion}</td>
+                          <td className="py-2.5 px-4 text-center">
+                            <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 font-bold rounded-sm text-[9px] uppercase">
+                              NO
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => onDeleteFeriado(f.fecha)}
+                              className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Export & Excel Section */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+          <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-600" />
+          Exportación de Reportes a Microsoft Excel (CSV)
+        </h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Descargue los datos actuales en formato de texto delimitado por comas (CSV) codificado en UTF-8 con marca de orden de bytes (BOM). 
+          Esto permite que Microsoft Excel, Google Sheets, LibreOffice u otras hojas de cálculo abran la información con tildes, símbolos de moneda, números de teléfono y formatos de manera perfecta.
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => exportClientesToCSV(clientes)}
+            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
+          >
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <span>Exportar Clientes</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => exportOperacionesToCSV(operaciones)}
+            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
+          >
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <span>Exportar Préstamos</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => exportCuotasToCSV(cuotas)}
+            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
+          >
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <span>Plan de Cuotas</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => exportPagosToCSV(pagos)}
+            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
+          >
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <span>Historial Pagos</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => exportTesoreriaToCSV(transacciones)}
+            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center col-span-2 md:col-span-1"
+          >
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <span>Movimientos Caja</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => exportAllToZIP({ clientes, operaciones, cuotas, pagos, transacciones })}
+            className="p-3 bg-[#EBFDFA] hover:bg-[#D4FBF2] hover:text-[#0C6D53] text-[#0E7A5C] rounded-xl border border-[#A6ECD6] hover:border-[#73DEC0] text-xs font-bold flex flex-col items-center gap-2 transition-all cursor-pointer text-center col-span-2 md:col-span-1"
+          >
+            <Database className="w-5 h-5 text-[#0E7A5C]" />
+            <span>Respaldo ZIP (Excel)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Backup and Restore Section */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+          <Database className="w-4.5 h-4.5 text-blue-600" />
+          Copias de Seguridad y Respaldo Completo (JSON)
+        </h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Descargue un archivo de respaldo completo que incluye absolutamente todos los registros del sistema (clientes, cuotas, configuración de intereses, pagos y movimientos de caja). 
+          Puede guardar este archivo en su computadora, Google Drive o enviarlo por correo. En caso de cambiar de computador, simplemente cargue el archivo aquí para recuperar su trabajo al instante.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          
+          {/* Download card */}
+          <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex flex-col justify-between space-y-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Paso 1: Descargar</span>
+              <h4 className="text-xs font-bold text-slate-800">Crear archivo de respaldo maestro</h4>
+              <p className="text-[11px] text-slate-500">Genera una copia en limpio con fecha y hora para resguardar su cartera.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                downloadFullBackupJSON({
+                  clientes,
+                  operaciones,
+                  cuotas,
+                  pagos,
+                  transacciones,
+                  configuracion
+                });
+              }}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-2 cursor-pointer self-start"
+            >
+              <Download className="w-4 h-4" />
+              Descargar Respaldo Completo
+            </button>
+          </div>
+
+          {/* Upload card */}
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between space-y-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Paso 2: Restaurar</span>
+              <h4 className="text-xs font-bold text-slate-800">Cargar un archivo de respaldo previo</h4>
+              <p className="text-[11px] text-slate-500">Seleccione un archivo ".json" de su computador para reestablecer la base de datos.</p>
+            </div>
+            
+            <div className="relative">
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    try {
+                      const json = JSON.parse(event.target?.result as string);
+                      if (json && json.data) {
+                        if (confirm('¡ATENCIÓN! Cargar este respaldo reemplazará por completo todos los datos actuales del sistema por los contenidos en la copia. ¿Desea proceder?')) {
+                          onRestoreBackup(json.data);
+                          alert('¡Base de datos restaurada con éxito! La página reflejará los datos cargados.');
+                        }
+                      } else {
+                        alert('El archivo seleccionado no tiene el formato de respaldo de Credi-Cash válido.');
+                      }
+                    } catch (err) {
+                      alert('Error al leer el archivo. Asegúrese de que sea un archivo JSON válido.');
+                    }
+                  };
+                  reader.readAsText(file);
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                title="Cargar archivo"
+              />
+              <div className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-widest border border-slate-300 transition-all flex items-center justify-center gap-2 pointer-events-none">
+                <Upload className="w-4 h-4 text-slate-500" />
+                Seleccionar Respaldo (.json)
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      {/* Database Maintenance Section */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
+          <Trash2 className="w-4 h-4 text-rose-600" />
+          Mantenimiento y Control de Base de Datos
+        </h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Para su seguridad y comodidad, el sistema almacena de forma 100% local todos los registros en su computador. 
+          Al iniciar, cargamos unos <b>datos de prueba (Carlos Mendoza, María Laura, etc.)</b> para que pudiera experimentar la interfaz. 
+          Use los siguientes controles cuando esté listo para empezar a registrar su información real:
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('¿Está seguro de que desea borrar todos los clientes, préstamos y pagos registrados? Esta acción limpiará por completo el sistema para que registre sus datos reales.')) {
+                onClearDatabase();
+                alert('¡Base de datos limpiada con éxito! Ahora el sistema está en blanco y listo para su uso real.');
+              }
+            }}
+            className="px-5 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+            Limpiar Datos de Prueba (Iniciar en Blanco)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('¿Desea volver a cargar los datos de prueba iniciales (Carlos, María, etc.)? Se sobrescribirá el estado actual.')) {
+                onResetToSeed();
+                alert('¡Datos de prueba restablecidos con éxito!');
+              }
+            }}
+            className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <CheckCircle2 className="w-4 h-4 text-slate-500" />
+            Restablecer Datos de Demostración
+          </button>
+        </div>
+      </div>
+
+    </div>
+  );
+}
