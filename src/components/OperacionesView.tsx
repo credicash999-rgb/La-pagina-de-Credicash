@@ -719,14 +719,15 @@ export default function OperacionesView({
                       })}
                     </div>
                     <div className="bg-amber-100/60 p-2.5 rounded-xl text-[10px] text-amber-900 font-bold italic flex items-center gap-1.5 border border-amber-200/60">
-                      <span>⚠️</span>
-                      <span>Nota Operativa: El otorgamiento de un nuevo crédito habiendo saldo pendiente acumula riesgo crediticio.</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                722             <span>⚠️</span>
+                    <span>Nota Operativa: El otorgamiento de un nuevo crédito habiendo saldo pendiente acumula riesgo crediticio.</span>
+             </div>
+           </div>
+         )}
+       </div>
+     }
+   </div>
+
 
           {/* STEP 2: LOAN INFORMATION */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
