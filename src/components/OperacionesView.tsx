@@ -698,36 +698,33 @@ export default function OperacionesView({
                                     ? '✅ El cliente ya completó el 70% (Elegible para Renovación)' 
                                     : `⚠️ Faltan pagar ${cuotasFaltantesRenovacion} cuotas para ser elegible para renovación.`}
                                 </span>
-                              </div>
+              </div>
 
-                              <div className="bg-slate-50 p-2.5 rounded border border-slate-200/60 flex flex-col justify-between">
-                                <div>
-                                  <span className="text-slate-400 block font-bold uppercase text-[8px] mb-0.5">Estimación de Finalización</span>
-                                  <p className="text-[9px] text-slate-600 mt-1">
-                                    Restan amortizar <strong className="text-slate-800">{op.cuotasPendientes} cuotas</strong> por un valor unitario de <strong className="text-slate-800">${op.valorCuota.toLocaleString('es-ES')}</strong>.
-                                  </p>
-                                </div>
-                                <div className="text-[9px] text-slate-500 mt-2 border-t border-slate-200/40 pt-1 flex justify-between font-bold">
-                                  <span>Tasa: {op.mesesFinanciados} meses ({op.frecuencia})</span>
-                                  <span className="text-blue-700">Mora: {op.nivelMora}</span>
-                                </div>
-                              </div>
-                            </div>
+              <div className="bg-slate-50 p-2.5 rounded border border-slate-200/60 flex flex-col justify-between">
+                <div>
+                  <span className="text-slate-400 block font-bold uppercase text-[8px] mb-0.5">Estimación de Finalización</span>
+                  <p className="text-[9px] text-slate-600 mt-1">
+                    Restan amortizar <strong className="text-slate-800">{op.cuotasPendientes} cuotas</strong> por un valor unitario de <strong className="text-slate-800">${op.valorCuota.toLocaleString('es-ES')}</strong>.
+                  </p>
+                </div>
+                <div className="text-[9px] text-slate-500 mt-2 border-t border-slate-200/40 pt-1 flex justify-between font-bold">
+                  <span>Tasa: {op.mesesFinanciados} meses ({op.frecuencia})</span>
+                  <span className="text-blue-700">Mora: {op.nivelMora}</span>
+                </div>
+              </div>
+            </div>
 
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="bg-amber-100/60 p-2.5 rounded-xl text-[10px] text-amber-900 font-bold italic flex items-center gap-1.5 border border-amber-200/60">
-                           <span>⚠️</span>
-            <span>Nota Operativa: El otorgamiento de un nuevo crédito habiendo saldo pendiente acumula riesgo crediticio.</span>
           </div>
-        </div>
-      )}
+        );
+      })}
     </div>
-  }
+    <div className="bg-amber-100/60 p-2.5 rounded-xl text-[10px] text-amber-900 font-bold italic flex items-center gap-1.5 border border-amber-200/60">
+      <span>⚠️</span>
+      <span>Nota Operativa: El otorgamiento de un nuevo crédito habiendo saldo pendiente acumula riesgo crediticio.</span>
+    </div>
+  </div>
+)}
 </div>
-
 
 
           {/* STEP 2: LOAN INFORMATION */}
@@ -869,8 +866,6 @@ export default function OperacionesView({
               </div>
             </div>
           </div>
-
-
 
         </div>
 
