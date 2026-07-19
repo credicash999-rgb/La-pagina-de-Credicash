@@ -753,7 +753,7 @@ export default function PagosView({
                 <tr class="${i % 2 === 0 ? '' : 'row-even'}">
                   <td><strong>Cuota ${c.numeroCuota} / ${op.cantidadCuotas}</strong></td>
                   <td>${c.fechaVencimiento}</td>
-                  <td>$${c.montoTotal.toLocaleString('es-ES')}</td>
+                  <td>$${c.valorTotalCuota.toLocaleString('es-ES')}</td>
                   <td>Incluido</td>
                   <td>$${c.saldoPendiente.toLocaleString('es-ES')}</td>
                   <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
@@ -1370,9 +1370,9 @@ export default function PagosView({
                         <div className="text-[11px] text-white font-semibold">
                           {address}
                         </div>
-                        {cliDetails.indicaciones && (
+                        {cliDetails.observaciones && (
                           <div className="text-[10px] text-emerald-200/80 italic font-medium leading-normal border-t border-slate-800 pt-1.5">
-                            📌 {cliDetails.indicaciones}
+                            📌 {cliDetails.observaciones}
                           </div>
                         )}
                       </div>

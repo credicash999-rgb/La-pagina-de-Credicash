@@ -439,6 +439,17 @@ export default function App() {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_USER_ID, user.id);
     localStorage.setItem('credicash_logged_in', 'true');
     setIsLoggedIn(true);
+
+    // Dynamic registration of login user to prevent stale local storage login lockout
+    setUsuarios(prev => {
+      const exists = prev.some(u => u.email.toLowerCase() === user.email.toLowerCase());
+      if (!exists) {
+        const updated = [...prev, user];
+        saveToLocalStorage(STORAGE_KEYS.USUARIOS, updated);
+        return updated;
+      }
+      return prev;
+    });
   };
 
   const handleLogout = () => {
