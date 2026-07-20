@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Cliente } from '../types';
 import { 
   UserPlus, User, Phone, MapPin, Briefcase, CreditCard, Shield, 
@@ -98,6 +98,43 @@ export default function NuevoClienteView({
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [phoneWarning, setPhoneWarning] = useState<string | null>(null);
+  const [completarLuego, setCompletarLuego] = useState(false);
+  const [dragOverField, setDragOverField] = useState<string | null>(null);
+
+  // Refs for real file uploads
+  const fileDniFrenteRef = useRef<HTMLInputElement>(null);
+  const fileDniDorsoRef = useRef<HTMLInputElement>(null);
+  const fileComprobanteRef = useRef<HTMLInputElement>(null);
+  const fileReciboSueldoRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleSimulateUpload(field, file.name);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, field: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverField(field);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverField(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, field: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverField(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleSimulateUpload(field, file.name);
+    }
+  };
 
   // Auto-calculate age from date of birth
   useEffect(() => {
@@ -188,8 +225,8 @@ export default function NuevoClienteView({
       return;
     }
 
-    if (!docDniFrente || !docDniDorso || !docComprobante) {
-      setValidationError('Debe adjuntar la documentación mínima obligatoria: DNI Frente, DNI Dorso y Comprobante de Domicilio.');
+    if (!completarLuego && (!docDniFrente || !docDniDorso || !docComprobante)) {
+      setValidationError('Debe adjuntar la documentación mínima obligatoria: DNI Frente, DNI Dorso y Comprobante de Domicilio, o tilde la opción "Completar documentación luego".');
       return;
     }
 
@@ -794,79 +831,169 @@ export default function NuevoClienteView({
           </div>
         </div>
 
-        {/* SECTION 6: Documentation (Simulated upload) */}
+        {/* SECTION 6: Documentation (Interactive upload & Drag & Drop) */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <h3 className="text-xs font-bold text-[#1E803B] uppercase tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
-            <FileText className="w-4 h-4" />
-            7. Legajo y Documentación Respaldatoria (Mínimo requerido)
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+            <h3 className="text-xs font-bold text-[#1E803B] uppercase tracking-wider flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              7. Legajo y Documentación Respaldatoria (Mínimo requerido)
+            </h3>
+            
+            {/* COMPLETAR LUEGO TOGGLE */}
+            <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 hover:bg-amber-100/50 rounded-lg cursor-pointer transition-colors text-amber-800">
+              <input
+                type="checkbox"
+                checked={completarLuego}
+                onChange={(e) => setCompletarLuego(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 border-amber-300 rounded focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className="text-[11px] font-bold uppercase tracking-wider">Completar luego por Administrador</span>
+            </label>
+          </div>
+          
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            Haga clic en cualquiera de los bloques para simular la captura o digitalización de los documentos exigidos por la gerencia de riesgo de Credi-Cash.
+            Haga clic en cualquiera de los bloques para seleccionar un archivo desde su computadora/dispositivo, o arrastre y suelte el archivo directamente en el área sombreada.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
             
             {/* DNI FRENTE */}
-            <div className={`p-4 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer ${
-              docDniFrente ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-slate-200 hover:border-emerald-500 hover:bg-slate-50'
-            }`} onClick={() => !docDniFrente && handleSimulateUpload('frente', `DNI_FRENTE_${dni || 'DOC'}.png`)}>
+            <div 
+              className={`p-5 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer relative min-h-[140px] ${
+                docDniFrente 
+                  ? 'border-emerald-500 bg-emerald-50/40 text-emerald-800 hover:bg-emerald-100/40' 
+                  : dragOverField === 'frente'
+                    ? 'border-emerald-600 bg-emerald-50 text-emerald-800 scale-[1.02]'
+                    : 'border-slate-200 hover:border-emerald-500 hover:bg-slate-50 text-slate-500'
+              }`}
+              onClick={() => fileDniFrenteRef.current?.click()}
+              onDragOver={(e) => handleDragOver(e, 'frente')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'frente')}
+            >
+              <input 
+                type="file" 
+                ref={fileDniFrenteRef} 
+                className="hidden" 
+                accept="image/*,application/pdf"
+                onChange={(e) => handleFileChange(e, 'frente')}
+              />
               <Upload className={`w-5 h-5 ${docDniFrente ? 'text-emerald-600' : 'text-slate-400'}`} />
               <div className="text-xs font-bold">DNI Frente *</div>
               {docDniFrente ? (
-                <div className="flex items-center gap-1.5 mt-1 bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[10px]">
-                  <span className="truncate max-w-[110px]">{docDniFrente}</span>
-                  <X className="w-3 h-3 hover:text-rose-600" onClick={(e) => { e.stopPropagation(); handleRemoveFile('frente'); }} />
+                <div className="flex items-center gap-1.5 mt-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[10px] max-w-full">
+                  <span className="truncate max-w-[100px]">{docDniFrente}</span>
+                  <button type="button" className="text-rose-600 hover:text-rose-800 font-bold p-0.5" onClick={(e) => { e.stopPropagation(); handleRemoveFile('frente'); }}>
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               ) : (
-                <span className="text-[10px] text-slate-400">Exigido</span>
+                <span className="text-[10px] text-slate-400">Clic o arrastrar archivo</span>
               )}
             </div>
 
             {/* DNI DORSO */}
-            <div className={`p-4 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer ${
-              docDniDorso ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-slate-200 hover:border-emerald-500 hover:bg-slate-50'
-            }`} onClick={() => !docDniDorso && handleSimulateUpload('dorso', `DNI_DORSO_${dni || 'DOC'}.png`)}>
+            <div 
+              className={`p-5 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer relative min-h-[140px] ${
+                docDniDorso 
+                  ? 'border-emerald-500 bg-emerald-50/40 text-emerald-800 hover:bg-emerald-100/40' 
+                  : dragOverField === 'dorso'
+                    ? 'border-emerald-600 bg-emerald-50 text-emerald-800 scale-[1.02]'
+                    : 'border-slate-200 hover:border-emerald-500 hover:bg-slate-50 text-slate-500'
+              }`}
+              onClick={() => fileDniDorsoRef.current?.click()}
+              onDragOver={(e) => handleDragOver(e, 'dorso')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'dorso')}
+            >
+              <input 
+                type="file" 
+                ref={fileDniDorsoRef} 
+                className="hidden" 
+                accept="image/*,application/pdf"
+                onChange={(e) => handleFileChange(e, 'dorso')}
+              />
               <Upload className={`w-5 h-5 ${docDniDorso ? 'text-emerald-600' : 'text-slate-400'}`} />
               <div className="text-xs font-bold">DNI Dorso *</div>
               {docDniDorso ? (
-                <div className="flex items-center gap-1.5 mt-1 bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[10px]">
-                  <span className="truncate max-w-[110px]">{docDniDorso}</span>
-                  <X className="w-3 h-3 hover:text-rose-600" onClick={(e) => { e.stopPropagation(); handleRemoveFile('dorso'); }} />
+                <div className="flex items-center gap-1.5 mt-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[10px] max-w-full">
+                  <span className="truncate max-w-[100px]">{docDniDorso}</span>
+                  <button type="button" className="text-rose-600 hover:text-rose-800 font-bold p-0.5" onClick={(e) => { e.stopPropagation(); handleRemoveFile('dorso'); }}>
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               ) : (
-                <span className="text-[10px] text-slate-400">Exigido</span>
+                <span className="text-[10px] text-slate-400">Clic o arrastrar archivo</span>
               )}
             </div>
 
-            {/* PROOF OF ADDRESS */}
-            <div className={`p-4 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer ${
-              docComprobante ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-slate-200 hover:border-emerald-500 hover:bg-slate-50'
-            }`} onClick={() => !docComprobante && handleSimulateUpload('domicilio', `COMP_DOMICILIO_${dni || 'DOC'}.pdf`)}>
+            {/* COMPROBANTE DOMICILIO */}
+            <div 
+              className={`p-5 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer relative min-h-[140px] ${
+                docComprobante 
+                  ? 'border-emerald-500 bg-emerald-50/40 text-emerald-800 hover:bg-emerald-100/40' 
+                  : dragOverField === 'domicilio'
+                    ? 'border-emerald-600 bg-emerald-50 text-emerald-800 scale-[1.02]'
+                    : 'border-slate-200 hover:border-emerald-500 hover:bg-slate-50 text-slate-500'
+              }`}
+              onClick={() => fileComprobanteRef.current?.click()}
+              onDragOver={(e) => handleDragOver(e, 'domicilio')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'domicilio')}
+            >
+              <input 
+                type="file" 
+                ref={fileComprobanteRef} 
+                className="hidden" 
+                accept="image/*,application/pdf"
+                onChange={(e) => handleFileChange(e, 'domicilio')}
+              />
               <Upload className={`w-5 h-5 ${docComprobante ? 'text-emerald-600' : 'text-slate-400'}`} />
               <div className="text-xs font-bold">Comprobante Domicilio *</div>
               {docComprobante ? (
-                <div className="flex items-center gap-1.5 mt-1 bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[10px]">
-                  <span className="truncate max-w-[110px]">{docComprobante}</span>
-                  <X className="w-3 h-3 hover:text-rose-600" onClick={(e) => { e.stopPropagation(); handleRemoveFile('domicilio'); }} />
+                <div className="flex items-center gap-1.5 mt-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[10px] max-w-full">
+                  <span className="truncate max-w-[100px]">{docComprobante}</span>
+                  <button type="button" className="text-rose-600 hover:text-rose-800 font-bold p-0.5" onClick={(e) => { e.stopPropagation(); handleRemoveFile('domicilio'); }}>
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               ) : (
-                <span className="text-[10px] text-slate-400">Servicio / Impuesto</span>
+                <span className="text-[10px] text-slate-400">Clic o arrastrar archivo</span>
               )}
             </div>
 
             {/* RECIBO DE SUELDO */}
-            <div className={`p-4 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer ${
-              docReciboSueldo ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-slate-200 hover:border-emerald-500 hover:bg-slate-50'
-            }`} onClick={() => !docReciboSueldo && handleSimulateUpload('recibo', `RECIBO_SUELDO_${dni || 'DOC'}.png`)}>
+            <div 
+              className={`p-5 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer relative min-h-[140px] ${
+                docReciboSueldo 
+                  ? 'border-emerald-500 bg-emerald-50/40 text-emerald-800 hover:bg-emerald-100/40' 
+                  : dragOverField === 'recibo'
+                    ? 'border-emerald-600 bg-emerald-50 text-emerald-800 scale-[1.02]'
+                    : 'border-slate-200 hover:border-emerald-500 hover:bg-slate-50 text-slate-500'
+              }`}
+              onClick={() => fileReciboSueldoRef.current?.click()}
+              onDragOver={(e) => handleDragOver(e, 'recibo')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'recibo')}
+            >
+              <input 
+                type="file" 
+                ref={fileReciboSueldoRef} 
+                className="hidden" 
+                accept="image/*,application/pdf"
+                onChange={(e) => handleFileChange(e, 'recibo')}
+              />
               <Upload className={`w-5 h-5 ${docReciboSueldo ? 'text-emerald-600' : 'text-slate-400'}`} />
               <div className="text-xs font-bold">Recibo de Sueldo</div>
               {docReciboSueldo ? (
-                <div className="flex items-center gap-1.5 mt-1 bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[10px]">
-                  <span className="truncate max-w-[110px]">{docReciboSueldo}</span>
-                  <X className="w-3 h-3 hover:text-rose-600" onClick={(e) => { e.stopPropagation(); handleRemoveFile('recibo'); }} />
+                <div className="flex items-center gap-1.5 mt-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[10px] max-w-full">
+                  <span className="truncate max-w-[100px]">{docReciboSueldo}</span>
+                  <button type="button" className="text-rose-600 hover:text-rose-800 font-bold p-0.5" onClick={(e) => { e.stopPropagation(); handleRemoveFile('recibo'); }}>
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               ) : (
-                <span className="text-[10px] text-slate-400">Opcional</span>
+                <span className="text-[10px] text-slate-400">Opcional (Clic o arrastrar)</span>
               )}
             </div>
 
@@ -985,25 +1112,37 @@ export default function NuevoClienteView({
               </div>
 
               {/* Documentation check */}
-              <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl space-y-2">
-                <span className="text-[10px] uppercase font-bold text-emerald-800 block">Legajo Digital Cargado</span>
-                <div className="grid grid-cols-3 gap-2 font-mono text-[10px] text-emerald-700">
-                  <div className="flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> DNI Frente
+              <div className={`p-4 rounded-xl space-y-2 ${completarLuego ? 'bg-amber-50/50 border border-amber-200 text-amber-800' : 'bg-emerald-50/50 border border-emerald-100 text-emerald-800'}`}>
+                <span className={`text-[10px] uppercase font-bold block ${completarLuego ? 'text-amber-800' : 'text-emerald-800'}`}>Legajo Digital Cargado</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5">
+                    {docDniFrente ? (
+                      <span className="flex items-center gap-1 text-emerald-700 font-bold"><Check className="w-3.5 h-3.5" /> DNI Frente</span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-amber-600 font-medium"><AlertTriangle className="w-3.5 h-3.5 shrink-0" /> DNI Frente (Pendiente)</span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> DNI Dorso
+                  <div className="flex items-center gap-1.5">
+                    {docDniDorso ? (
+                      <span className="flex items-center gap-1 text-emerald-700 font-bold"><Check className="w-3.5 h-3.5" /> DNI Dorso</span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-amber-600 font-medium"><AlertTriangle className="w-3.5 h-3.5 shrink-0" /> DNI Dorso (Pendiente)</span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> Comp. Domicilio
+                  <div className="flex items-center gap-1.5">
+                    {docComprobante ? (
+                      <span className="flex items-center gap-1 text-emerald-700 font-bold"><Check className="w-3.5 h-3.5" /> Comp. Domicilio</span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-amber-600 font-medium"><AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Comp. Domicilio (Pendiente)</span>
+                    )}
                   </div>
                   {docReciboSueldo && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 text-emerald-700 font-bold">
                       <Check className="w-3.5 h-3.5" /> Recibo de Sueldo
                     </div>
                   )}
                   {docOtros && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 text-emerald-700 font-bold">
                       <Check className="w-3.5 h-3.5" /> Otros Documentos
                     </div>
                   )}

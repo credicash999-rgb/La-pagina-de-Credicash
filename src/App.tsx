@@ -1101,9 +1101,9 @@ export default function App() {
   const getTabLabel = () => {
     switch (activeTab) {
       case 'dashboard': return 'Consola Dashboard';
-      case 'clientes': return 'Gestión de Clientes';
+      case 'clientes': return 'Búsqueda de Cliente (Últimos Créditos Activos)';
       case 'operaciones': return 'Otorgar Créditos';
-      case 'pagos': return 'Consola del Operador de Cobro';
+      case 'pagos': return 'Consola del Operador de Pagos';
       case 'tesoreria': return 'Caja y Tesorería';
       case 'configuracion': return 'Configuración';
       case 'usuarios': return 'Seguridad y Accesos';
@@ -1223,7 +1223,7 @@ export default function App() {
                 }`}
               >
                 <DollarSign className="w-4 h-4 shrink-0" />
-                Consola del Operador de Cobro
+                Consola del Operador de Pagos
               </button>
             )}
 
@@ -1251,7 +1251,7 @@ export default function App() {
                 }`}
               >
                 <Users className="w-4 h-4 shrink-0" />
-                Clientes (Base)
+                Búsqueda de Cliente (Últimos Créditos Activos)
               </button>
             )}
 

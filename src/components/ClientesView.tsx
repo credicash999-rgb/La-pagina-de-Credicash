@@ -5,7 +5,12 @@
 
 import React, { useState } from 'react';
 import { Cliente, Operacion } from '../types';
-import { Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, FileText, MapPin, Briefcase, Eye, X, Download, Calendar } from 'lucide-react';
+import { 
+  Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, FileText, MapPin, 
+  Briefcase, Eye, X, Download, Calendar, ArrowLeft, AlertTriangle, Info, 
+  Printer, ArrowRight, RefreshCw, ChevronRight
+} from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -35,6 +40,7 @@ export default function ClientesView({
   const [isAdding, setIsAdding] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [viewingCliente, setViewingCliente] = useState<Cliente | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
 
   const getClientCreditsSummary = (clientId: string) => {
     if (!operaciones || operaciones.length === 0) return 'Sin créditos';
@@ -305,16 +311,199 @@ export default function ClientesView({
     return matchesSearch && matchesEstado;
   });
 
+  const handleExportPDF = (client: Cliente) => {
+    const clientLoans = operaciones.filter(o => o.idCliente === client.id);
+    const sortedLoans = [...clientLoans].sort((a, b) => b.fechaOtorgamiento.localeCompare(a.fechaOtorgamiento));
+    const activeLoan = sortedLoans.find(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
+    const presentLoan = activeLoan || sortedLoans[0];
+    
+    const doc = new jsPDF();
+    
+    // Header band (Deep Blue or Emerald)
+    doc.setFillColor(30, 41, 59); // Slate-800
+    doc.rect(0, 0, 210, 38, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("CREDI-CASH", 15, 16);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Sistema Integral de Créditos y Cobranzas", 15, 23);
+    doc.setFontSize(8.5);
+    doc.text(`Reporte emitido el: ${new Date().toLocaleDateString('es-AR')} - ${new Date().toLocaleTimeString('es-AR')}`, 15, 30);
+    
+    // Decorative bar
+    doc.setFillColor(16, 185, 129); // Emerald-500
+    doc.rect(0, 38, 210, 3, 'F');
+    
+    // Client Info Card
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. EXPEDIENTE PERSONAL DEL CLIENTE", 15, 52);
+    
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, 54, 195, 54);
+    
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "normal");
+    
+    // Left column client info
+    doc.text(`Nombre Completo: ${client.nombre} ${client.apellido}`, 15, 62);
+    doc.text(`DNI / Documento: ${client.dni}`, 15, 68);
+    doc.text(`Telefono Celular: ${client.telefono || 'N/A'}`, 15, 74);
+    doc.text(`WhatsApp: ${client.whatsapp || 'N/A'}`, 15, 80);
+    doc.text(`Domicilio Declarado: ${client.direccion || 'N/A'}`, 15, 86);
+    
+    // Right column client info
+    doc.text(`ID Cliente: ${client.id}`, 115, 62);
+    doc.text(`Estado Crediticio: ${client.estado}`, 115, 68);
+    doc.text(`Alta en Sistema: ${client.fechaRegistro}`, 115, 74);
+    doc.text(`Trabajo / Actividad: ${client.trabajo || 'N/A'}`, 115, 80);
+    doc.text(`Ingresos Declarados: $${client.ingresos?.toLocaleString('es-AR') || '0'}`, 115, 86);
+    
+    let currentY = 98;
+    
+    // Present Loan Section
+    if (presentLoan) {
+      doc.setFillColor(248, 250, 252); // Slate-50 background
+      doc.rect(15, currentY, 180, 56, 'F');
+      
+      // Border around slate box
+      doc.setDrawColor(203, 213, 225);
+      doc.rect(15, currentY, 180, 56, 'S');
+      
+      doc.setTextColor(30, 41, 59);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`2. CREDITO PRINCIPAL SELECCIONADO / MAS RECIENTE`, 20, currentY + 8);
+      
+      // Draw status tag
+      const isFin = presentLoan.estado === 'FINALIZADA';
+      doc.setFillColor(isFin ? 16 : 245, isFin ? 185 : 158, isFin ? 129 : 11); // Green vs Amber
+      doc.rect(150, currentY + 3, 38, 6, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.text(`ESTADO: ${presentLoan.estado}`, 153, currentY + 7.2);
+      
+      doc.setTextColor(30, 41, 59);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      
+      // Left side details
+      doc.text(`ID Operacion: ${presentLoan.id}`, 20, currentY + 18);
+      doc.text(`Fecha Otorgamiento: ${presentLoan.fechaOtorgamiento}`, 20, currentY + 24);
+      doc.text(`Capital Entregado: $${presentLoan.capitalEntregado.toLocaleString('es-AR')}`, 20, currentY + 30);
+      doc.text(`Total Financiado: $${presentLoan.totalFinanciado.toLocaleString('es-AR')}`, 20, currentY + 36);
+      doc.text(`Valor de Cuota: $${presentLoan.valorCuota.toLocaleString('es-AR')} (${presentLoan.frecuencia})`, 20, currentY + 42);
+      doc.text(`Plan de Financiacion: ${presentLoan.cantidadCuotas} cuotas`, 20, currentY + 48);
+      
+      // Right side details
+      doc.text(`Cuotas Pagadas: ${presentLoan.cuotasPagadas} de ${presentLoan.cantidadCuotas}`, 115, currentY + 18);
+      doc.text(`Capital Recuperado: $${presentLoan.capitalRecuperado.toLocaleString('es-AR')}`, 115, currentY + 24);
+      doc.text(`Saldo Total Pendiente: $${presentLoan.totalPendiente.toLocaleString('es-AR')}`, 115, currentY + 30);
+      doc.text(`Proximo Vencimiento: ${presentLoan.proximoVencimiento || 'N/A'}`, 115, currentY + 36);
+      doc.text(`Dias de Mora: ${presentLoan.diasMora} dias (${presentLoan.nivelMora || 'Sin Mora'})`, 115, currentY + 42);
+      doc.text(`Cobrador Asignado: ${presentLoan.cobrador || 'No asignado'}`, 115, currentY + 48);
+      
+      currentY += 66;
+    } else {
+      doc.setTextColor(100, 116, 139);
+      doc.setFont("helvetica", "italic");
+      doc.text("Este cliente no registra creditos en el sistema.", 15, currentY);
+      currentY += 15;
+    }
+    
+    // All credit history
+    doc.setTextColor(30, 41, 59);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("3. HISTORIAL COMPLETO DE CREDITOS Y SIMULTANEOS", 15, currentY);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, currentY + 2, 195, currentY + 2);
+    
+    currentY += 8;
+    
+    // Draw table headers
+    doc.setFillColor(241, 245, 249); // slate-100
+    doc.rect(15, currentY, 180, 8, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    
+    doc.text("ID Credito", 18, currentY + 5.5);
+    doc.text("Fecha", 45, currentY + 5.5);
+    doc.text("Capital", 75, currentY + 5.5);
+    doc.text("Total Finan.", 105, currentY + 5.5);
+    doc.text("Cuotas", 145, currentY + 5.5);
+    doc.text("Estado", 172, currentY + 5.5);
+    
+    currentY += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 41, 59);
+    
+    if (sortedLoans.length === 0) {
+      doc.text("Sin historial registrado.", 20, currentY + 6);
+      currentY += 12;
+    } else {
+      sortedLoans.forEach((loan) => {
+        if (currentY > 260) {
+          doc.addPage();
+          currentY = 20;
+          
+          // Reprint header for next page
+          doc.setFillColor(241, 245, 249);
+          doc.rect(15, currentY, 180, 8, 'F');
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8.5);
+          doc.setTextColor(71, 85, 105);
+          doc.text("ID Credito", 18, currentY + 5.5);
+          doc.text("Fecha", 45, currentY + 5.5);
+          doc.text("Capital", 75, currentY + 5.5);
+          doc.text("Total Finan.", 105, currentY + 5.5);
+          doc.text("Cuotas", 145, currentY + 5.5);
+          doc.text("Estado", 172, currentY + 5.5);
+          currentY += 8;
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(30, 41, 59);
+        }
+        
+        doc.text(loan.id, 18, currentY + 5.5);
+        doc.text(loan.fechaOtorgamiento, 45, currentY + 5.5);
+        doc.text(`$${loan.capitalEntregado.toLocaleString('es-AR')}`, 75, currentY + 5.5);
+        doc.text(`$${loan.totalFinanciado.toLocaleString('es-AR')}`, 105, currentY + 5.5);
+        doc.text(`${loan.cuotasPagadas} / ${loan.cantidadCuotas} (${loan.frecuencia.toLowerCase()})`, 145, currentY + 5.5);
+        doc.text(loan.estado, 172, currentY + 5.5);
+        
+        currentY += 8;
+      });
+    }
+    
+    // Draw footer note
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, 275, 195, 275);
+    
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text("Documento oficial para uso interno y envio a clientes. CREDI-CASH, Todos los derechos reservados.", 15, 281);
+    
+    doc.save(`Creditos_CrediCash_${client.dni}_${client.apellido}.pdf`);
+  };
+
   return (
     <div id="clientes-section" className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-600" />
-            Gestión de Clientes
+            Búsqueda de Cliente (Últimos Créditos Activos)
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Administre los expedientes, datos personales, laborales y estados crediticios de su cartera de clientes.
+            Consulte de forma ágil el expediente del cliente, su último crédito (activo o inactivo) y el historial completo de créditos simultáneos.
           </p>
         </div>
         {canManage && (
@@ -766,159 +955,441 @@ export default function ClientesView({
         </form>
       ) : null}
 
-      {/* List and Search */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por DNI, Nombre, ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
+      {/* List and Search - Centered Search Focus */}
+      {!selectedClient ? (
+        <div className="flex flex-col items-center justify-center min-h-[480px] bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div className="w-full max-w-xl text-center space-y-4">
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs border border-emerald-100">
+              <Search className="w-6 h-6" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-slate-800">Búsqueda Unificada de Legajos</h3>
+              <p className="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
+                Ingrese el DNI o nombre del cliente para auditar su legajo digital, consultar su último crédito activo/presente, analizar historial de mora o exportar reportes en PDF.
+              </p>
+            </div>
+            
+            <div className="relative pt-2">
+              <Search className="absolute left-4 top-5.5 h-4.5 w-4.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Ingrese DNI o Nombre para buscar"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-slate-50 hover:bg-slate-100/40 focus:bg-white border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:border-[#1E803B] focus:ring-4 focus:ring-emerald-50 transition-all text-center placeholder-slate-400 font-medium"
+                autoFocus
+              />
+            </div>
 
-          <div className="flex flex-wrap gap-2">
-            {['TODOS', 'SOLICITANTE', 'ACTIVO', 'EN_MORA', 'INACTIVO'].map((est) => (
-              <button
-                key={est}
-                onClick={() => setFilterEstado(est)}
-                className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-lg transition-colors cursor-pointer ${
-                  filterEstado === est
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100 shadow-xs'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {est}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/70 border-b border-slate-100 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                <th className="py-3.5 px-6">ID Cliente</th>
-                {verDniCliente && <th className="py-3.5 px-6">DNI</th>}
-                <th className="py-3.5 px-6">Cliente</th>
-                {(verTelefonoCliente || verDireccionCliente) && (
-                  <th className="py-3.5 px-6">
-                    {verDireccionCliente ? 'Contacto / Dirección' : 'Contacto'}
-                  </th>
-                )}
-                {verIngresosCliente ? (
-                  <th className="py-3.5 px-6">Laboral / Ingresos</th>
+            {/* Display Search Results dynamically as they type */}
+            {searchTerm.trim() !== '' && (
+              <div className="border border-slate-150 rounded-xl overflow-hidden bg-white shadow-lg divide-y divide-slate-100 text-left mt-4 max-h-[300px] overflow-y-auto">
+                {filteredClientes.length === 0 ? (
+                  <div className="p-5 text-center text-xs text-slate-400 font-medium flex flex-col items-center gap-1">
+                    <Info className="w-4 h-4 text-slate-300" />
+                    No se encontraron clientes registrados con ese nombre o DNI.
+                  </div>
                 ) : (
-                  <th className="py-3.5 px-6">Créditos del Cliente</th>
-                )}
-                <th className="py-3.5 px-6 text-center">Estado</th>
-                <th className="py-3.5 px-6 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
-              {filteredClientes.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-400 font-medium">
-                    No se encontraron clientes registrados.
-                  </td>
-                </tr>
-              ) : (
-                filteredClientes.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4 px-6 font-mono font-bold text-slate-800">{c.id}</td>
-                    {verDniCliente && (
-                      <td className="py-4 px-6 text-slate-700 font-medium">
-                        {c.dni}
-                      </td>
-                    )}
-                    <td className="py-4 px-6">
-                      <div className="font-semibold text-slate-800">
-                        {c.nombre} {c.apellido}
-                      </div>
-                      <div className="text-xs text-slate-400">Reg: {c.fechaRegistro}</div>
-                    </td>
-                    {(verTelefonoCliente || verDireccionCliente) && (
-                      <td className="py-4 px-6">
-                        {verTelefonoCliente && (
-                          <div className="flex items-center gap-1.5 text-slate-700">
-                            <Phone className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{c.telefono || 'N/A'}</span>
-                          </div>
-                        )}
-                        {verDireccionCliente && (
-                          <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1 max-w-[200px] truncate">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                            <span title={c.direccion}>{c.direccion || 'Sin dirección'}</span>
-                          </div>
-                        )}
-                      </td>
-                    )}
-                    <td className="py-4 px-6">
-                      {verIngresosCliente ? (
-                        <>
-                          <div className="flex items-center gap-1.5 text-slate-700">
-                            <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{c.trabajo || 'Sin especificar'}</span>
-                          </div>
-                          {c.ingresos ? (
-                            <div className="text-xs font-semibold text-emerald-600 mt-0.5">
-                              ${c.ingresos.toLocaleString('es-ES')} / mes
-                            </div>
-                          ) : null}
-                        </>
-                      ) : (
-                        <div className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-lg border border-indigo-100 inline-block">
-                          {getClientCreditsSummary(c.id)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <span
-                        className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
-                          c.estado === 'ACTIVO'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : c.estado === 'EN_MORA'
-                            ? 'bg-rose-100 text-rose-800'
-                            : c.estado === 'SOLICITANTE'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-slate-100 text-slate-800'
-                        }`}
+                  filteredClientes.map((c) => {
+                    const clientOps = operaciones.filter(o => o.idCliente === c.id);
+                    const activeOp = clientOps.find(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedClient(c);
+                        }}
+                        className="w-full p-3.5 hover:bg-slate-50/80 flex items-center justify-between text-xs text-slate-600 transition-colors cursor-pointer group"
                       >
-                        {c.estado}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => setViewingCliente(c)}
-                          className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-500 hover:text-blue-600 transition-colors inline-flex items-center cursor-pointer"
-                          title="Consultar expediente completo"
-                        >
-                          <Eye className="w-4.5 h-4.5" />
-                        </button>
-                        {canManage ? (
-                          <button
-                            onClick={() => handleOpenEdit(c)}
-                            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors inline-flex items-center cursor-pointer"
-                            title="Editar expediente"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <span className="text-slate-300 font-mono">-</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 bg-slate-100 text-slate-700 rounded-lg flex items-center justify-center font-extrabold text-xs font-mono">
+                            {c.nombre[0]}{c.apellido[0]}
+                          </div>
+                          <div className="min-w-0 text-left">
+                            <div className="font-bold text-slate-800 text-sm group-hover:text-emerald-700 transition-colors flex items-center gap-2">
+                              {c.nombre} {c.apellido}
+                              {(!c.documentosSimulados?.dniFrente || !c.documentosSimulados?.dniDorso || !c.documentosSimulados?.comprobanteDomicilio || c.documentosSimulados?.dniFrente.includes('unsplash.com') || c.documentosSimulados?.dniDorso.includes('unsplash.com') || c.documentosSimulados?.comprobanteDomicilio.includes('unsplash.com')) && (
+                                <span className="inline-flex px-1 rounded text-[8px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                                  Legajo Pte.
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              DNI: {c.dni} • ID: {c.id} • {clientOps.length} crédito(s)
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              c.estado === 'ACTIVO' 
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                : c.estado === 'EN_MORA'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-100'
+                                : 'bg-slate-50 text-slate-600 border border-slate-100'
+                            }`}>
+                              {c.estado}
+                            </span>
+                            {activeOp && (
+                              <div className="text-[9px] text-[#1E803B] font-extrabold mt-1">
+                                {activeOp.id} - ${activeOp.valorCuota.toLocaleString('es-AR')}/C
+                              </div>
+                            )}
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Selected Client Details Screen */
+        <div className="space-y-6 animate-fadeIn">
+          {/* Action Header bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <button
+              onClick={() => {
+                setSelectedClient(null);
+                setSearchTerm('');
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Volver a buscar
+            </button>
+            
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {canManage && (
+                <button
+                  onClick={() => handleOpenEdit(selectedClient)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer shadow-xs"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  Editar expediente
+                </button>
+              )}
+              <button
+                onClick={() => handleExportPDF(selectedClient)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer shadow-md flex-1 sm:flex-none justify-center"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Exportar PDF de Cliente
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* COLUMN 1: Client Personal Profile / Ficha */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-sm">
+                  {selectedClient.id}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 leading-none">
+                    {selectedClient.nombre} {selectedClient.apellido}
+                  </h3>
+                  <span className={`inline-block px-2 py-0.5 mt-1.5 rounded-full text-[9px] font-bold ${
+                    selectedClient.estado === 'ACTIVO' 
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                      : selectedClient.estado === 'EN_MORA'
+                      ? 'bg-rose-50 text-rose-700 border border-rose-100'
+                      : 'bg-slate-50 text-slate-600 border border-slate-100'
+                  }`}>
+                    {selectedClient.estado}
+                  </span>
+                </div>
+              </div>
+
+              {/* General Information list */}
+              <div className="space-y-3.5 text-xs text-slate-600">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">DNI</span>
+                    <strong className="text-slate-800 font-mono text-[13px]">{selectedClient.dni}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Alta Registro</span>
+                    <strong className="text-slate-800">{selectedClient.fechaRegistro}</strong>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Teléfono Celular</span>
+                  <strong className="text-slate-800 text-[13px]">{selectedClient.telefono || 'No registrado'}</strong>
+                </div>
+
+                {selectedClient.whatsapp && (
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">WhatsApp Directo</span>
+                    <a
+                      href={`https://wa.me/${selectedClient.whatsapp}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 font-bold hover:underline flex items-center gap-1 mt-0.5 text-xs"
+                    >
+                      <Phone className="w-3.5 h-3.5 shrink-0" />
+                      {selectedClient.whatsapp} (Enviar mensaje)
+                    </a>
+                  </div>
+                )}
+
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Dirección Formateada</span>
+                  <strong className="text-slate-800 block mt-0.5 leading-relaxed">{selectedClient.direccion || 'No especificada'}</strong>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Actividad</span>
+                    <strong className="text-slate-800 truncate block">{selectedClient.trabajo || 'No especificado'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Ingresos Netos</span>
+                    <strong className="text-slate-800 block text-[13px]">${selectedClient.ingresos?.toLocaleString('es-AR') || '0'}</strong>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider mb-2">Legajo Digital Cargado</span>
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-50 border border-slate-100">
+                      {selectedClient.documentosSimulados?.dniFrente && !selectedClient.documentosSimulados?.dniFrente.includes('unsplash.com') ? (
+                        <span className="text-emerald-600 font-bold flex items-center gap-1">✔ DNI Frente</span>
+                      ) : (
+                        <span className="text-amber-600 flex items-center gap-1">❌ Frente (Falta)</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-50 border border-slate-100">
+                      {selectedClient.documentosSimulados?.dniDorso && !selectedClient.documentosSimulados?.dniDorso.includes('unsplash.com') ? (
+                        <span className="text-emerald-600 font-bold flex items-center gap-1">✔ DNI Dorso</span>
+                      ) : (
+                        <span className="text-amber-600 flex items-center gap-1">❌ Dorso (Falta)</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-50 border border-slate-100 col-span-2">
+                      {selectedClient.documentosSimulados?.comprobanteDomicilio && !selectedClient.documentosSimulados?.comprobanteDomicilio.includes('unsplash.com') ? (
+                        <span className="text-emerald-600 font-bold flex items-center gap-1">✔ Comprobante de Domicilio</span>
+                      ) : (
+                        <span className="text-amber-600 flex items-center gap-1">❌ Comp. Domicilio (Falta)</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* COLUMN 2 & 3: Credit Present / History */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Present Loan Block */}
+              {(() => {
+                const clientLoans = operaciones.filter(o => o.idCliente === selectedClient.id);
+                const sortedLoans = [...clientLoans].sort((a, b) => b.fechaOtorgamiento.localeCompare(a.fechaOtorgamiento));
+                const activeLoan = sortedLoans.find(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
+                const presentLoan = activeLoan || sortedLoans[0];
+
+                if (!presentLoan) {
+                  return (
+                    <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center space-y-3 flex flex-col items-center">
+                      <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-800">Sin Créditos Activos</h3>
+                      <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
+                        Este cliente no tiene operaciones de crédito en el sistema en este momento. Puede registrar un crédito desde la Consola de Otorgamiento.
+                      </p>
+                    </div>
+                  );
+                }
+
+                const progressPct = Math.round((presentLoan.cuotasPagadas / presentLoan.cantidadCuotas) * 100) || 0;
+
+                return (
+                  <div className={`p-6 rounded-2xl border bg-white shadow-sm space-y-5 relative overflow-hidden ${
+                    presentLoan.estado === 'ACTIVA' 
+                      ? 'border-emerald-200' 
+                      : presentLoan.estado === 'VENCIDA'
+                      ? 'border-rose-200'
+                      : 'border-slate-200'
+                  }`}>
+                    {/* Decorative state accent */}
+                    <div className={`absolute top-0 left-0 right-0 h-1.5 ${
+                      presentLoan.estado === 'ACTIVA' 
+                        ? 'bg-emerald-500' 
+                        : presentLoan.estado === 'VENCIDA'
+                        ? 'bg-rose-500'
+                        : 'bg-slate-400'
+                    }`} />
+
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                      <div>
+                        <span className="text-[10px] font-extrabold text-[#1E803B] uppercase tracking-wider block">
+                          ÚLTIMO CRÉDITO ACTIVO / PRESENTADO
+                        </span>
+                        <h4 className="text-lg font-black text-slate-900 mt-1">
+                          Ref: {presentLoan.id} <span className="text-xs font-mono font-medium text-slate-400">({presentLoan.tipoOperacion})</span>
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg ${
+                          presentLoan.estado === 'ACTIVA'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : presentLoan.estado === 'VENCIDA'
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}>
+                          {presentLoan.estado}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Summary metrics grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Entregado</span>
+                        <strong className="text-slate-800 text-sm font-bold">${presentLoan.capitalEntregado.toLocaleString('es-AR')}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Total Financiado</span>
+                        <strong className="text-slate-800 text-sm font-bold">${presentLoan.totalFinanciado.toLocaleString('es-AR')}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Valor Cuota</span>
+                        <strong className="text-slate-800 text-sm font-bold">${presentLoan.valorCuota.toLocaleString('es-AR')}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Frecuencia</span>
+                        <strong className="text-slate-800 text-xs font-bold uppercase">{presentLoan.frecuencia}</strong>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar of installments */}
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-slate-500">
+                        <span className="font-medium">Amortización de Cuotas</span>
+                        <span className="font-bold text-slate-800">{presentLoan.cuotasPagadas} de {presentLoan.cantidadCuotas} pagadas ({progressPct}%)</span>
+                      </div>
+                      <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50 p-0.5">
+                        <div 
+                          className="h-full rounded-full transition-all duration-500 bg-emerald-500"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Status & Mora Details */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-600">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between border-b border-slate-100 pb-1">
+                          <span className="text-slate-400">Capital Recuperado:</span>
+                          <strong className="text-emerald-700 font-bold">${presentLoan.capitalRecuperado.toLocaleString('es-AR')}</strong>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-1">
+                          <span className="text-slate-400">Total Pendiente:</span>
+                          <strong className="text-rose-600 font-bold">${presentLoan.totalPendiente.toLocaleString('es-AR')}</strong>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-1">
+                          <span className="text-slate-400">Próximo Vencimiento:</span>
+                          <strong className="text-slate-800">{presentLoan.proximoVencimiento || 'N/A'}</strong>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between border-b border-slate-100 pb-1">
+                          <span className="text-slate-400">Días de Mora:</span>
+                          <strong className={`font-bold ${presentLoan.diasMora > 0 ? 'text-rose-600' : 'text-slate-700'}`}>
+                            {presentLoan.diasMora} días
+                          </strong>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-1">
+                          <span className="text-slate-400">Riesgo / Nivel Mora:</span>
+                          <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                            presentLoan.diasMora > 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-slate-50 text-slate-500 border border-slate-200/50'
+                          }`}>
+                            {presentLoan.nivelMora || 'Sin Mora'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-1">
+                          <span className="text-slate-400">Cobrador Asignado:</span>
+                          <strong className="text-slate-800">{presentLoan.cobrador || 'No asignado'}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Complete History Timeline and Simultaneous Credits */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  Historial Integral de Créditos del Cliente
+                </h3>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100 font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-2.5 px-4">Ref Crédito</th>
+                        <th className="py-2.5 px-4">Otorgamiento</th>
+                        <th className="py-2.5 px-4">Capital</th>
+                        <th className="py-2.5 px-4">Total Finan.</th>
+                        <th className="py-2.5 px-4">Frecuencia</th>
+                        <th className="py-2.5 px-4 text-center">Cuotas</th>
+                        <th className="py-2.5 px-4 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-600">
+                      {(() => {
+                        const clientLoans = operaciones.filter(o => o.idCliente === selectedClient.id);
+                        const sortedLoans = [...clientLoans].sort((a, b) => b.fechaOtorgamiento.localeCompare(a.fechaOtorgamiento));
+
+                        if (sortedLoans.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={7} className="py-6 text-center text-slate-400 font-medium">
+                                No registra operaciones de crédito históricas.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return sortedLoans.map((loan) => (
+                          <tr key={loan.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="py-3 px-4 font-bold font-mono text-slate-900">{loan.id}</td>
+                            <td className="py-3 px-4 text-slate-500">{loan.fechaOtorgamiento}</td>
+                            <td className="py-3 px-4 font-semibold text-slate-700">${loan.capitalEntregado.toLocaleString('es-AR')}</td>
+                            <td className="py-3 px-4 font-semibold text-slate-700">${loan.totalFinanciado.toLocaleString('es-AR')}</td>
+                            <td className="py-3 px-4 text-slate-500 uppercase tracking-wide text-[10px]">{loan.frecuencia}</td>
+                            <td className="py-3 px-4 text-center font-bold text-slate-800">
+                              {loan.cuotasPagadas} / {loan.cantidadCuotas}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                loan.estado === 'ACTIVA' 
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                  : loan.estado === 'FINALIZADA'
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+                              }`}>
+                                {loan.estado}
+                              </span>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* EXPEDIENTE COMPLETO MODAL (CONSULTAR EXPEDIENTE) */}
       {viewingCliente && (
