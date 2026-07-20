@@ -9,6 +9,8 @@ import {
   Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal 
 } from './types';
 
+import { calcularDiasAtrasoSinDomingos } from './utils/cuotasGenerator';
+
 import { 
   getSavedFirebaseConfig, 
   initializeFirebase, 
@@ -33,7 +35,8 @@ import LoginView from './components/LoginView';
 // Icons
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
-  Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert
+  Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
+  Smartphone, PhoneCall, MapPin
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -489,6 +492,10 @@ export default function App() {
     rolId: 'ADMIN'
   });
 
+  const [realUserRolId, setRealUserRolId] = useState<string>(() => {
+    return localStorage.getItem('credicash_real_user_rol_id') || 'ADMIN';
+  });
+
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('credicash_logged_in') === 'true';
   });
@@ -497,6 +504,8 @@ export default function App() {
     setActiveUser(user);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_USER_ID, user.id);
     localStorage.setItem('credicash_logged_in', 'true');
+    localStorage.setItem('credicash_real_user_rol_id', user.rolId);
+    setRealUserRolId(user.rolId);
     setIsLoggedIn(true);
 
     // Dynamic registration of login user to prevent stale local storage login lockout
@@ -513,6 +522,7 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('credicash_logged_in');
+    localStorage.removeItem('credicash_real_user_rol_id');
     setIsLoggedIn(false);
   };
 
@@ -606,9 +616,7 @@ export default function App() {
         if (sortedPending.length > 0) {
           const oldestPending = sortedPending[0];
           if (oldestPending.fechaVencimiento < todayStr) {
-            const oldestDate = new Date(oldestPending.fechaVencimiento + 'T12:00:00');
-            const diffTime = todayDate.getTime() - oldestDate.getTime();
-            targetDiasMora = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            targetDiasMora = calcularDiasAtrasoSinDomingos(oldestPending.fechaVencimiento, todayStr);
           }
         }
 
@@ -713,10 +721,19 @@ export default function App() {
     // Active user setup
     const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
     const userFound = loadedUsuarios.find(u => u.id === savedActiveUserId);
-    if (userFound) {
-      setActiveUser(userFound);
-    } else if (loadedUsuarios.length > 0) {
-      setActiveUser(loadedUsuarios[0]);
+    let finalUser = userFound;
+    if (!finalUser && loadedUsuarios.length > 0) {
+      finalUser = loadedUsuarios[0];
+    }
+    if (finalUser) {
+      setActiveUser(finalUser);
+      const storedRealRolId = localStorage.getItem('credicash_real_user_rol_id');
+      if (storedRealRolId) {
+        setRealUserRolId(storedRealRolId);
+      } else {
+        localStorage.setItem('credicash_real_user_rol_id', finalUser.rolId);
+        setRealUserRolId(finalUser.rolId);
+      }
     }
   }, []);
 
@@ -1059,6 +1076,9 @@ export default function App() {
       (activeTab === 'nuevo-cliente' && r.crearClientes) ||
       (activeTab === 'operaciones' && r.verPrestamos) ||
       (activeTab === 'pagos' && r.verPagos) ||
+      (activeTab === 'pagos-whatsapp' && r.verPagos) ||
+      (activeTab === 'pagos-telefono' && r.verPagos) ||
+      (activeTab === 'pagos-calle' && r.verPagos) ||
       (activeTab === 'tesoreria' && r.verTesoreria) ||
       (activeTab === 'configuracion' && r.verConfiguracion) ||
       (activeTab === 'usuarios' && activeUser.rolId === 'ADMIN');
@@ -1066,7 +1086,7 @@ export default function App() {
     if (!isCurrentTabAllowed) {
       if (r.verDashboard) setActiveTab('dashboard');
       else if (r.verClientes) setActiveTab('clientes');
-      else if (r.verPagos) setActiveTab('pagos');
+      else if (r.verPagos) setActiveTab('pagos-whatsapp');
       else if (r.verPrestamos) setActiveTab('operaciones');
       else if (r.verTesoreria) setActiveTab('tesoreria');
       else if (r.verConfiguracion) setActiveTab('configuracion');
@@ -1104,6 +1124,9 @@ export default function App() {
       case 'clientes': return 'Búsqueda de Cliente (Últimos Créditos Activos)';
       case 'operaciones': return 'Otorgar Créditos';
       case 'pagos': return 'Consola del Operador de Pagos';
+      case 'pagos-whatsapp': return 'Gestión Cobranza WhatsApp';
+      case 'pagos-telefono': return 'Gestión Cobranza Telefónica';
+      case 'pagos-calle': return 'Gestión Cobranza de Campo';
       case 'tesoreria': return 'Caja y Tesorería';
       case 'configuracion': return 'Configuración';
       case 'usuarios': return 'Seguridad y Accesos';
@@ -1153,33 +1176,39 @@ export default function App() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 border-r border-slate-200/80 pr-4">
               <div className="text-right leading-tight hidden sm:block">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Usuario Simulado</span>
-                <select
-                  value={activeUser?.id || ''}
-                  onChange={(e) => {
-                    const targetUser = usuarios.find(u => u.id === e.target.value);
-                    if (targetUser) {
-                      setActiveUser(targetUser);
-                      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER_ID, targetUser.id);
-                      
-                      // Trigger state refresh for current tab
-                      const nextRole = roles.find(r => r.id === targetUser.rolId);
-                      if (nextRole) {
-                        alert(`Cambiando sesión a: ${targetUser.nombre}\nRol: ${nextRole.nombre}\n\nLos filtros y restricciones del sistema se han actualizado.`);
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Usuario</span>
+                {realUserRolId === 'ADMIN' ? (
+                  <select
+                    value={activeUser?.id || ''}
+                    onChange={(e) => {
+                      const targetUser = usuarios.find(u => u.id === e.target.value);
+                      if (targetUser) {
+                        setActiveUser(targetUser);
+                        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER_ID, targetUser.id);
+                        
+                        // Trigger state refresh for current tab
+                        const nextRole = roles.find(r => r.id === targetUser.rolId);
+                        if (nextRole) {
+                          alert(`Cambiando sesión a: ${targetUser.nombre}\nRol: ${nextRole.nombre}\n\nLos filtros y restricciones del sistema se han actualizado.`);
+                        }
                       }
-                    }
-                  }}
-                  className="text-xs font-extrabold text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md focus:outline-none cursor-pointer transition-all shadow-xs"
-                >
-                  {usuarios.map(u => {
-                    const r = roles.find(rol => rol.id === u.rolId);
-                    return (
-                      <option key={u.id} value={u.id}>
-                        {u.nombre} ({r?.nombre || u.rolId})
-                      </option>
-                    );
-                  })}
-                </select>
+                    }}
+                    className="text-xs font-extrabold text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md focus:outline-none cursor-pointer transition-all shadow-xs"
+                  >
+                    {usuarios.map(u => {
+                      const r = roles.find(rol => rol.id === u.rolId);
+                      return (
+                        <option key={u.id} value={u.id}>
+                          {u.nombre} ({r?.nombre || u.rolId})
+                        </option>
+                      );
+                    })}
+                  </select>
+                ) : (
+                  <span className="text-xs font-extrabold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 inline-block">
+                    {activeUser?.nombre} ({activeUserRole.nombre})
+                  </span>
+                )}
               </div>
               <div className="w-9 h-9 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full flex items-center justify-center font-bold text-xs uppercase shadow-xs shrink-0" title={`${activeUser?.nombre}`}>
                 {activeUser?.nombre ? activeUser.nombre.substring(0, 2) : 'AP'}
@@ -1213,117 +1242,280 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-1 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-            {activeUserRole.verPagos && (
-              <button
-                onClick={() => setActiveTab('pagos')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'pagos'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <DollarSign className="w-4 h-4 shrink-0" />
-                Consola del Operador de Pagos
-              </button>
-            )}
+            {activeUser?.rolId === 'ADMIN' ? (
+              // ADMIN Order: Dashboard first, then Clients, New Client, Loans, Operator Payments, Treasury, Configuration, Security
+              <>
+                {activeUserRole.verDashboard && (
+                  <button
+                    onClick={() => setActiveTab('dashboard')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'dashboard'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <LayoutDashboard className="w-4 h-4 shrink-0" />
+                    Consola Dashboard
+                  </button>
+                )}
 
-            {activeUserRole.verDashboard && (
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'dashboard'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <LayoutDashboard className="w-4 h-4 shrink-0" />
-                Consola Dashboard
-              </button>
-            )}
+                {activeUserRole.verClientes && (
+                  <button
+                    onClick={() => setActiveTab('clientes')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'clientes'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 shrink-0" />
+                    <div className="flex flex-col min-w-0 leading-tight">
+                      <span>Búsqueda de Cliente</span>
+                      <span className="text-[10px] font-normal text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
+                    </div>
+                  </button>
+                )}
 
-            {activeUserRole.verClientes && (
-              <button
-                onClick={() => setActiveTab('clientes')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'clientes'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <Users className="w-4 h-4 shrink-0" />
-                Búsqueda de Cliente (Últimos Créditos Activos)
-              </button>
-            )}
+                {activeUserRole.crearClientes && (
+                  <button
+                    onClick={() => setActiveTab('nuevo-cliente')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'nuevo-cliente'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <UserPlus className="w-4 h-4 shrink-0 text-emerald-600" />
+                    Nuevo Cliente (Ficha)
+                  </button>
+                )}
 
-            {activeUserRole.crearClientes && (
-              <button
-                onClick={() => setActiveTab('nuevo-cliente')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'nuevo-cliente'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <UserPlus className="w-4 h-4 shrink-0 text-emerald-600" />
-                Nuevo Cliente (Ficha)
-              </button>
-            )}
+                {activeUserRole.verPrestamos && (
+                  <button
+                    onClick={() => setActiveTab('operaciones')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'operaciones'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <Briefcase className="w-4 h-4 shrink-0" />
+                    Otorgar Créditos
+                  </button>
+                )}
 
-            {activeUserRole.verPrestamos && (
-              <button
-                onClick={() => setActiveTab('operaciones')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'operaciones'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <Briefcase className="w-4 h-4 shrink-0" />
-                Otorgar Créditos
-              </button>
-            )}
+                {activeUserRole.verPagos && (
+                  <div className="space-y-1 pl-2 border-l-2 border-slate-200 mt-1 mb-2">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block px-2 py-1">Consolas de Cobranza</span>
+                    <button
+                      onClick={() => setActiveTab('pagos-whatsapp')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
+                        activeTab === 'pagos-whatsapp'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs'
+                          : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4 shrink-0 text-emerald-600" />
+                      Gestión Cobranza WhatsApp
+                    </button>
 
-            {activeUserRole.verTesoreria && (
-              <button
-                onClick={() => setActiveTab('tesoreria')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'tesoreria'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <Activity className="w-4 h-4 shrink-0" />
-                Caja y Tesorería
-              </button>
-            )}
+                    <button
+                      onClick={() => setActiveTab('pagos-telefono')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
+                        activeTab === 'pagos-telefono'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200 shadow-xs'
+                          : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <PhoneCall className="w-4 h-4 shrink-0 text-amber-600" />
+                      Gestión Cobranza Telefónica
+                    </button>
 
-            {activeUserRole.verConfiguracion && (
-              <button
-                onClick={() => setActiveTab('configuracion')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'configuracion'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <Settings className="w-4 h-4 shrink-0" />
-                Configuración & Feriados
-              </button>
-            )}
+                    <button
+                      onClick={() => setActiveTab('pagos-calle')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
+                        activeTab === 'pagos-calle'
+                          ? 'bg-rose-50 text-rose-800 border border-rose-200 shadow-xs'
+                          : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4 shrink-0 text-rose-600" />
+                      Gestión Cobranza de Campo
+                    </button>
+                  </div>
+                )}
 
-            {/* Security tab is ONLY accessible to users with ADMIN role */}
-            {activeUser?.rolId === 'ADMIN' && (
-              <button
-                onClick={() => setActiveTab('usuarios')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'usuarios'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4 shrink-0 text-blue-600" />
-                Seguridad y Accesos
-              </button>
+                {activeUserRole.verTesoreria && (
+                  <button
+                    onClick={() => setActiveTab('tesoreria')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'tesoreria'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <Activity className="w-4 h-4 shrink-0" />
+                    Caja y Tesorería
+                  </button>
+                )}
+
+                {activeUserRole.verConfiguracion && (
+                  <button
+                    onClick={() => setActiveTab('configuracion')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'configuracion'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <Settings className="w-4 h-4 shrink-0" />
+                    Configuración & Feriados
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setActiveTab('usuarios')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                    activeTab === 'usuarios'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                      : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-blue-600" />
+                  Seguridad y Accesos
+                </button>
+              </>
+            ) : (
+              // OPERATOR / COBRADOR Order: Operator Payments first, then Dashboard (if allowed), Clients, New Client, Loans, Treasury, Configuration
+              <>
+                {activeUserRole.verPagos && (
+                  <div className="space-y-1 pl-2 border-l-2 border-slate-200 mt-1 mb-2">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block px-2 py-1">Consolas de Cobranza</span>
+                    <button
+                      onClick={() => setActiveTab('pagos-whatsapp')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
+                        activeTab === 'pagos-whatsapp'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs'
+                          : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4 shrink-0 text-emerald-600" />
+                      Gestión Cobranza WhatsApp
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab('pagos-telefono')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
+                        activeTab === 'pagos-telefono'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200 shadow-xs'
+                          : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <PhoneCall className="w-4 h-4 shrink-0 text-amber-600" />
+                      Gestión Cobranza Telefónica
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab('pagos-calle')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
+                        activeTab === 'pagos-calle'
+                          ? 'bg-rose-50 text-rose-800 border border-rose-200 shadow-xs'
+                          : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4 shrink-0 text-rose-600" />
+                      Gestión Cobranza de Campo
+                    </button>
+                  </div>
+                )}
+
+                {activeUserRole.verDashboard && (
+                  <button
+                    onClick={() => setActiveTab('dashboard')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'dashboard'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <LayoutDashboard className="w-4 h-4 shrink-0" />
+                    Consola Dashboard
+                  </button>
+                )}
+
+                {activeUserRole.verClientes && (
+                  <button
+                    onClick={() => setActiveTab('clientes')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'clientes'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 shrink-0" />
+                    <div className="flex flex-col min-w-0 leading-tight">
+                      <span>Búsqueda de Cliente</span>
+                      <span className="text-[10px] font-normal text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
+                    </div>
+                  </button>
+                )}
+
+                {activeUserRole.crearClientes && (
+                  <button
+                    onClick={() => setActiveTab('nuevo-cliente')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'nuevo-cliente'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <UserPlus className="w-4 h-4 shrink-0 text-emerald-600" />
+                    Nuevo Cliente (Ficha)
+                  </button>
+                )}
+
+                {activeUserRole.verPrestamos && (
+                  <button
+                    onClick={() => setActiveTab('operaciones')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'operaciones'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <Briefcase className="w-4 h-4 shrink-0" />
+                    Otorgar Créditos
+                  </button>
+                )}
+
+                {activeUserRole.verTesoreria && (
+                  <button
+                    onClick={() => setActiveTab('tesoreria')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'tesoreria'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <Activity className="w-4 h-4 shrink-0" />
+                    Caja y Tesorería
+                  </button>
+                )}
+
+                {activeUserRole.verConfiguracion && (
+                  <button
+                    onClick={() => setActiveTab('configuracion')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                      activeTab === 'configuracion'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    }`}
+                  >
+                    <Settings className="w-4 h-4 shrink-0" />
+                    Configuración & Feriados
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -1387,7 +1579,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'pagos' && activeUserRole.verPagos && (
+          {(activeTab === 'pagos' || activeTab === 'pagos-whatsapp') && activeUserRole.verPagos && (
             <PagosView
               operaciones={filteredOperaciones}
               cuotas={filteredCuotas}
@@ -1397,6 +1589,35 @@ export default function App() {
               configuracion={configuracion}
               onAddPago={handleAddPago}
               canAddPago={activeUserRole.registrarPagos}
+              mode="WHATSAPP"
+            />
+          )}
+
+          {activeTab === 'pagos-telefono' && activeUserRole.verPagos && (
+            <PagosView
+              operaciones={filteredOperaciones}
+              cuotas={filteredCuotas}
+              pagos={filteredPagos}
+              clientes={clientes}
+              activeUser={activeUser}
+              configuracion={configuracion}
+              onAddPago={handleAddPago}
+              canAddPago={activeUserRole.registrarPagos}
+              mode="TELEFONO"
+            />
+          )}
+
+          {activeTab === 'pagos-calle' && activeUserRole.verPagos && (
+            <PagosView
+              operaciones={filteredOperaciones}
+              cuotas={filteredCuotas}
+              pagos={filteredPagos}
+              clientes={clientes}
+              activeUser={activeUser}
+              configuracion={configuracion}
+              onAddPago={handleAddPago}
+              canAddPago={activeUserRole.registrarPagos}
+              mode="CALLE"
             />
           )}
 

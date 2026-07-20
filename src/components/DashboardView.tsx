@@ -532,7 +532,7 @@ export default function DashboardView({
               Próximos Vencimientos de Cuotas
             </h3>
             <button 
-              onClick={() => onNavigateTo('pagos')} 
+              onClick={() => onNavigateTo('pagos-whatsapp')} 
               className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5"
             >
               Ver Todas
@@ -571,7 +571,7 @@ export default function DashboardView({
               Últimos Cobros Realizados
             </h3>
             <button 
-              onClick={() => onNavigateTo('pagos')} 
+              onClick={() => onNavigateTo('pagos-whatsapp')} 
               className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-0.5"
             >
               Ver Todos

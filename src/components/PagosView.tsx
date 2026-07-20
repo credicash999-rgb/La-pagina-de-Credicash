@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { Operacion, Cuota, Pago, TransaccionTesoreria, Cliente, UsuarioRol, Configuracion } from '../types';
+import { calcularDiasAtrasoSinDomingos } from '../utils/cuotasGenerator';
 import { 
   DollarSign, Search, Calendar, Check, AlertCircle, FileText, 
   ChevronRight, ArrowRight, User, Phone, Send, X, ClipboardList,
@@ -1113,39 +1114,50 @@ export default function PagosView({
               </div>
             ) : (
               filteredAndPrioritizedOps.map((op, idx) => {
-                const isVencido = hasCuotasVencidas(op.id) || op.diasMora > 0;
-                const isHoy = hasCuotaDueToday(op) || op.proximoVencimiento === getTodayStr();
+                // Find oldest pending cuota to calculate exact delay dynamically
+                const opCuotas = cuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
+                const sortedPending = [...opCuotas].sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento));
+                const oldestPending = sortedPending[0];
+                const today = getTodayStr();
+                const dynamicDiasMora = oldestPending && oldestPending.fechaVencimiento < today
+                  ? calcularDiasAtrasoSinDomingos(oldestPending.fechaVencimiento, today)
+                  : 0;
+
+                const isVencido = hasCuotasVencidas(op.id) || dynamicDiasMora > 0;
+                const isHoy = hasCuotaDueToday(op) || op.proximoVencimiento === today;
                 const isPromesa = isPromesaPendiente(op);
                 const cli = getClienteDetails(op.idCliente);
 
                 // Priority Badge label
                 let priorityLabel = 'Al Día / Normal';
-                let priorityColor = 'bg-slate-100 text-slate-700 border-slate-200';
+                let priorityColor = 'bg-slate-100 text-slate-700 border-slate-200 text-[10px]';
                 
                 if (isVencido) {
-                  priorityLabel = `⚠️ ATRASO (${op.diasMora} días)`;
-                  priorityColor = 'bg-rose-50 text-rose-800 border-rose-100 animate-pulse';
+                  priorityLabel = `🚨 ALERTA ATRASO: ${dynamicDiasMora} DÍAS`;
+                  priorityColor = 'bg-red-600 text-white border-red-700 font-extrabold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider animate-pulse shadow-sm';
                 } else if (isHoy) {
                   priorityLabel = '📅 VENCE HOY';
-                  priorityColor = 'bg-amber-50 text-amber-800 border-amber-100';
+                  priorityColor = 'bg-amber-150 text-amber-900 border-amber-300 font-bold px-2 py-0.5 rounded-full text-[10px]';
                 } else if (isPromesa) {
                   priorityLabel = '🤝 PROMESA PENDIENTE';
-                  priorityColor = 'bg-indigo-50 text-indigo-800 border-indigo-100';
+                  priorityColor = 'bg-indigo-100 text-indigo-900 border-indigo-200 font-bold px-2 py-0.5 rounded-full text-[10px]';
                 }
 
                 return (
                   <div
                     key={op.id}
                     onClick={() => setSelectedOp(op)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 relative ${
+                    className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 relative ${
                       selectedOp?.id === op.id
                         ? 'border-emerald-500 bg-emerald-50/20 shadow-md ring-1 ring-emerald-500/20'
-                        : 'border-slate-200/80 hover:border-slate-300 bg-white hover:bg-slate-50/40'
+                        : isVencido
+                          ? 'border-rose-300 bg-rose-50/5 hover:bg-rose-50/15 shadow-xs'
+                          : 'border-slate-200/80 hover:border-slate-300 bg-white hover:bg-slate-50/40'
                     }`}
                   >
                     
                     {/* Index or highlight line */}
-                    <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl bg-emerald-600/10"></div>
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${isVencido ? 'bg-red-600' : 'bg-emerald-600/10'}`}></div>
                     
                     <div className="space-y-1.5 pl-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -1172,13 +1184,13 @@ export default function PagosView({
                             cobrador = configuracion?.moraMensualCobradorDias ?? 2;
                           }
 
-                          if (op.diasMora >= cobrador) {
+                          if (dynamicDiasMora >= cobrador) {
                             return (
                               <span className="text-[9px] font-extrabold bg-red-600 text-white px-2 py-0.5 rounded-md">
                                 C. DE CALLE ({cobrador}+ DÍAS)
                               </span>
                             );
-                          } else if (op.diasMora >= llamar) {
+                          } else if (dynamicDiasMora >= llamar) {
                             return (
                               <span className="text-[9px] font-extrabold bg-amber-500 text-white px-2 py-0.5 rounded-md">
                                 TELÉFONO ({llamar}-{cobrador - 1} DÍAS)
@@ -1314,19 +1326,19 @@ export default function PagosView({
                         {/* 3-line debt breakdown requested by operator */}
                         <div className="text-[11px] space-y-1 text-slate-100 font-medium">
                           <div className="flex justify-between items-center">
-                            <span className="text-rose-200">1. Cuotas Vencidas (Mora):</span>
+                            <span className="text-rose-200">Cuotas Vencidas (Mora):</span>
                             <span className="font-mono font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">
                               {countOverdue} (${sumOverdue.toLocaleString('es-ES')})
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-emerald-200">2. Cuota Exigible Hoy:</span>
+                            <span className="text-emerald-200">Cuota Exigible Hoy:</span>
                             <span className="font-mono font-bold text-white bg-emerald-900/60 px-1.5 py-0.5 rounded">
                               {countToday} (${sumToday.toLocaleString('es-ES')})
                             </span>
                           </div>
                           <div className="flex justify-between items-center border-t border-rose-500/30 pt-1.5 mt-1">
-                            <span className="text-white font-extrabold uppercase text-[10px]">3. Total Exigible Actual:</span>
+                            <span className="text-white font-extrabold uppercase text-[10px]">Total Exigible Actual:</span>
                             <span className="font-mono font-black text-rose-300 text-xs">
                               ${exigTotal.toLocaleString('es-ES')} ARS
                             </span>

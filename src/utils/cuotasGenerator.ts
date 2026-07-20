@@ -13,6 +13,26 @@ export function esDomingo(fecha: Date): boolean {
 }
 
 /**
+ * Calcula la cantidad de días de atraso entre dos fechas (excluyendo domingos).
+ * Retorna 0 si la fecha de vencimiento es hoy o futura.
+ */
+export function calcularDiasAtrasoSinDomingos(fechaVencimientoStr: string, fechaHastaStr: string): number {
+  if (fechaVencimientoStr >= fechaHastaStr) return 0;
+  
+  let count = 0;
+  let current = new Date(fechaVencimientoStr + 'T12:00:00');
+  const target = new Date(fechaHastaStr + 'T12:00:00');
+  
+  while (current.getTime() <= target.getTime()) {
+    if (!esDomingo(current)) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+/**
  * Verifica si una fecha (formato YYYY-MM-DD) está en la lista de feriados.
  */
 export function esFeriado(fechaStr: string, feriados: string[]): boolean {
