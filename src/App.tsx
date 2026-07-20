@@ -135,13 +135,13 @@ const DEFAULT_ROLES: PermisosRol[] = [
   {
     id: 'OPERADOR',
     nombre: 'Operador de Pago WhatsApp',
-    verDashboard: true,
+    verDashboard: false,
     verClientes: true,
     crearClientes: false,
     verTelefonoCliente: true,
     verDniCliente: true,
-    verDireccionCliente: true,
-    verIngresosCliente: true,
+    verDireccionCliente: false,
+    verIngresosCliente: false,
     verPrestamos: true,
     crearPrestamos: false,
     verPagos: true,
@@ -549,9 +549,13 @@ export default function App() {
     const loadedUsuarios = getOrSeed(STORAGE_KEYS.USUARIOS, DEFAULT_USUARIOS);
     const loadedRolesRaw = getOrSeed(STORAGE_KEYS.ROLES, DEFAULT_ROLES);
     
-    // Backfill missing fields from DEFAULT_ROLES or standard defaults to ensure no undefined permissions
+    // Force latest hardcoded role configurations for system defaults, allowing custom roles to merge
     const loadedRoles = loadedRolesRaw.map(r => {
-      const defaultRole = DEFAULT_ROLES.find(dr => dr.id === r.id) || {
+      const defaultRole = DEFAULT_ROLES.find(dr => dr.id === r.id);
+      if (defaultRole) {
+        return defaultRole;
+      }
+      return {
         id: r.id,
         nombre: r.nombre,
         verDashboard: true,
@@ -567,8 +571,8 @@ export default function App() {
         registrarPagos: false,
         verTesoreria: false,
         verConfiguracion: false,
+        ...r
       };
-      return { ...defaultRole, ...r };
     });
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -1099,7 +1103,7 @@ export default function App() {
       case 'dashboard': return 'Consola Dashboard';
       case 'clientes': return 'Gestión de Clientes';
       case 'operaciones': return 'Otorgar Créditos';
-      case 'pagos': return 'Operador de Pago WhatsApp';
+      case 'pagos': return 'Consola del Operador de Cobro';
       case 'tesoreria': return 'Caja y Tesorería';
       case 'configuracion': return 'Configuración';
       case 'usuarios': return 'Seguridad y Accesos';
@@ -1209,6 +1213,20 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-1 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
+            {activeUserRole.verPagos && (
+              <button
+                onClick={() => setActiveTab('pagos')}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                  activeTab === 'pagos'
+                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                }`}
+              >
+                <DollarSign className="w-4 h-4 shrink-0" />
+                Consola del Operador de Cobro
+              </button>
+            )}
+
             {activeUserRole.verDashboard && (
               <button
                 onClick={() => setActiveTab('dashboard')}
@@ -1262,20 +1280,6 @@ export default function App() {
               >
                 <Briefcase className="w-4 h-4 shrink-0" />
                 Otorgar Créditos
-              </button>
-            )}
-
-            {activeUserRole.verPagos && (
-              <button
-                onClick={() => setActiveTab('pagos')}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTab === 'pagos'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <DollarSign className="w-4 h-4 shrink-0" />
-                Operador de Pago WhatsApp
               </button>
             )}
 
@@ -1350,6 +1354,7 @@ export default function App() {
           {activeTab === 'clientes' && activeUserRole.verClientes && (
             <ClientesView
               clientes={filteredClientes}
+              operaciones={operaciones}
               onAddCliente={handleAddCliente}
               onUpdateCliente={handleUpdateCliente}
               canManage={activeUserRole.crearClientes}

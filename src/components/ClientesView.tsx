@@ -4,11 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { Cliente } from '../types';
+import { Cliente, Operacion } from '../types';
 import { Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, FileText, MapPin, Briefcase, Eye, X, Download, Calendar } from 'lucide-react';
 
 interface ClientesViewProps {
   clientes: Cliente[];
+  operaciones?: Operacion[];
   onAddCliente: (cliente: Cliente) => void;
   onUpdateCliente: (cliente: Cliente) => void;
   canManage?: boolean;
@@ -20,6 +21,7 @@ interface ClientesViewProps {
 
 export default function ClientesView({ 
   clientes, 
+  operaciones = [],
   onAddCliente, 
   onUpdateCliente,
   canManage = true,
@@ -33,6 +35,24 @@ export default function ClientesView({
   const [isAdding, setIsAdding] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [viewingCliente, setViewingCliente] = useState<Cliente | null>(null);
+
+  const getClientCreditsSummary = (clientId: string) => {
+    if (!operaciones || operaciones.length === 0) return 'Sin créditos';
+    const clientOps = operaciones.filter(o => o.idCliente === clientId);
+    if (clientOps.length === 0) return 'Sin créditos';
+    
+    const counts: Record<string, number> = {};
+    clientOps.forEach(o => {
+      const freqLabel = o.frecuencia === 'DIARIA' ? 'Diario' : 
+                        o.frecuencia === 'SEMANAL' ? 'Semanal' : 
+                        o.frecuencia === 'QUINCENAL' ? 'Quincenal' : 'Mensual';
+      counts[freqLabel] = (counts[freqLabel] || 0) + 1;
+    });
+    
+    return Object.entries(counts)
+      .map(([freq, count]) => `${count} ${freq}`)
+      .join(', ');
+  };
 
   // Form states
   const [nombre, setNombre] = useState('');
@@ -784,8 +804,16 @@ export default function ClientesView({
                 <th className="py-3.5 px-6">ID Cliente</th>
                 {verDniCliente && <th className="py-3.5 px-6">DNI</th>}
                 <th className="py-3.5 px-6">Cliente</th>
-                {(verTelefonoCliente || verDireccionCliente) && <th className="py-3.5 px-6">Contacto / Dirección</th>}
-                <th className="py-3.5 px-6">Laboral / Ingresos</th>
+                {(verTelefonoCliente || verDireccionCliente) && (
+                  <th className="py-3.5 px-6">
+                    {verDireccionCliente ? 'Contacto / Dirección' : 'Contacto'}
+                  </th>
+                )}
+                {verIngresosCliente ? (
+                  <th className="py-3.5 px-6">Laboral / Ingresos</th>
+                ) : (
+                  <th className="py-3.5 px-6">Créditos del Cliente</th>
+                )}
                 <th className="py-3.5 px-6 text-center">Estado</th>
                 <th className="py-3.5 px-6 text-center">Acciones</th>
               </tr>
@@ -829,15 +857,23 @@ export default function ClientesView({
                       </td>
                     )}
                     <td className="py-4 px-6">
-                      <div className="flex items-center gap-1.5 text-slate-700">
-                        <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{c.trabajo || 'Sin especificar'}</span>
-                      </div>
-                      {verIngresosCliente && c.ingresos ? (
-                        <div className="text-xs font-semibold text-emerald-600 mt-0.5">
-                          ${c.ingresos.toLocaleString('es-ES')} / mes
+                      {verIngresosCliente ? (
+                        <>
+                          <div className="flex items-center gap-1.5 text-slate-700">
+                            <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{c.trabajo || 'Sin especificar'}</span>
+                          </div>
+                          {c.ingresos ? (
+                            <div className="text-xs font-semibold text-emerald-600 mt-0.5">
+                              ${c.ingresos.toLocaleString('es-ES')} / mes
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <div className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-lg border border-indigo-100 inline-block">
+                          {getClientCreditsSummary(c.id)}
                         </div>
-                      ) : null}
+                      )}
                     </td>
                     <td className="py-4 px-6 text-center">
                       <span
@@ -986,42 +1022,52 @@ export default function ClientesView({
                 </div>
 
                 {/* 3. Domicilio Declarado */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
-                  <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-blue-500" />
-                    Domicilio Declarado
-                  </h4>
-                  <div className="grid grid-cols-2 gap-y-2">
-                    <div className="col-span-2">
-                      <span className="text-slate-400 block">Dirección Formateada</span>
-                      <strong className="text-slate-800">{viewingCliente.direccion}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Calle</span>
-                      <strong className="text-slate-800">{viewingCliente.calle || 'N/A'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Número</span>
-                      <strong className="text-slate-800">{viewingCliente.numero || 'N/A'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Barrio</span>
-                      <strong className="text-slate-800">{viewingCliente.barrio || 'N/A'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Ciudad / Localidad</span>
-                      <strong className="text-slate-800">{viewingCliente.ciudad || 'N/A'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Provincia</span>
-                      <strong className="text-slate-800">{viewingCliente.provincia || 'N/A'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Código Postal</span>
-                      <strong className="text-slate-800">{viewingCliente.codigoPostal || 'N/A'}</strong>
+                {verDireccionCliente ? (
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
+                    <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                      Domicilio Declarado
+                    </h4>
+                    <div className="grid grid-cols-2 gap-y-2">
+                      <div className="col-span-2">
+                        <span className="text-slate-400 block">Dirección Formateada</span>
+                        <strong className="text-slate-800">{viewingCliente.direccion}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Calle</span>
+                        <strong className="text-slate-800">{viewingCliente.calle || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Número</span>
+                        <strong className="text-slate-800">{viewingCliente.numero || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Barrio</span>
+                        <strong className="text-slate-800">{viewingCliente.barrio || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Ciudad / Localidad</span>
+                        <strong className="text-slate-800">{viewingCliente.ciudad || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Provincia</span>
+                        <strong className="text-slate-800">{viewingCliente.provincia || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Código Postal</span>
+                        <strong className="text-slate-800">{viewingCliente.codigoPostal || 'N/A'}</strong>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
+                    <h4 className="font-bold text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-slate-300" />
+                      Domicilio Declarado
+                    </h4>
+                    <span className="text-slate-400 italic font-medium">Información restringida por nivel de acceso.</span>
+                  </div>
+                )}
 
                 {/* 4. Situación Laboral y Bancaria */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
@@ -1030,24 +1076,41 @@ export default function ClientesView({
                     Situación Laboral y Cuenta Bancaria
                   </h4>
                   <div className="grid grid-cols-2 gap-y-2">
-                    <div>
-                      <span className="text-slate-400 block">Actividad Laboral</span>
-                      <strong className="text-slate-800">{viewingCliente.trabajo || 'Sin especificar'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Lugar de Trabajo</span>
-                      <strong className="text-slate-800">{viewingCliente.lugarTrabajo || 'No registrado'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Antigüedad Laboral</span>
-                      <strong className="text-slate-800">{viewingCliente.antiguedad || 'No declarada'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block">Ingreso Mensual Neto</span>
-                      <strong className="text-emerald-600 font-bold">
-                        {viewingCliente.ingresos ? `$${viewingCliente.ingresos.toLocaleString('es-ES')}` : 'No especificado'}
-                      </strong>
-                    </div>
+                    {verIngresosCliente ? (
+                      <>
+                        <div>
+                          <span className="text-slate-400 block">Actividad Laboral</span>
+                          <strong className="text-slate-800">{viewingCliente.trabajo || 'Sin especificar'}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Lugar de Trabajo</span>
+                          <strong className="text-slate-800">{viewingCliente.lugarTrabajo || 'No registrado'}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Antigüedad Laboral</span>
+                          <strong className="text-slate-800">{viewingCliente.antiguedad || 'No declarada'}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Ingreso Mensual Neto</span>
+                          <strong className="text-emerald-600 font-bold">
+                            {viewingCliente.ingresos ? `$${viewingCliente.ingresos.toLocaleString('es-ES')}` : 'No especificado'}
+                          </strong>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="col-span-2">
+                        <span className="text-slate-400 block">Información Laboral / Ingresos</span>
+                        <strong className="text-slate-400 italic font-medium">Restringido por nivel de acceso</strong>
+                        <div className="mt-3 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
+                          <span className="text-indigo-800 font-bold block uppercase tracking-wider text-[10px] mb-1">
+                            Créditos del Cliente:
+                          </span>
+                          <strong className="text-indigo-950 font-extrabold text-xs">
+                            {getClientCreditsSummary(viewingCliente.id)}
+                          </strong>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <span className="text-slate-400 block">CBU / CVU / Alias</span>
                       <strong className="font-mono text-slate-800 break-all">{viewingCliente.aliasCbu || 'N/A'}</strong>
