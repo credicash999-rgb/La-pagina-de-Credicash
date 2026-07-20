@@ -1055,24 +1055,34 @@ export default function ConfiguracionView({
                 <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">
                   Google Apps Script Web App URL
                 </label>
-                <div className="relative">
-                  <input
-                    type="url"
-                    value={sheetUrl}
-                    onChange={(e) => {
-                      setSheetUrlState(e.target.value);
-                      saveGoogleSheetUrl(e.target.value);
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="url"
+                      value={sheetUrl}
+                      onChange={(e) => setSheetUrlState(e.target.value)}
+                      placeholder="https://script.google.com/macros/s/.../exec"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono pr-8 focus:outline-hidden focus:border-blue-500 focus:bg-white"
+                    />
+                    <span className="absolute right-3 top-3 flex h-2 w-2">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${sheetUrl ? 'bg-emerald-400' : 'bg-slate-300'}`}></span>
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${sheetUrl ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveGoogleSheetUrl(sheetUrl);
+                      alert('¡URL de Google Sheets guardada con éxito!');
                     }}
-                    placeholder="https://script.google.com/macros/s/.../exec"
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono pr-8 focus:outline-hidden focus:border-blue-500 focus:bg-white"
-                  />
-                  <span className="absolute right-3 top-2 flex h-2 w-2">
-                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${sheetUrl ? 'bg-emerald-400' : 'bg-slate-300'}`}></span>
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${sheetUrl ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                  </span>
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-md hover:shadow-none flex items-center gap-1 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    Guardar URL
+                  </button>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Pega la URL de la aplicación web que generaste desde tu hoja de cálculo.
+                  Pega la URL de la aplicación web de Google Sheets y haz clic en "Guardar URL" para habilitar la sincronización en tiempo real.
                 </p>
               </div>
 

@@ -68,6 +68,62 @@ export default function DashboardView({
     .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento))
     .slice(0, 5);
 
+  // A. Working capital currently in circulation (Dinero que se está trabajando, sin el interés)
+  const capitalEnCirculacion = operaciones
+    .filter(op => op.estado === 'ACTIVA')
+    .reduce((acc, op) => acc + op.capitalPendiente, 0);
+
+  // B. Interest expected to return (Interés que tiene que retornar de operaciones activas)
+  const interesEsperadoRetorno = operaciones
+    .filter(op => op.estado === 'ACTIVA')
+    .reduce((acc, op) => acc + (op.totalPendiente - op.capitalPendiente), 0);
+
+  // C. Expected collections up to today (Lo esperado por vencimiento de cuotas)
+  const cuotasHastaHoy = cuotas.filter(c => c.fechaVencimiento <= hoyStr);
+  const totalCobrosEsperados = cuotasHastaHoy.reduce((acc, c) => acc + c.valorTotalCuota, 0);
+
+  // D. Real collections collected (Lo real recaudado de lo que están pagando)
+  const totalCobrosReales = pagos.reduce((acc, p) => acc + p.importe, 0);
+
+  // E. Expected vs Real ratio
+  const brechaCobro = Math.max(0, totalCobrosEsperados - totalCobrosReales);
+  const cumplimientoCobroPct = totalCobrosEsperados > 0 ? (totalCobrosReales / totalCobrosEsperados) * 100 : 0;
+
+  // F. Stats by Frequency (Count, total financed, and total capital)
+  const statsPorFrecuencia = operaciones.reduce((acc, op) => {
+    const f = op.frecuencia;
+    if (!acc[f]) {
+      acc[f] = { count: 0, totalFinanciado: 0, capitalEntregado: 0 };
+    }
+    acc[f].count += 1;
+    acc[f].totalFinanciado += op.totalFinanciado;
+    acc[f].capitalEntregado += op.capitalEntregado;
+    return acc;
+  }, {} as Record<string, { count: number; totalFinanciado: number; capitalEntregado: number }>);
+
+  // Ensure all frequencies have default values to avoid errors
+  ['DIARIA', 'SEMANAL', 'QUINCENAL', 'MENSUAL'].forEach(f => {
+    if (!statsPorFrecuencia[f]) {
+      statsPorFrecuencia[f] = { count: 0, totalFinanciado: 0, capitalEntregado: 0 };
+    }
+  });
+
+  // G. Client credit count summary (cada cliente cuántos créditos tiene)
+  const clientesCreditosList = clientes.map(c => {
+    const clientOps = operaciones.filter(o => o.idCliente === c.id);
+    const activeOps = clientOps.filter(o => o.estado === 'ACTIVA');
+    const totalFinanciado = clientOps.reduce((sum, o) => sum + o.totalFinanciado, 0);
+    return {
+      id: c.id,
+      nombreCompleto: `${c.nombre} ${c.apellido}`,
+      dni: c.dni,
+      estado: c.estado,
+      totalCreditos: clientOps.length,
+      creditosActivos: activeOps.length,
+      montoFinanciado: totalFinanciado
+    };
+  }).filter(item => item.totalCreditos > 0);
+
   return (
     <div id="dashboard-section" className="space-y-6">
       
@@ -314,60 +370,155 @@ export default function DashboardView({
           );
         })()}
 
-        {/* Breakdown of Client States & Frequencies */}
+        {/* Card 3: Contabilidad y Rentabilidad (Dinero Trabajando, Intereses, Esperado vs Real) */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-4 border-b border-slate-100">
-              Distribución de Clientes
+          <div className="space-y-4">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-3 border-b border-slate-100 flex items-center justify-between">
+              <span>Ficha Contable de Capital</span>
+              <span className="text-[9px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold uppercase">Operativo</span>
             </h4>
             
-            <div className="space-y-4 py-4">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
-                  Activos (Sanos)
-                </span>
-                <span className="font-bold text-slate-800">{clientesActivos} ({totalClientes > 0 ? ((clientesActivos / totalClientes) * 100).toFixed(0) : 0}%)</span>
+            <div className="space-y-3.5">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Dinero Trabajando (Capital Circulante)</span>
+                <div className="text-lg font-extrabold text-slate-800">${capitalEnCirculacion.toLocaleString('es-ES')}</div>
+                <p className="text-[9px] text-slate-400 mt-0.5">Capital entregado neto en la calle (sin intereses)</p>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-rose-500 rounded-full"></span>
-                  En Mora
-                </span>
-                <span className="font-bold text-slate-800">{clientesMora} ({totalClientes > 0 ? ((clientesMora / totalClientes) * 100).toFixed(0) : 0}%)</span>
+
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Interés por Retornar (Rentabilidad Proyectada)</span>
+                <div className="text-lg font-extrabold text-blue-600">${interesEsperadoRetorno.toLocaleString('es-ES')}</div>
+                <p className="text-[9px] text-slate-400 mt-0.5">Retorno de ganancias esperado de créditos activos</p>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-amber-500 rounded-full"></span>
-                  Solicitantes (En Estudio)
-                </span>
-                <span className="font-bold text-slate-800">{clientesSolicitantes} ({totalClientes > 0 ? ((clientesSolicitantes / totalClientes) * 100).toFixed(0) : 0}%)</span>
+
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold block mb-1">Recaudación de Cuotas (Histórica)</span>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between font-semibold">
+                    <span className="text-slate-500">Esperado (Vencido + Hoy):</span>
+                    <span className="text-slate-800">${totalCobrosEsperados.toLocaleString('es-ES')}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span className="text-emerald-600">Real Recaudado:</span>
+                    <span className="text-emerald-600 font-extrabold">${totalCobrosReales.toLocaleString('es-ES')}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] border-t border-slate-50 pt-1 text-slate-400">
+                    <span>Brecha (No Cobrado):</span>
+                    <span className="text-rose-600 font-bold">${brechaCobro.toLocaleString('es-ES')}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 space-y-3">
-            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Frecuencias de Créditos</h5>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                <div className="text-[10px] text-slate-400 font-bold">DIARIA</div>
-                <div className="font-black text-slate-800 text-sm mt-0.5">{opsPorFrecuencia['DIARIA'] || 0}</div>
-              </div>
-              <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                <div className="text-[10px] text-slate-400 font-bold">SEMANAL</div>
-                <div className="font-black text-slate-800 text-sm mt-0.5">{opsPorFrecuencia['SEMANAL'] || 0}</div>
-              </div>
-              <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                <div className="text-[10px] text-slate-400 font-bold">QUINCENAL</div>
-                <div className="font-black text-slate-800 text-sm mt-0.5">{opsPorFrecuencia['QUINCENAL'] || 0}</div>
-              </div>
-              <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
-                <div className="text-[10px] text-slate-400 font-bold">MENSUAL</div>
-                <div className="font-black text-slate-800 text-sm mt-0.5">{opsPorFrecuencia['MENSUAL'] || 0}</div>
-              </div>
+          <div className="pt-3 border-t border-slate-100">
+            <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
+              <span>Eficacia de Cobro Real:</span>
+              <span className="text-emerald-600 font-black">{cumplimientoCobroPct.toFixed(1)}%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-1.5 rounded-full mt-1 overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, cumplimientoCobroPct)}%` }}
+              ></div>
             </div>
           </div>
         </div>
+
+      </div>
+
+      {/* NEW PANEL: Breakdown of Modalities (Frequencies) & Person Credit Counts */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Frequencies Details Card */}
+        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-3 border-b border-slate-100">
+            Modalidades y Frecuencias de Pago (Volumen)
+          </h4>
+          
+          <div className="space-y-3">
+            {[
+              { id: 'DIARIA', label: 'Diario', color: 'bg-emerald-500' },
+              { id: 'SEMANAL', label: 'Semanal', color: 'bg-blue-500' },
+              { id: 'QUINCENAL', label: 'Quincenal', color: 'bg-indigo-500' },
+              { id: 'MENSUAL', label: 'Mensual', color: 'bg-rose-500' }
+            ].map(f => {
+              const stat = statsPorFrecuencia[f.id] || { count: 0, totalFinanciado: 0, capitalEntregado: 0 };
+              return (
+                <div key={f.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200/50 flex justify-between items-center text-xs">
+                  <div className="space-y-1">
+                    <span className="font-extrabold text-slate-800 flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${f.color}`}></span>
+                      {f.label}
+                    </span>
+                    <p className="text-[10px] text-slate-400">Cap. Colocado: ${stat.capitalEntregado.toLocaleString('es-ES')}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-black text-slate-800">${stat.totalFinanciado.toLocaleString('es-ES')}</div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{stat.count} crédito{stat.count !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Client Credit Summary Table */}
+        <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              Cantidad de Créditos por Cliente (Personas)
+            </h4>
+            <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">
+              Total Clientes: {clientesCreditosList.length}
+            </span>
+          </div>
+
+          <div className="overflow-y-auto max-h-[220px] pr-1">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                  <th className="pb-2">Cliente (Persona)</th>
+                  <th className="pb-2 text-center">Créditos Totales</th>
+                  <th className="pb-2 text-center">Créditos Activos</th>
+                  <th className="pb-2 text-right">Volumen Financiado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 text-slate-600">
+                {clientesCreditosList.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400 font-medium">
+                      No hay clientes con créditos registrados en el sistema.
+                    </td>
+                  </tr>
+                ) : (
+                  [...clientesCreditosList]
+                    .sort((a, b) => b.totalCreditos - a.totalCreditos)
+                    .map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-2.5">
+                          <div className="font-bold text-slate-800">{item.nombreCompleto}</div>
+                          <div className="text-[9px] text-slate-400 font-mono">DNI {item.dni}</div>
+                        </td>
+                        <td className="py-2.5 text-center font-bold text-slate-700">{item.totalCreditos}</td>
+                        <td className="py-2.5 text-center">
+                          <span className={`inline-flex px-1.5 py-0.5 rounded-sm text-[10px] font-extrabold ${
+                            item.creditosActivos > 0 
+                              ? 'bg-emerald-100 text-emerald-800' 
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {item.creditosActivos} activo{item.creditosActivos !== 1 ? 's' : ''}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-right font-black text-slate-800">${item.montoFinanciado.toLocaleString('es-ES')}</td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       {/* Grid: Upcoming collections vs Latest collected receipts */}

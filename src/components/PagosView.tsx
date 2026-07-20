@@ -1346,6 +1346,15 @@ export default function PagosView({
 
                   {/* Client address + Google Maps routing details */}
                   {(() => {
+                    const isOperator = activeUser?.rolId === 'OPERADOR';
+                    if (isOperator) {
+                      return (
+                        <div className="bg-slate-900/30 p-3 rounded-xl border border-slate-800 col-span-2 text-center text-xs text-emerald-300/80 font-bold flex items-center justify-center gap-1.5">
+                          <span>🔒 El Domicilio está restringido para operadores</span>
+                        </div>
+                      );
+                    }
+                    
                     const cliDetails = getClienteDetails(selectedOp.idCliente);
                     if (!cliDetails) return null;
                     const address = getFullAddress(cliDetails);

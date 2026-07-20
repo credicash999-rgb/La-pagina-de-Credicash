@@ -43,7 +43,9 @@ export default function OperacionesView({
   const [fechaOtorgamiento, setFechaOtorgamiento] = useState(
     new Date().toISOString().split('T')[0]
   );
-  const [tipoOperacion, setTipoOperacion] = useState<Operacion['tipoOperacion']>('NUEVO');
+  const [tipoOperacion, setTipoOperacion] = useState<Operacion['tipoOperacion']>(() => {
+    return activeUser?.rolId === 'OPERADOR' ? 'RENOVACION' : 'NUEVO';
+  });
   const [estadoOperacion, setEstadoOperacion] = useState<Operacion['estado']>('ACTIVA');
   const [capitalEntregado, setCapitalEntregado] = useState<number>(100000);
   const [promocionAplicada, setPromocionAplicada] = useState('');
@@ -754,9 +756,9 @@ export default function OperacionesView({
                   onChange={(e) => setTipoOperacion(e.target.value as any)}
                   className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                 >
-                  <option value="NUEVO">CRÉDITO NUEVO</option>
+                  {activeUser?.rolId !== 'OPERADOR' && <option value="NUEVO">CRÉDITO NUEVO</option>}
                   <option value="RENOVACION">RENOVACIÓN</option>
-                  <option value="AMPLIACION">AMPLIACIÓN</option>
+                  {activeUser?.rolId !== 'OPERADOR' && <option value="AMPLIACION">AMPLIACIÓN</option>}
                   <option value="REFINANCIACION">REFINANCIACIÓN</option>
                 </select>
               </div>

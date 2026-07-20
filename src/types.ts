@@ -162,6 +162,22 @@ export interface TransaccionTesoreria {
   referenciaId?: string; // ID de Operacion o Pago
 }
 
+export interface LiquidacionPersonal {
+  id: string;
+  fecha: string;
+  colaboradorNombre: string;
+  rolColaborador: string;
+  periodo: string; // e.g. "Julio 2026"
+  montoBase: number;
+  comisiones: number;
+  premios: number;
+  descuentos: number;
+  montoTotal: number;
+  estado: 'PAGADA' | 'PENDIENTE';
+  medioPago?: 'EFECTIVO' | 'TRANSFERENCIA';
+  observaciones?: string;
+}
+
 export interface PermisosRol {
   id: string;
   nombre: string;

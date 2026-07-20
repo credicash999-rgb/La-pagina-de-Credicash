@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Cliente, Operacion, Cuota, Pago, Feriado, 
-  Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol 
+  Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal 
 } from './types';
 
 import { 
@@ -47,6 +47,7 @@ const STORAGE_KEYS = {
   USUARIOS: 'credicash_usuarios',
   ROLES: 'credicash_roles',
   ACTIVE_USER_ID: 'credicash_active_user_id',
+  LIQUIDACIONES: 'credicash_liquidaciones',
 };
 
 // Seed Data
@@ -399,6 +400,53 @@ const SEED_TRANSACCIONES: TransaccionTesoreria[] = [
   }
 ];
 
+const SEED_LIQUIDACIONES: LiquidacionPersonal[] = [
+  {
+    id: 'LIQ-001',
+    fecha: '2026-07-05',
+    colaboradorNombre: 'Sofía Martínez',
+    rolColaborador: 'Cobrador de Calle',
+    periodo: 'Junio 2026',
+    montoBase: 150000,
+    comisiones: 45000,
+    premios: 15000,
+    descuentos: 5000,
+    montoTotal: 205000,
+    estado: 'PAGADA',
+    medioPago: 'TRANSFERENCIA',
+    observaciones: 'Liquidación correspondiente al periodo de junio. Comisión del 5% sobre cobranza callejera.'
+  },
+  {
+    id: 'LIQ-002',
+    fecha: '2026-07-05',
+    colaboradorNombre: 'Héctor Delgado',
+    rolColaborador: 'Operador WhatsApp',
+    periodo: 'Junio 2026',
+    montoBase: 120000,
+    comisiones: 25000,
+    premios: 10000,
+    descuentos: 0,
+    montoTotal: 155000,
+    estado: 'PAGADA',
+    medioPago: 'EFECTIVO',
+    observaciones: 'Pago completo de haberes y comisiones por captación de clientes nuevos.'
+  },
+  {
+    id: 'LIQ-003',
+    fecha: '2026-07-20',
+    colaboradorNombre: 'Pedro Alarcón',
+    rolColaborador: 'Asesor Telefónico',
+    periodo: 'Julio 2026',
+    montoBase: 130000,
+    comisiones: 12000,
+    premios: 0,
+    descuentos: 0,
+    montoTotal: 142000,
+    estado: 'PENDIENTE',
+    observaciones: 'Adelanto del periodo actual sujeto a comisiones finales.'
+  }
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
@@ -407,6 +455,7 @@ export default function App() {
   const [operaciones, setOperaciones] = useState<Operacion[]>([]);
   const [cuotas, setCuotas] = useState<Cuota[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
+  const [liquidaciones, setLiquidaciones] = useState<LiquidacionPersonal[]>([]);
   const [configuracion, setConfiguracion] = useState<Configuracion>({
     interesDiario: 50,
     interesSemanal: 50,
@@ -496,6 +545,7 @@ export default function App() {
     const loadedCuotas = getOrSeed(STORAGE_KEYS.CUOTAS, generateSeedCuotas());
     const loadedPagos = getOrSeed(STORAGE_KEYS.PAGOS, SEED_PAGOS);
     const loadedTransacciones = getOrSeed(STORAGE_KEYS.TRANSACCIONES, SEED_TRANSACCIONES);
+    const loadedLiquidaciones = getOrSeed(STORAGE_KEYS.LIQUIDACIONES, SEED_LIQUIDACIONES);
     const loadedUsuarios = getOrSeed(STORAGE_KEYS.USUARIOS, DEFAULT_USUARIOS);
     const loadedRolesRaw = getOrSeed(STORAGE_KEYS.ROLES, DEFAULT_ROLES);
     
@@ -652,6 +702,7 @@ export default function App() {
     setCuotas(reconciledCuotas);
     setPagos(loadedPagos);
     setTransacciones(loadedTransacciones);
+    setLiquidaciones(loadedLiquidaciones);
     setUsuarios(loadedUsuarios);
     setRoles(loadedRoles);
 
@@ -839,6 +890,44 @@ export default function App() {
 
     if (isFirebaseEnabled() && isAutoSyncEnabled()) {
       uploadDocToFirestore('transacciones', nuevaTrx.id, nuevaTrx);
+    }
+  };
+
+  const handleAddLiquidacion = (liq: LiquidacionPersonal) => {
+    const list = [...liquidaciones, liq];
+    setLiquidaciones(list);
+    saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES, list);
+
+    if (liq.estado === 'PAGADA') {
+      const trxPay: TransaccionTesoreria = {
+        id: `TRX-${String(Date.now())}`,
+        fecha: liq.fecha,
+        tipo: 'EGRESO',
+        concepto: `Liquidación de Haberes - ${liq.colaboradorNombre} (${liq.periodo})`,
+        monto: liq.montoTotal,
+        referenciaId: liq.id,
+      };
+      handleAddTransaccion(trxPay);
+    }
+  };
+
+  const handleUpdateLiquidacion = (updated: LiquidacionPersonal) => {
+    const prev = liquidaciones.find(l => l.id === updated.id);
+    const list = liquidaciones.map(l => l.id === updated.id ? updated : l);
+    setLiquidaciones(list);
+    saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES, list);
+
+    const becamePaid = prev && prev.estado === 'PENDIENTE' && updated.estado === 'PAGADA';
+    if (becamePaid) {
+      const trxPay: TransaccionTesoreria = {
+        id: `TRX-${String(Date.now())}`,
+        fecha: updated.fecha,
+        tipo: 'EGRESO',
+        concepto: `Liquidación de Haberes (Cobrado) - ${updated.colaboradorNombre} (${updated.periodo})`,
+        monto: updated.montoTotal,
+        referenciaId: updated.id,
+      };
+      handleAddTransaccion(trxPay);
     }
   };
 
@@ -1310,6 +1399,13 @@ export default function App() {
             <TesoreriaView
               transacciones={transacciones}
               onAddTransaccion={handleAddTransaccion}
+              liquidaciones={liquidaciones}
+              onAddLiquidacion={handleAddLiquidacion}
+              onUpdateLiquidacion={handleUpdateLiquidacion}
+              clientes={clientes}
+              operaciones={operaciones}
+              cuotas={cuotas}
+              pagos={pagos}
             />
           )}
 

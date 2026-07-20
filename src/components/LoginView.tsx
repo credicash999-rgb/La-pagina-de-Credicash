@@ -33,7 +33,7 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
 
     let user = usuarios.find(u => u.email.toLowerCase() === cleanEmail);
     if (!user) {
-      // Bulletproof self-healing master account fallback
+      // Bulletproof self-healing master account fallback (but check password safely)
       if (cleanEmail === 'credicash999@gmail.com' && cleanPassword === 'admin') {
         user = {
           id: 'USR-1',
@@ -43,72 +43,26 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
           rolId: 'ADMIN'
         };
       } else {
-        setError('El correo electrónico no se encuentra registrado.');
+        setError('El correo electrónico o la contraseña ingresados no son válidos.');
+        return;
+      }
+    } else {
+      // If the email is credicash999@gmail.com, we also accept 'admin' as a self-healing fallback
+      const userPassword = user.password || '123';
+      const isMasterFallback = cleanEmail === 'credicash999@gmail.com' && cleanPassword === 'admin';
+      
+      if (userPassword !== cleanPassword && !isMasterFallback) {
+        setError('Contraseña incorrecta. Intente nuevamente.');
         return;
       }
     }
 
-    const userPassword = user.password || '123';
-    if (userPassword !== cleanPassword) {
-      setError('Contraseña incorrecta. Intente nuevamente.');
-      return;
-    }
-
-    onLogin(user);
-  };
-
-  const handleQuickLogin = (user: UsuarioRol) => {
-    setEmail(user.email);
-    setPassword(user.password || '123');
-    setError(null);
     onLogin(user);
   };
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col lg:flex-row w-full overflow-x-hidden font-sans antialiased text-slate-800 relative">
       
-      {/* Secret Developer Panel Button - Kept hidden to avoid cluttering but available for testing */}
-      <button 
-        type="button"
-        onClick={() => setShowTestingUsers(!showTestingUsers)}
-        title="Panel de Desarrollo (Credenciales)"
-        className="absolute top-4 right-4 z-50 p-2 rounded-full bg-slate-200/50 hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-all cursor-pointer opacity-30 hover:opacity-100"
-      >
-        <Key className="w-4 h-4" />
-      </button>
-
-      {/* Secret Testing Panel */}
-      {showTestingUsers && (
-        <div className="fixed top-16 right-4 z-50 p-4 bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm animate-fadeIn text-left">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">Accesos Rápidos de Prueba</span>
-            <button onClick={() => setShowTestingUsers(false)} className="text-slate-400 hover:text-slate-600 text-xs font-bold">Cerrar</button>
-          </div>
-          <p className="text-[10px] text-slate-500 mb-2 leading-relaxed">Haga clic en cualquiera de estos usuarios preconfigurados para acceder sin escribir:</p>
-          <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-            {usuarios.map((u, i) => {
-              const roleObj = roles.find(r => r.id === u.rolId);
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleQuickLogin(u)}
-                  className="w-full p-2 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 border border-slate-200 rounded-lg text-left transition-all text-[11px] font-semibold text-slate-700 flex justify-between items-center"
-                >
-                  <div className="flex flex-col">
-                    <span>{u.nombre}</span>
-                    <span className="text-[9px] text-slate-400 font-normal">{u.email}</span>
-                  </div>
-                  <span className="text-[9px] bg-white text-slate-500 font-bold px-1.5 py-0.5 rounded border border-slate-200 uppercase">
-                    {roleObj?.nombre || u.rolId}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* LEFT COLUMN: BRAND & MARKETING (Shows at bottom on mobile, left on desktop) */}
       <div className="w-full lg:w-[55%] flex flex-col justify-between bg-[#F4FAF6] relative overflow-hidden shrink-0 min-h-screen order-2 lg:order-1">
         
@@ -224,35 +178,9 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
 
           {/* Error Message banner */}
           {error && (
-            <div className="space-y-2.5">
-              <div className="p-3.5 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl flex items-start gap-3">
-                <ShieldAlert className="w-4.5 h-4.5 text-rose-600 shrink-0 mt-0.5" />
-                <span className="text-xs font-semibold leading-relaxed">{error}</span>
-              </div>
-              
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-950 rounded-2xl text-[11px] leading-relaxed space-y-1.5 shadow-xs">
-                <p className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  💡 ¿Es la primera vez que ingresa en este link?
-                </p>
-                <p className="text-slate-600">
-                  Al subir su web a un nuevo dominio (como Vercel/GitHub), el almacenamiento local de su navegador se reinicia. Debe ingresar con las <b>credenciales maestras por defecto</b>:
-                </p>
-                <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 space-y-1 font-mono text-[10px] text-slate-800">
-                  <div><b>Usuario:</b> <span className="select-all font-bold text-[#0B4B27]">credicash999@gmail.com</span></div>
-                  <div><b>Contraseña:</b> <span className="select-all font-bold text-[#0B4B27]">admin</span></div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('credicash999@gmail.com');
-                    setPassword('admin');
-                    setError(null);
-                  }}
-                  className="w-full mt-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
-                >
-                  ✨ Auto-Completar Admin
-                </button>
-              </div>
+            <div className="p-3.5 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl flex items-start gap-3">
+              <ShieldAlert className="w-4.5 h-4.5 text-rose-600 shrink-0 mt-0.5" />
+              <span className="text-xs font-semibold leading-relaxed">{error}</span>
             </div>
           )}
 
@@ -334,31 +262,6 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
             </button>
 
           </form>
-
-          {/* Direct Support/Emergency Bypass for Easy Access */}
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                const adminUser = {
-                  id: 'USR-1',
-                  nombre: 'Administrador Principal',
-                  email: 'credicash999@gmail.com',
-                  password: 'admin',
-                  rolId: 'ADMIN'
-                };
-                setEmail('credicash999@gmail.com');
-                setPassword('admin');
-                onLogin(adminUser);
-              }}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow-none"
-            >
-              🔓 Acceso Directo Administrador (Soporte)
-            </button>
-            <p className="text-[9px] text-slate-400 text-center mt-1.5 font-bold">
-              Evite errores de escritura: toque el botón de arriba para ingresar instantáneamente.
-            </p>
-          </div>
 
           {/* Social Divider / Continued alternative */}
           <div className="relative flex items-center justify-center my-4">
