@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Cliente, Operacion, Cuota, Pago, Configuracion } from '../types';
 import { 
   TrendingUp, Users, DollarSign, Percent, AlertTriangle, 
@@ -28,6 +28,43 @@ export default function DashboardView({
   onNavigateTo,
 }: DashboardViewProps) {
   
+  const [subTab, setSubTab] = useState<'kpis' | 'estimates'>('kpis');
+
+  // Group operations by month of fechaOtorgamiento for Estimaciones Financieras
+  const estimacionesMensuales = React.useMemo(() => {
+    const groups: Record<string, { monthLabel: string, capitalEntregado: number, gananciaEstimada: number, totalFinanciado: number, count: number }> = {};
+    
+    operaciones.forEach(op => {
+      const dateParts = op.fechaOtorgamiento.split('-');
+      if (dateParts.length < 2) return;
+      const key = `${dateParts[0]}-${dateParts[1]}`; // e.g. "2026-06"
+      
+      const dateObj = new Date(op.fechaOtorgamiento + 'T12:00:00');
+      const monthLabel = dateObj.toLocaleDateString('es-AR', { year: 'numeric', month: 'long' });
+      
+      const interes = op.totalFinanciado - op.capitalEntregado;
+      
+      if (!groups[key]) {
+        groups[key] = {
+          monthLabel: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+          capitalEntregado: 0,
+          gananciaEstimada: 0,
+          totalFinanciado: 0,
+          count: 0
+        };
+      }
+      
+      groups[key].capitalEntregado += op.capitalEntregado;
+      groups[key].gananciaEstimada += interes;
+      groups[key].totalFinanciado += op.totalFinanciado;
+      groups[key].count += 1;
+    });
+    
+    return Object.entries(groups)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, data]) => ({ key, ...data }));
+  }, [operaciones]);
+
   // 1. KPI Calculations
   const totalClientes = clientes.length;
   const clientesActivos = clientes.filter(c => c.estado === 'ACTIVO').length;
@@ -150,7 +187,33 @@ export default function DashboardView({
         </div>
       </div>
 
-      {/* Grid Cards KPI */}
+      {/* Sub Tabs */}
+      <div className="flex gap-2 border-b border-slate-200 pb-px">
+        <button
+          onClick={() => setSubTab('kpis')}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+            subTab === 'kpis'
+              ? 'border-blue-600 text-blue-600 font-extrabold'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Consola General
+        </button>
+        <button
+          onClick={() => setSubTab('estimates')}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+            subTab === 'estimates'
+              ? 'border-blue-600 text-blue-600 font-extrabold'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Estimaciones Financieras
+        </button>
+      </div>
+
+      {subTab === 'kpis' ? (
+        <>
+          {/* Grid Cards KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Colocado total */}
@@ -602,6 +665,108 @@ export default function DashboardView({
           </div>
         </div>
       </div>
+    </>
+  ) : (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-600" />
+              Planificación y Estimaciones Financieras
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Análisis predictivo de colocación de capital y proyección de ganancias estimadas (intereses generados) por mes.
+            </p>
+          </div>
+
+          {/* General Global Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Capital Entregado (Histórico)</span>
+                <h3 className="text-2xl font-black text-slate-900">
+                  ${capitalEntregado.toLocaleString('es-AR')}
+                </h3>
+                <p className="text-[10px] text-slate-500 font-medium">Suma de todo el capital líquido desembolsado</p>
+              </div>
+              <div className="p-3.5 bg-blue-50 text-blue-600 rounded-xl">
+                <DollarSign className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ganancia Estimada Total (Intereses)</span>
+                <h3 className="text-2xl font-black text-emerald-600">
+                  ${interesTotal.toLocaleString('es-AR')}
+                </h3>
+                <p className="text-[10px] text-emerald-600 font-bold">Ganancia pura proyectada sobre colocaciones</p>
+              </div>
+              <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+            </div>
+          </div>
+
+          {/* Monthly Breakdowns */}
+          <div className="space-y-4 pt-2">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              Desglose Mensual de Rendimiento
+            </h4>
+
+            {estimacionesMensuales.length === 0 ? (
+              <p className="text-xs text-slate-400 italic text-center py-8">No hay operaciones registradas para estimar ganancias.</p>
+            ) : (
+              <div className="space-y-4">
+                {estimacionesMensuales.map((item) => (
+                  <div key={item.key} className="p-5 bg-slate-50/40 border border-slate-200 rounded-2xl shadow-xs space-y-4">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                      <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                        {item.monthLabel}
+                      </span>
+                      <span className="text-[10px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-bold">
+                        {item.count} Crédito{item.count !== 1 ? 's' : ''} Otorgado{item.count !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-600">
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-150">
+                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider mb-0.5">Capital Entregado</span>
+                        <strong className="text-slate-800 text-sm font-black">${item.capitalEntregado.toLocaleString('es-AR')}</strong>
+                      </div>
+
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-150">
+                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider mb-0.5">Ganancia Estimada (Intereses)</span>
+                        <strong className="text-emerald-600 text-sm font-black">${item.gananciaEstimada.toLocaleString('es-AR')}</strong>
+                      </div>
+
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-150">
+                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider mb-0.5">Total Financiado (Retorno)</span>
+                        <strong className="text-blue-600 text-sm font-black">${item.totalFinanciado.toLocaleString('es-AR')}</strong>
+                      </div>
+                    </div>
+
+                    {/* Bar indicator */}
+                    {(() => {
+                      const pctGain = item.totalFinanciado > 0 ? (item.gananciaEstimada / item.totalFinanciado) * 100 : 0;
+                      return (
+                        <div className="space-y-1.5 pt-1 text-xs">
+                          <div className="flex justify-between font-bold text-slate-500">
+                            <span>Margen de Ganancia de Colocación</span>
+                            <span className="text-emerald-600">{pctGain.toFixed(1)}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${pctGain}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

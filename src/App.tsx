@@ -984,6 +984,16 @@ export default function App() {
     saveToLocalStorage(STORAGE_KEYS.USUARIOS, list);
   };
 
+  const handleUpdateUsuario = (updated: UsuarioRol) => {
+    const list = usuarios.map(u => u.id === updated.id ? updated : u);
+    setUsuarios(list);
+    saveToLocalStorage(STORAGE_KEYS.USUARIOS, list);
+    
+    if (activeUser.id === updated.id) {
+      setActiveUser(updated);
+    }
+  };
+
   const handleDeleteUsuario = (id: string) => {
     const list = usuarios.filter(u => u.id !== id);
     setUsuarios(list);
@@ -1702,6 +1712,7 @@ export default function App() {
               roles={roles}
               activeUser={activeUser}
               onAddUsuario={handleAddUsuario}
+              onUpdateUsuario={handleUpdateUsuario}
               onDeleteUsuario={handleDeleteUsuario}
               onUpdateRolePermisos={handleUpdateRolePermisos}
               onAddRole={handleAddRole}

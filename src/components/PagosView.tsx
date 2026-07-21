@@ -184,6 +184,19 @@ export default function PagosView({
     return cuotas.some(c => c.idOperacion === op.id && c.fechaVencimiento === today && c.estado !== 'PAGADA');
   };
 
+  // Helper: Check if next due date is within 3 days (or overdue)
+  const isVencimientoProximo = (op: Operacion): boolean => {
+    if (!op.proximoVencimiento) return false;
+    
+    const today = new Date(getTodayStr() + 'T00:00:00');
+    const dueDate = new Date(op.proximoVencimiento + 'T00:00:00');
+    
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays <= 3;
+  };
+
   // Filter and sort the operations specifically according to the operator specification
   const filteredAndPrioritizedOps = React.useMemo(() => {
     // 1. Clean list: active operations
@@ -191,6 +204,17 @@ export default function PagosView({
 
     // 2. Filter by collection stage/mode
     list = list.filter(op => getInstanciaCobro(op) === mode);
+
+    // 2.5 Filter out active operations whose next due date is more than 3 days away AND don't have overdue cuotas
+    // This strictly avoids showing upcoming clients (e.g. monthly clients whose first installment is next month) until 3 days before.
+    // However, if the operator is using the search box, we allow searching across all.
+    if (searchTerm.trim() === '') {
+      list = list.filter(op => {
+        const hasOverdue = hasCuotasVencidas(op.id);
+        const isWithin3Days = isVencimientoProximo(op);
+        return hasOverdue || isWithin3Days;
+      });
+    }
 
     // 3. Filter by assigned collector if the user is a Collector or Operator and filter is enabled
     const userName = activeUser?.nombre || '';

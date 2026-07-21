@@ -1148,20 +1148,24 @@ export default function ClientesView({
                   </div>
                 )}
 
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Dirección Formateada</span>
-                  <strong className="text-slate-800 block mt-0.5 leading-relaxed">{selectedClient.direccion || 'No especificada'}</strong>
-                </div>
+                {verDireccionCliente && (
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Dirección Formateada</span>
+                    <strong className="text-slate-800 block mt-0.5 leading-relaxed">{selectedClient.direccion || 'No especificada'}</strong>
+                  </div>
+                )}
 
-                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+                <div className={`grid ${verIngresosCliente ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-1 border-t border-slate-100`}>
                   <div>
                     <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Actividad</span>
                     <strong className="text-slate-800 truncate block">{selectedClient.trabajo || 'No especificado'}</strong>
                   </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Ingresos Netos</span>
-                    <strong className="text-slate-800 block text-[13px]">${selectedClient.ingresos?.toLocaleString('es-AR') || '0'}</strong>
-                  </div>
+                  {verIngresosCliente && (
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Ingresos Netos</span>
+                      <strong className="text-slate-800 block text-[13px]">${selectedClient.ingresos?.toLocaleString('es-AR') || '0'}</strong>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2 border-t border-slate-100">
@@ -1293,41 +1297,50 @@ export default function ClientesView({
 
                     {/* Status & Mora Details */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-600">
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between border-b border-slate-100 pb-1">
-                          <span className="text-slate-400">Capital Recuperado:</span>
-                          <strong className="text-emerald-700 font-bold">${presentLoan.capitalRecuperado.toLocaleString('es-AR')}</strong>
+                      {!verIngresosCliente ? (
+                        <div className="col-span-1 sm:col-span-2 bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100 text-emerald-900 leading-relaxed font-bold">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 block mb-1">Información de Cuotas (Consulta)</span>
+                          {presentLoan.cuotasPagadas} cuotas abonadas y {presentLoan.cuotasPendientes} cuotas pendientes de ${presentLoan.valorCuota.toLocaleString('es-AR')} de valor.
                         </div>
-                        <div className="flex justify-between border-b border-slate-100 pb-1">
-                          <span className="text-slate-400">Total Pendiente:</span>
-                          <strong className="text-rose-600 font-bold">${presentLoan.totalPendiente.toLocaleString('es-AR')}</strong>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-100 pb-1">
-                          <span className="text-slate-400">Próximo Vencimiento:</span>
-                          <strong className="text-slate-800">{presentLoan.proximoVencimiento || 'N/A'}</strong>
-                        </div>
-                      </div>
+                      ) : (
+                        <>
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between border-b border-slate-100 pb-1">
+                              <span className="text-slate-400">Capital Recuperado:</span>
+                              <strong className="text-emerald-700 font-bold">${presentLoan.capitalRecuperado.toLocaleString('es-AR')}</strong>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-100 pb-1">
+                              <span className="text-slate-400">Total Pendiente:</span>
+                              <strong className="text-rose-600 font-bold">${presentLoan.totalPendiente.toLocaleString('es-AR')}</strong>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-100 pb-1">
+                              <span className="text-slate-400">Próximo Vencimiento:</span>
+                              <strong className="text-slate-800">{presentLoan.proximoVencimiento || 'N/A'}</strong>
+                            </div>
+                          </div>
 
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between border-b border-slate-100 pb-1">
-                          <span className="text-slate-400">Días de Mora:</span>
-                          <strong className={`font-bold ${presentLoan.diasMora > 0 ? 'text-rose-600' : 'text-slate-700'}`}>
-                            {presentLoan.diasMora} días
-                          </strong>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-100 pb-1">
-                          <span className="text-slate-400">Riesgo / Nivel Mora:</span>
-                          <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                            presentLoan.diasMora > 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-slate-50 text-slate-500 border border-slate-200/50'
-                          }`}>
-                            {presentLoan.nivelMora || 'Sin Mora'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-100 pb-1">
-                          <span className="text-slate-400">Cobrador Asignado:</span>
-                          <strong className="text-slate-800">{presentLoan.cobrador || 'No asignado'}</strong>
-                        </div>
-                      </div>
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between border-b border-slate-100 pb-1">
+                              <span className="text-slate-400">Días de Mora:</span>
+                              <strong className={`font-bold ${presentLoan.diasMora > 0 ? 'text-rose-600' : 'text-slate-700'}`}>
+                                {presentLoan.diasMora} días
+                              </strong>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-100 pb-1">
+                              <span className="text-slate-400">Riesgo / Nivel Mora:</span>
+                              <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                                presentLoan.diasMora > 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-slate-50 text-slate-500 border border-slate-200/50'
+                              }`}>
+                                {presentLoan.nivelMora || 'Sin Mora'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-100 pb-1">
+                              <span className="text-slate-400">Cobrador Asignado:</span>
+                              <strong className="text-slate-800">{presentLoan.cobrador || 'No asignado'}</strong>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -1345,9 +1358,10 @@ export default function ClientesView({
                       <tr className="bg-slate-50 border-b border-slate-100 font-bold text-slate-500 uppercase tracking-wider">
                         <th className="py-2.5 px-4">Ref Crédito</th>
                         <th className="py-2.5 px-4">Otorgamiento</th>
-                        <th className="py-2.5 px-4">Capital</th>
-                        <th className="py-2.5 px-4">Total Finan.</th>
+                        <th className="py-2.5 px-4">Valor del Crédito</th>
+                        {verIngresosCliente && <th className="py-2.5 px-4">Total Finan.</th>}
                         <th className="py-2.5 px-4">Frecuencia</th>
+                        <th className="py-2.5 px-4 text-center">Estado de Mora</th>
                         <th className="py-2.5 px-4 text-center">Cuotas</th>
                         <th className="py-2.5 px-4 text-center">Estado</th>
                       </tr>
@@ -1360,7 +1374,7 @@ export default function ClientesView({
                         if (sortedLoans.length === 0) {
                           return (
                             <tr>
-                              <td colSpan={7} className="py-6 text-center text-slate-400 font-medium">
+                              <td colSpan={verIngresosCliente ? 8 : 7} className="py-6 text-center text-slate-400 font-medium">
                                 No registra operaciones de crédito históricas.
                               </td>
                             </tr>
@@ -1372,8 +1386,21 @@ export default function ClientesView({
                             <td className="py-3 px-4 font-bold font-mono text-slate-900">{loan.id}</td>
                             <td className="py-3 px-4 text-slate-500">{loan.fechaOtorgamiento}</td>
                             <td className="py-3 px-4 font-semibold text-slate-700">${loan.capitalEntregado.toLocaleString('es-AR')}</td>
-                            <td className="py-3 px-4 font-semibold text-slate-700">${loan.totalFinanciado.toLocaleString('es-AR')}</td>
+                            {verIngresosCliente && <td className="py-3 px-4 font-semibold text-slate-700">${loan.totalFinanciado.toLocaleString('es-AR')}</td>}
                             <td className="py-3 px-4 text-slate-500 uppercase tracking-wide text-[10px]">{loan.frecuencia}</td>
+                            <td className="py-3 px-4 text-center font-bold">
+                              {loan.estado === 'FINALIZADA' ? (
+                                <span className="text-[10px] text-slate-400 uppercase">Liquidado</span>
+                              ) : loan.diasMora > 0 || loan.estado === 'VENCIDA' ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] bg-rose-50 text-rose-700 border border-rose-150">
+                                  ● En Mora
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-150">
+                                  ● Al Día
+                                </span>
+                              )}
+                            </td>
                             <td className="py-3 px-4 text-center font-bold text-slate-800">
                               {loan.cuotasPagadas} / {loan.cantidadCuotas}
                             </td>

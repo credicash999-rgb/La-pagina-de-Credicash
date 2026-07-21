@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PermisosRol, UsuarioRol } from '../types';
 import { 
   Shield, UserPlus, Users, ToggleLeft, ToggleRight, Check, Trash2, 
-  Lock, KeyRound, Mail, Info, ShieldAlert, CheckCircle2 
+  Lock, KeyRound, Mail, Info, ShieldAlert, CheckCircle2, Edit2, X 
 } from 'lucide-react';
 
 interface UsuariosViewProps {
@@ -10,6 +10,7 @@ interface UsuariosViewProps {
   roles: PermisosRol[];
   activeUser: UsuarioRol;
   onAddUsuario: (usuario: UsuarioRol) => void;
+  onUpdateUsuario: (usuario: UsuarioRol) => void;
   onDeleteUsuario: (id: string) => void;
   onUpdateRolePermisos: (rol: PermisosRol) => void;
   onAddRole: (rol: PermisosRol) => void;
@@ -20,6 +21,7 @@ export default function UsuariosView({
   roles,
   activeUser,
   onAddUsuario,
+  onUpdateUsuario,
   onDeleteUsuario,
   onUpdateRolePermisos,
   onAddRole,
@@ -39,6 +41,48 @@ export default function UsuariosView({
   const [selectedRolId, setSelectedRolId] = useState<string>('OPERADOR');
 
   const selectedRole = roles.find(r => r.id === selectedRolId) || roles[0];
+
+  // Edit User Form States
+  const [editingUsuario, setEditingUsuario] = useState<UsuarioRol | null>(null);
+  const [editNombre, setEditNombre] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRolId, setEditRolId] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+
+  const handleStartEdit = (usuario: UsuarioRol) => {
+    setEditingUsuario(usuario);
+    setEditNombre(usuario.nombre);
+    setEditEmail(usuario.email);
+    setEditRolId(usuario.rolId);
+    setEditPassword(usuario.password || '');
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUsuario) return;
+    if (!editNombre || !editEmail) {
+      alert('Por favor complete todos los campos.');
+      return;
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(editEmail)) {
+      alert('Por favor ingrese un correo electrónico válido.');
+      return;
+    }
+
+    const updated: UsuarioRol = {
+      ...editingUsuario,
+      nombre: editNombre,
+      email: editEmail.toLowerCase().trim(),
+      rolId: editRolId,
+      password: editPassword || '123'
+    };
+
+    onUpdateUsuario(updated);
+    setEditingUsuario(null);
+    alert('Usuario actualizado correctamente.');
+  };
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,21 +312,30 @@ export default function UsuariosView({
                           {u.password || '123'}
                         </td>
                         <td className="p-3 text-right">
-                          {u.rolId === 'ADMIN' && u.email === 'credicash999@gmail.com' ? (
-                            <span className="text-[10px] text-slate-400 italic">Creador (Fijo)</span>
-                          ) : (
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
-                              onClick={() => {
-                                if (confirm(`¿Está seguro de que desea eliminar a ${u.nombre}? Perderá el acceso de forma inmediata.`)) {
-                                  onDeleteUsuario(u.id);
-                                }
-                              }}
-                              className="text-rose-600 hover:text-rose-800 p-1 bg-rose-50 hover:bg-rose-100 rounded-lg transition-all cursor-pointer inline-flex items-center"
-                              title="Revocar acceso"
+                              onClick={() => handleStartEdit(u)}
+                              className="text-blue-600 hover:text-blue-800 p-1 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all cursor-pointer inline-flex items-center"
+                              title="Editar usuario"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Edit2 className="w-3.5 h-3.5" />
                             </button>
-                          )}
+                            {u.rolId === 'ADMIN' && u.email === 'credicash999@gmail.com' ? (
+                              <span className="text-[10px] text-slate-400 italic">Creador (Fijo)</span>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  if (confirm(`¿Está seguro de que desea eliminar a ${u.nombre}? Perderá el acceso de forma inmediata.`)) {
+                                    onDeleteUsuario(u.id);
+                                  }
+                                }}
+                                className="text-rose-600 hover:text-rose-800 p-1 bg-rose-50 hover:bg-rose-100 rounded-lg transition-all cursor-pointer inline-flex items-center"
+                                title="Revocar acceso"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -645,6 +698,94 @@ export default function UsuariosView({
         </div>
 
       </div>
+
+      {/* EDIT USER MODAL */}
+      {editingUsuario && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden animate-scaleIn">
+            <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-blue-600" />
+                <h3 className="text-base font-bold text-slate-900">
+                  Editar Colaborador
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingUsuario(null)}
+                className="p-1 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4 text-xs text-slate-600">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={editNombre}
+                  onChange={(e) => setEditNombre(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-all font-semibold text-slate-800"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Correo Electrónico (Acceso)</label>
+                <input
+                  type="email"
+                  required
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-all font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label>
+                  <input
+                    type="text"
+                    required
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-all font-mono font-bold text-slate-800"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Rol Asignado</label>
+                  <select
+                    value={editRolId}
+                    onChange={(e) => setEditRolId(e.target.value)}
+                    className="w-full h-[34px] px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 font-bold text-slate-700"
+                  >
+                    {roles.map(r => (
+                      <option key={r.id} value={r.id}>{r.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingUsuario(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold uppercase tracking-wider text-[10px] transition-all shadow-sm cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
