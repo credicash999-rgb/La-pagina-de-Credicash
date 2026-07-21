@@ -300,11 +300,17 @@ export default function ClientesView({
   };
 
   const filteredClientes = clientes.filter((c) => {
+    const fullName = `${c.nombre} ${c.apellido}`.toLowerCase();
+    const reverseFullName = `${c.apellido} ${c.nombre}`.toLowerCase();
+    const searchLower = searchTerm.toLowerCase().trim();
+
     const matchesSearch =
-      c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.dni.includes(searchTerm) ||
-      c.id.toLowerCase().includes(searchTerm.toLowerCase());
+      c.nombre.toLowerCase().includes(searchLower) ||
+      c.apellido.toLowerCase().includes(searchLower) ||
+      c.dni.includes(searchLower) ||
+      c.id.toLowerCase().includes(searchLower) ||
+      fullName.includes(searchLower) ||
+      reverseFullName.includes(searchLower);
 
     const matchesEstado = filterEstado === 'TODOS' || c.estado === filterEstado;
 
@@ -498,9 +504,12 @@ export default function ClientesView({
     <div id="clientes-section" className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-600" />
-            Búsqueda de Cliente (Últimos Créditos Activos)
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
+            <span className="flex items-center gap-2 font-extrabold">
+              <Users className="w-5 h-5 text-blue-600" />
+              Búsqueda de Cliente
+            </span>
+            <span className="text-xs font-semibold text-slate-400"> (Últimos Créditos Activos)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             Consulte de forma ágil el expediente del cliente, su último crédito (activo o inactivo) y el historial completo de créditos simultáneos.

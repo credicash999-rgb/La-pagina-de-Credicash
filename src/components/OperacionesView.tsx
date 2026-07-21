@@ -965,10 +965,10 @@ export default function OperacionesView({
 
       {/* FINAL RESUMEN CONFIRMATION MODAL */}
       {showConfirmModal && selectedCliente && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 space-y-5">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col">
             
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-start shrink-0">
               <div>
                 <h4 className="text-base font-extrabold text-slate-900">Resumen de Operación y Firma Digital</h4>
                 <p className="text-[10px] text-slate-500 mt-0.5">Revise las condiciones financieras del nuevo crédito antes de liquidarlo.</p>
@@ -981,7 +981,7 @@ export default function OperacionesView({
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
+            <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
               {/* Active Credit Alert inside Confirm Modal */}
               {activeCreditsOfSelected.length > 0 && (() => {
                 const hasMora = activeCreditsOfSelected.some(op => op.diasMora > 0 || op.estado === 'VENCIDA');
@@ -1152,18 +1152,18 @@ export default function OperacionesView({
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all font-semibold text-xs text-center"
+                className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all font-semibold text-xs text-center cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleFinalConfirm}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all flex items-center gap-1.5 text-xs uppercase tracking-wider"
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all flex items-center gap-1.5 text-xs uppercase tracking-wider cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 Confirmar y Otorgar Crédito

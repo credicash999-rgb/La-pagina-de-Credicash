@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cliente, Operacion, Cuota, Pago, Feriado, 
   Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal 
@@ -1077,14 +1077,15 @@ export default function App() {
       (activeTab === 'operaciones' && r.verPrestamos) ||
       (activeTab === 'pagos' && r.verPagos) ||
       (activeTab === 'pagos-whatsapp' && r.verPagos) ||
-      (activeTab === 'pagos-telefono' && r.verPagos) ||
-      (activeTab === 'pagos-calle' && r.verPagos) ||
+      (activeTab === 'pagos-telefono' && r.verPagos && activeUser.rolId !== 'OPERADOR') ||
+      (activeTab === 'pagos-calle' && r.verPagos && activeUser.rolId !== 'OPERADOR') ||
       (activeTab === 'tesoreria' && r.verTesoreria) ||
       (activeTab === 'configuracion' && r.verConfiguracion) ||
       (activeTab === 'usuarios' && activeUser.rolId === 'ADMIN');
 
     if (!isCurrentTabAllowed) {
-      if (r.verDashboard) setActiveTab('dashboard');
+      if (activeUser.rolId === 'OPERADOR') setActiveTab('pagos-whatsapp');
+      else if (r.verDashboard) setActiveTab('dashboard');
       else if (r.verClientes) setActiveTab('clientes');
       else if (r.verPagos) setActiveTab('pagos-whatsapp');
       else if (r.verPrestamos) setActiveTab('operaciones');
@@ -1383,6 +1384,48 @@ export default function App() {
                 >
                   <ShieldCheck className="w-4 h-4 shrink-0 text-blue-600" />
                   Seguridad y Accesos
+                </button>
+              </>
+             ) : activeUser?.rolId === 'OPERADOR' ? (
+              // OPERATOR WHATSAPP strictly allowed tabs: pagos-whatsapp, clientes (Búsqueda de Cliente), operaciones (Otorgar Créditos)
+              <>
+                <button
+                  onClick={() => setActiveTab('pagos-whatsapp')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                    activeTab === 'pagos-whatsapp'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <Smartphone className="w-4 h-4 shrink-0 text-emerald-600" />
+                  Gestión Cobranza WhatsApp
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('clientes')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                    activeTab === 'clientes'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                      : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <div className="flex flex-col min-w-0 leading-tight">
+                    <span>Búsqueda de Cliente</span>
+                    <span className="text-[10px] font-normal text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('operaciones')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                    activeTab === 'operaciones'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                      : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <Briefcase className="w-4 h-4 shrink-0" />
+                  Otorgar Créditos
                 </button>
               </>
             ) : (

@@ -43,7 +43,7 @@ export default function PagosView({
   const [searchTerm, setSearchTerm] = useState('');
   
   // Toggle for only showing operator-assigned clients
-  const [filterOnlyAssigned, setFilterOnlyAssigned] = useState<boolean>(true);
+  const [filterOnlyAssigned, setFilterOnlyAssigned] = useState<boolean>(activeUser?.rolId === 'COBRADOR');
 
   // Active client selected for Ficha Resumen (Modal)
   const [selectedOp, setSelectedOp] = useState<Operacion | null>(null);
@@ -813,7 +813,7 @@ export default function PagosView({
             {mode === 'WHATSAPP' && <Smartphone className="w-5.5 h-5.5 text-emerald-600" />}
             {mode === 'TELEFONO' && <PhoneCall className="w-5.5 h-5.5 text-amber-600" />}
             {mode === 'CALLE' && <MapPin className="w-5.5 h-5.5 text-rose-600" />}
-            {mode === 'WHATSAPP' && 'Consola del Operador de Cobro - Operador WhatsApp'}
+            {mode === 'WHATSAPP' && 'Consola de Operador de Cobro WhatsApp'}
             {mode === 'TELEFONO' && 'Consola del Operador - Cobranza Telefónica'}
             {mode === 'CALLE' && 'Consola de Campo - Cobrador en Calle'}
           </h2>
@@ -858,7 +858,7 @@ export default function PagosView({
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
             <div>
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">
-                {activeSubTab === 'gestion' ? 'Prioridad de Llamadas y Visitas' : 'Búsqueda Universal'}
+                {activeSubTab === 'gestion' ? (mode === 'WHATSAPP' ? 'Prioridad de Contacto y Cobranza' : 'Prioridad de Llamadas y Visitas') : 'Búsqueda Universal'}
               </span>
               <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
                 {activeSubTab === 'gestion' ? (
@@ -1162,7 +1162,7 @@ export default function PagosView({
                     <div className="space-y-1.5 pl-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-mono font-bold text-slate-400">Cred: {op.id}</span>
-                        <span className={`text-[9px] font-bold border px-2 py-0.5 rounded-full ${priorityColor}`}>
+                        <span className={isVencido ? priorityColor : `text-[9px] font-bold border px-2 py-0.5 rounded-full ${priorityColor}`}>
                           {priorityLabel}
                         </span>
                         
