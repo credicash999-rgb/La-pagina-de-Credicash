@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UsuarioRol, PermisosRol } from '../types';
+import CrediCashLogo from './CrediCashLogo';
 import { 
   Lock, Mail, Eye, EyeOff, ShieldCheck, 
   TrendingUp, Globe2, Handshake, ShieldAlert, Key, ChevronRight, Check
@@ -71,21 +72,8 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
         <div className="absolute bottom-24 -left-12 w-80 h-80 bg-emerald-200/20 rounded-full pointer-events-none blur-3xl"></div>
 
         {/* Brand Header */}
-        <div className="p-8 md:p-12 lg:p-16 flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-md border border-emerald-400/20">
-            {/* Beautiful custom vector graphic of bar chart inside circular badge */}
-            <svg className="w-5.5 h-5.5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v5.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 18.375v-5.25zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125v-9.75zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v14.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125z" />
-            </svg>
-          </div>
-          <div className="flex flex-col text-left">
-            <h1 className="text-xl font-black text-[#0B4B27] tracking-tight leading-none flex items-center gap-1">
-              Credi<span className="text-[#1E803B]">Cash</span>
-            </h1>
-            <span className="text-[8px] font-extrabold uppercase tracking-[0.25em] text-[#1E803B]/60 mt-1 leading-none">
-              SOLUCIONES FINANCIERAS
-            </span>
-          </div>
+        <div className="p-8 md:p-12 lg:p-16 flex items-center relative z-10">
+          <CrediCashLogo size="lg" showSubtitle={true} />
         </div>
 
         {/* Main Content Info */}

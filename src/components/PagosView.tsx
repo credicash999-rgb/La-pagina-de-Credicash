@@ -778,8 +778,8 @@ export default function PagosView({
             <td class="info-val">${op.frecuencia}</td>
           </tr>
           <tr>
-            <td class="info-label font-bold">Monto Total Liquidado</td>
-            <td class="info-val font-bold">$${op.totalFinanciado.toLocaleString('es-ES')}</td>
+            <td class="info-label font-bold">Crédito Otorgado</td>
+            <td class="info-val font-bold">$${(op.capitalEntregado || op.totalFinanciado).toLocaleString('es-ES')}</td>
             <td class="info-label">Días en Mora</td>
             <td class="info-val ${op.diasMora > 0 ? 'color: #b91c1c; font-weight: bold;' : ''}">${op.diasMora} días</td>
           </tr>

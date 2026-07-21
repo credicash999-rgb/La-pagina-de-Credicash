@@ -18,6 +18,7 @@ interface ClientesViewProps {
   onAddCliente: (cliente: Cliente) => void;
   onUpdateCliente: (cliente: Cliente) => void;
   canManage?: boolean;
+  isAdmin?: boolean;
   verTelefonoCliente?: boolean;
   verDniCliente?: boolean;
   verDireccionCliente?: boolean;
@@ -30,6 +31,7 @@ export default function ClientesView({
   onAddCliente, 
   onUpdateCliente,
   canManage = true,
+  isAdmin = false,
   verTelefonoCliente = true,
   verDniCliente = true,
   verDireccionCliente = true,
@@ -318,6 +320,7 @@ export default function ClientesView({
   });
 
   const handleExportPDF = (client: Cliente) => {
+    if (!isAdmin) return;
     const clientLoans = operaciones.filter(o => o.idCliente === client.id);
     const sortedLoans = [...clientLoans].sort((a, b) => b.fechaOtorgamiento.localeCompare(a.fechaOtorgamiento));
     const activeLoan = sortedLoans.find(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
@@ -1082,13 +1085,15 @@ export default function ClientesView({
                   Editar expediente
                 </button>
               )}
-              <button
-                onClick={() => handleExportPDF(selectedClient)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer shadow-md flex-1 sm:flex-none justify-center"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Exportar PDF de Cliente
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => handleExportPDF(selectedClient)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer shadow-md flex-1 sm:flex-none justify-center"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Exportar PDF de Cliente
+                </button>
+              )}
             </div>
           </div>
 

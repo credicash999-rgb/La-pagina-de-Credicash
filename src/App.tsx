@@ -31,6 +31,7 @@ import TesoreriaView from './components/TesoreriaView';
 import ConfiguracionView from './components/ConfiguracionView';
 import UsuariosView from './components/UsuariosView';
 import LoginView from './components/LoginView';
+import CrediCashLogo from './components/CrediCashLogo';
 
 // Icons
 import { 
@@ -1153,32 +1154,9 @@ export default function App() {
     <div className="min-h-screen bg-[#FAFAF9] flex flex-col font-sans antialiased text-slate-800">
       
       {/* Clean Utility / Minimal Top Bar Header */}
-      <nav className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sm:px-8 shrink-0 shadow-xs">
+      <nav className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-4 sm:px-8 shrink-0 shadow-xs">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-tr from-[#0F5A2C] to-[#1E803B] rounded-xl flex items-center justify-center shrink-0 shadow-xs border border-emerald-500/10">
-              {/* Elegant credit flow logo mark */}
-              <svg className="w-5.5 h-5.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                <path d="M22 12C22 6.48 17.52 2 12 2" stroke="#4ADE80" strokeWidth="2.5" strokeLinecap="round" />
-                <path d="M8 12H16M16 12L13 9M16 12L13 15" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeJoin="round" />
-              </svg>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-xl md:text-2xl font-black tracking-tight text-[#0B4B27]">
-                  Credi<span className="text-emerald-600">Cash</span>
-                  <span className="text-emerald-400 font-extrabold">.</span>
-                </span>
-                <span className="hidden sm:inline-block text-[8px] uppercase tracking-[0.2em] font-extrabold text-[#1E803B] bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-100">
-                  Maestro
-                </span>
-              </div>
-              <span className="text-[8px] uppercase tracking-[0.15em] font-bold text-slate-400 mt-0.5 block">
-                Sistema Central de Gestión
-              </span>
-            </div>
-          </div>
+          <CrediCashLogo size="md" showSubtitle={true} />
         </div>
 
         <div className="flex gap-4 sm:gap-6 items-center">
@@ -1615,6 +1593,7 @@ export default function App() {
               onAddCliente={handleAddCliente}
               onUpdateCliente={handleUpdateCliente}
               canManage={activeUserRole.crearClientes}
+              isAdmin={activeUser?.rolId === 'ADMIN'}
               verTelefonoCliente={activeUserRole.verTelefonoCliente}
               verDniCliente={activeUserRole.verDniCliente}
               verDireccionCliente={activeUserRole.verDireccionCliente}
