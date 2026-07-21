@@ -1135,7 +1135,7 @@ export default function App() {
       case 'clientes': return 'Buscar Cliente';
       case 'operaciones': return 'Nuevo Crédito';
       case 'pagos': return 'Consola del Operador de Pagos';
-      case 'pagos-whatsapp': return 'Mensajería';
+      case 'pagos-whatsapp': return 'Gestión Diaria';
       case 'pagos-telefono': return 'Gestión Cobranza Telefónica';
       case 'pagos-calle': return 'Gestión Cobranza de Campo';
       case 'tesoreria': return 'Caja y Tesorería';
@@ -1150,22 +1150,34 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] flex flex-col font-sans antialiased text-slate-800">
+    <div className="min-h-screen bg-[#FAFAF9] flex flex-col font-sans antialiased text-slate-800">
       
       {/* Clean Utility / Minimal Top Bar Header */}
-      <nav className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sm:px-8 shrink-0 shadow-xs">
+      <nav className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sm:px-8 shrink-0 shadow-xs">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-[#1E803B] rounded-lg flex items-center justify-center shrink-0 shadow-sm">
-            {/* Minimal SVG replication inside topbar */}
-            <svg className="w-6 h-6" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M 70,30 C 50,15 25,25 25,50 C 25,75 50,85 70,70" stroke="white" strokeWidth="12" strokeLinecap="round" fill="none" />
-              <path d="M 25,60 Q 50,55 70,35" stroke="#4ADE80" strokeWidth="8" strokeLinecap="round" fill="none" />
-              <rect x="40" y="45" width="8" height="20" rx="2" fill="white" />
-            </svg>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-extrabold text-[#0B4B27] tracking-tight leading-none">CrediCash</span>
-            <span className="text-[9px] uppercase tracking-[0.2em] font-extrabold text-[#1E803B] mt-1">Sistema Maestro</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-tr from-[#0F5A2C] to-[#1E803B] rounded-xl flex items-center justify-center shrink-0 shadow-xs border border-emerald-500/10">
+              {/* Elegant credit flow logo mark */}
+              <svg className="w-5.5 h-5.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M22 12C22 6.48 17.52 2 12 2" stroke="#4ADE80" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M8 12H16M16 12L13 9M16 12L13 15" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeJoin="round" />
+              </svg>
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-baseline gap-1.5 leading-none">
+                <span className="text-xl md:text-2xl font-black tracking-tight text-[#0B4B27]">
+                  Credi<span className="text-emerald-600">Cash</span>
+                  <span className="text-emerald-400 font-extrabold">.</span>
+                </span>
+                <span className="hidden sm:inline-block text-[8px] uppercase tracking-[0.2em] font-extrabold text-[#1E803B] bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-100">
+                  Maestro
+                </span>
+              </div>
+              <span className="text-[8px] uppercase tracking-[0.15em] font-bold text-slate-400 mt-0.5 block">
+                Sistema Central de Gestión
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1327,7 +1339,7 @@ export default function App() {
                       }`}
                     >
                       <MessageCircle className="w-4 h-4 shrink-0 text-emerald-600" />
-                      Mensajería
+                      Gestión Diaria
                     </button>
 
                     <button
@@ -1408,7 +1420,7 @@ export default function App() {
                   }`}
                 >
                   <MessageCircle className="w-4 h-4 shrink-0 text-emerald-600" />
-                  Mensajería
+                  Gestión Diaria
                 </button>
 
                 <button
@@ -1453,7 +1465,7 @@ export default function App() {
                       }`}
                     >
                       <MessageCircle className="w-4 h-4 shrink-0 text-emerald-600" />
-                      Mensajería
+                      Gestión Diaria
                     </button>
 
                     <button

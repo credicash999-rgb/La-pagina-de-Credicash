@@ -207,13 +207,28 @@ export default function PagosView({
     list = list.filter(op => getInstanciaCobro(op) === mode);
 
     // 2.5 Filter out active operations whose next due date is more than 3 days away AND don't have overdue cuotas
-    // This strictly avoids showing upcoming clients (e.g. monthly clients whose first installment is next month) until 3 days before.
+    // Also, if they have paid today's installment and have no overdue cuotas, they are "al día" for today and disappear from the agenda list.
     // However, if the operator is using the search box, we allow searching across all.
     if (searchTerm.trim() === '') {
       list = list.filter(op => {
         const hasOverdue = hasCuotasVencidas(op.id);
-        const isWithin3Days = isVencimientoProximo(op);
-        return hasOverdue || isWithin3Days;
+        const hasTodayUnpaid = hasCuotaDueToday(op);
+        
+        // If they have overdue or today's cuota unpaid, they definitely must show up.
+        if (hasOverdue || hasTodayUnpaid) {
+          return true;
+        }
+        
+        // If they have neither overdue nor today's unpaid, they are "al día" for today!
+        // But if it's a brand new client who hasn't paid anything yet, and their first installment is within 3 days,
+        // we still want to show them so the operator knows they are starting.
+        const hasAnyPaid = cuotas.some(c => c.idOperacion === op.id && c.estado === 'PAGADA');
+        if (!hasAnyPaid) {
+          return isVencimientoProximo(op);
+        }
+        
+        // Otherwise, they are up-to-date and have active payments, so they disappear from the priority list.
+        return false;
       });
     }
 
@@ -911,7 +926,7 @@ export default function PagosView({
               </span>
               <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
                 {activeSubTab === 'gestion' ? (
-                  <>🎯 Orden de Cobranza ({filteredAndPrioritizedOps.length} Clientes)</>
+                  <>🎯 Orden de Cobranza y Clientes del Día ({filteredAndPrioritizedOps.length} Clientes)</>
                 ) : (
                   <>🔎 Buscar expediente por DNI o Nombre</>
                 )}
@@ -1328,7 +1343,7 @@ export default function PagosView({
                         return (
                           <>
                             <div className="text-[10px] font-extrabold text-rose-600 uppercase tracking-wider flex items-center sm:justify-end gap-1">
-                              <span>Exigible (Hoy + Vencido)</span>
+                              <span>Monto para Estar al Día</span>
                               {exigInfo.esAlertaPagoMinimo && (
                                 <span className="bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded animate-pulse" title={`Supera el límite de pago mínimo (${configuracion?.pagoMinimoCuotas || 2} cuotas)`}>
                                   ⚠️ PAGO MÍN.
@@ -1423,7 +1438,7 @@ export default function PagosView({
                     return (
                       <div className="bg-rose-950/70 p-3 rounded-xl border border-rose-500/40 col-span-2 space-y-2">
                         <span className="text-[9px] uppercase tracking-widest text-rose-300 font-black block">
-                          📊 Desglose de Gestión Exigible
+                          📊 Desglose para Estar al Día
                         </span>
                         
                         {/* 3-line debt breakdown requested by operator */}
@@ -1435,13 +1450,13 @@ export default function PagosView({
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-emerald-200">Cuota Exigible Hoy:</span>
+                            <span className="text-emerald-200">Cuota de Hoy:</span>
                             <span className="font-mono font-bold text-white bg-emerald-900/60 px-1.5 py-0.5 rounded">
                               {countToday} (${sumToday.toLocaleString('es-ES')})
                             </span>
                           </div>
                           <div className="flex justify-between items-center border-t border-rose-500/30 pt-1.5 mt-1">
-                            <span className="text-white font-extrabold uppercase text-[10px]">Total Exigible Actual:</span>
+                            <span className="text-white font-extrabold uppercase text-[10px]">Monto para Estar al Día:</span>
                             <span className="font-mono font-black text-rose-300 text-xs">
                               ${exigTotal.toLocaleString('es-ES')} ARS
                             </span>
