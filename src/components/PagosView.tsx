@@ -10,7 +10,7 @@ import {
   DollarSign, Search, Calendar, Check, AlertCircle, FileText, 
   ChevronRight, ArrowRight, User, Phone, Send, X, ClipboardList,
   AlertTriangle, CheckCircle2, RefreshCw, Smartphone, TrendingUp, HelpCircle,
-  Handshake, PhoneCall, MapPin
+  Handshake, PhoneCall, MapPin, MessageCircle
 } from 'lucide-react';
 
 interface PagosViewProps {
@@ -49,7 +49,8 @@ export default function PagosView({
   const [selectedOp, setSelectedOp] = useState<Operacion | null>(null);
   
   // Action state (which modal option is active)
-  const [activeAction, setActiveAction] = useState<'pago' | 'pago_parcial' | 'no_pago' | 'promesa' | 'observaciones' | 'visita' | null>(null);
+  const [activeAction, setActiveAction] = useState<'pago' | 'pago_parcial' | 'pago_adelantado' | 'no_pago' | 'promesa' | 'observaciones' | 'visita' | null>(null);
+  const [prepaymentMode, setPrepaymentMode] = useState<'FINAL_ATRAS' | 'CONSECUTIVO_INMEDIATO'>('FINAL_ATRAS');
 
   // Double confirmation modal state for payment registrations
   const [showPaymentConfirmModal, setShowPaymentConfirmModal] = useState<boolean>(false);
@@ -265,7 +266,7 @@ export default function PagosView({
     e.preventDefault();
     if (!selectedOp) return;
 
-    if (activeAction === 'pago' || activeAction === 'pago_parcial') {
+    if (activeAction === 'pago' || activeAction === 'pago_parcial' || activeAction === 'pago_adelantado') {
       const valorCobrado = parseFloat(importeCobrado);
       if (isNaN(valorCobrado) || valorCobrado <= 0) {
         alert('Por favor ingrese un importe válido mayor a cero.');
@@ -385,20 +386,36 @@ export default function PagosView({
     const loggedInUserName = activeUser?.nombre || 'Operador Central';
     const valorCobrado = parseFloat(importeCobrado);
 
-    // Proportional allocation logic to update cuotas sequentially
+    // Proportional allocation logic to update cuotas based on prepayment option or standard payment
     let remPago = valorCobrado;
     const updatedCuotas: Cuota[] = [];
     
     const allOpCuotas = cuotas
-      .filter(c => c.idOperacion === selectedOp.id)
-      .sort((a, b) => a.numeroCuota - b.numeroCuota);
+      .filter(c => c.idOperacion === selectedOp.id);
+
+    // Sort cuotas to allocate payment based on prepayment configuration
+    let cuotasToProcess = [...allOpCuotas];
+    if (activeAction === 'pago_adelantado' && prepaymentMode === 'FINAL_ATRAS') {
+      // Option A: pay unpaid installments starting from the highest number (end backward)
+      cuotasToProcess.sort((a, b) => {
+        const aPaid = a.estado === 'PAGADA' ? 1 : 0;
+        const bPaid = b.estado === 'PAGADA' ? 1 : 0;
+        if (aPaid !== bPaid) return aPaid - bPaid; // Unpaid first
+        return b.numeroCuota - a.numeroCuota; // Descending order
+      });
+    } else {
+      // Option B or regular: pay unpaid installments in chronological order (ascending)
+      cuotasToProcess.sort((a, b) => a.numeroCuota - b.numeroCuota);
+    }
 
     let totalCapitalPaid = 0;
     let totalInteresPaid = 0;
+    const processedCuotasMap = new Map<string, Cuota>();
 
-    const opCuotasModified = allOpCuotas.map(cuo => {
+    cuotasToProcess.forEach(cuo => {
       if (cuo.estado === 'PAGADA' || remPago <= 0) {
-        return cuo;
+        processedCuotasMap.set(cuo.id, cuo);
+        return;
       }
 
       const cuoCopy = { ...cuo };
@@ -444,9 +461,17 @@ export default function PagosView({
         cuoCopy.cobrador = loggedInUserName;
       }
 
-      updatedCuotas.push(cuoCopy);
-      return cuoCopy;
+      processedCuotasMap.set(cuo.id, cuoCopy);
     });
+
+    // Reconstruct updatedCuotas in original ascending order
+    const opCuotasModified = allOpCuotas
+      .sort((a, b) => a.numeroCuota - b.numeroCuota)
+      .map(c => {
+        const updated = processedCuotasMap.get(c.id) || c;
+        updatedCuotas.push(updated);
+        return updated;
+      });
 
     // Update parent operation automatically
     const updatedOp = { ...selectedOp };
@@ -834,10 +859,10 @@ export default function PagosView({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            {mode === 'WHATSAPP' && <Smartphone className="w-5.5 h-5.5 text-emerald-600" />}
+            {mode === 'WHATSAPP' && <MessageCircle className="w-5.5 h-5.5 text-emerald-600" />}
             {mode === 'TELEFONO' && <PhoneCall className="w-5.5 h-5.5 text-amber-600" />}
             {mode === 'CALLE' && <MapPin className="w-5.5 h-5.5 text-rose-600" />}
-            {mode === 'WHATSAPP' && 'Consola de Operador de Cobro WhatsApp'}
+            {mode === 'WHATSAPP' && 'Agenda de Cobranzas'}
             {mode === 'TELEFONO' && 'Consola del Operador - Cobranza Telefónica'}
             {mode === 'CALLE' && 'Consola de Campo - Cobrador en Calle'}
           </h2>
@@ -931,7 +956,7 @@ export default function PagosView({
                 <span>Acciones de Gestión Autorizadas para: <strong className="text-slate-800 font-extrabold">{selectedOp.nombreCliente}</strong></span>
               </h4>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -964,6 +989,24 @@ export default function PagosView({
                 >
                   <TrendingUp className="w-4 h-4 shrink-0" />
                   Pago Parcial
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAction('pago_adelantado');
+                    setImporteCobrado((selectedOp.valorCuota * 2).toString());
+                    setObservacionesInput('');
+                    setPrepaymentMode('FINAL_ATRAS');
+                  }}
+                  className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center ${
+                    activeAction === 'pago_adelantado'
+                      ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
+                      : 'bg-teal-50 hover:bg-teal-100/80 text-teal-800 border-teal-100'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4 shrink-0" />
+                  Pago Adelantado
                 </button>
 
                 <button
@@ -1005,7 +1048,7 @@ export default function PagosView({
                     setActiveAction('visita');
                     setObservacionesInput('');
                   }}
-                  className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center col-span-2 sm:col-span-4 ${
+                  className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center col-span-2 sm:col-span-5 ${
                     activeAction === 'visita'
                       ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
                       : 'bg-amber-50 hover:bg-amber-100/80 text-amber-800 border-amber-100'
@@ -1023,6 +1066,7 @@ export default function PagosView({
                     <span className="text-[10px] font-black uppercase text-slate-700 flex items-center gap-1">
                       {activeAction === 'pago' && '📝 REGISTRAR PAGO'}
                       {activeAction === 'pago_parcial' && '📝 REGISTRAR PAGO PARCIAL'}
+                      {activeAction === 'pago_adelantado' && '📅 REGISTRAR PAGO ADELANTADO'}
                       {activeAction === 'no_pago' && '❌ CLIENTE NO ABONÓ'}
                       {activeAction === 'promesa' && '🤝 PROMESA DE PAGO'}
                       {activeAction === 'visita' && '🏠 REGISTRAR VISITA DE CALLE'}
@@ -1041,8 +1085,43 @@ export default function PagosView({
                     className="space-y-3"
                   >
                     {/* Conditional input fields based on activeAction */}
-                    {(activeAction === 'pago' || activeAction === 'pago_parcial') && (
+                    {(activeAction === 'pago' || activeAction === 'pago_parcial' || activeAction === 'pago_adelantado') && (
                       <div className="space-y-2.5">
+                        {activeAction === 'pago_adelantado' && (
+                          <div className="bg-teal-50/50 p-3 rounded-lg border border-teal-200/60 space-y-2">
+                            <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Modalidad de Pago por Adelantado:</span>
+                            <div className="flex flex-col gap-2">
+                              <label className="inline-flex items-start gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="prepaymentMode"
+                                  checked={prepaymentMode === 'FINAL_ATRAS'}
+                                  onChange={() => setPrepaymentMode('FINAL_ATRAS')}
+                                  className="mt-0.5 rounded-full text-teal-600 focus:ring-teal-500 h-3.5 w-3.5 cursor-pointer"
+                                />
+                                <span className="text-[11px] font-medium text-slate-700 leading-tight">
+                                  <strong>Opción A: Descontar desde el final hacia atrás</strong>
+                                  <span className="block text-[9px] text-slate-400 font-normal mt-0.5">Se abonan las últimas cuotas del crédito (ej. de la cuota 20 hacia atrás), reduciendo el plazo final del crédito.</span>
+                                </span>
+                              </label>
+
+                              <label className="inline-flex items-start gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="prepaymentMode"
+                                  checked={prepaymentMode === 'CONSECUTIVO_INMEDIATO'}
+                                  onChange={() => setPrepaymentMode('CONSECUTIVO_INMEDIATO')}
+                                  className="mt-0.5 rounded-full text-teal-600 focus:ring-teal-500 h-3.5 w-3.5 cursor-pointer"
+                                />
+                                <span className="text-[11px] font-medium text-slate-700 leading-tight">
+                                  <strong>Opción B: Adelantar cuotas consecutivas inmediatas</strong>
+                                  <span className="block text-[9px] text-slate-400 font-normal mt-0.5">Se abonan las próximas cuotas a vencer consecutivamente. El cliente no tendrá vencimientos pendientes ni mora hasta que pasen los días correspondientes a estas cuotas.</span>
+                                </span>
+                              </label>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-2.5">
                           <div>
                             <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Monto Cobrado ($)</label>
@@ -1051,7 +1130,7 @@ export default function PagosView({
                               required
                               value={importeCobrado}
                               onChange={(e) => setImporteCobrado(e.target.value)}
-                              placeholder="Ej: 7500"
+                              placeholder="Ej: 15000"
                               className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                             />
                           </div>

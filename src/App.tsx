@@ -36,7 +36,7 @@ import LoginView from './components/LoginView';
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
-  Smartphone, PhoneCall, MapPin
+  Smartphone, PhoneCall, MapPin, Search, MessageCircle
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -137,7 +137,7 @@ const DEFAULT_ROLES: PermisosRol[] = [
   },
   {
     id: 'OPERADOR',
-    nombre: 'Operador de Pago WhatsApp',
+    nombre: 'Gestión Diaria',
     verDashboard: false,
     verClientes: true,
     crearClientes: false,
@@ -1132,10 +1132,10 @@ export default function App() {
   const getTabLabel = () => {
     switch (activeTab) {
       case 'dashboard': return 'Consola Dashboard';
-      case 'clientes': return 'Búsqueda de Cliente (Últimos Créditos Activos)';
-      case 'operaciones': return 'Otorgar Créditos';
+      case 'clientes': return 'Buscar Cliente';
+      case 'operaciones': return 'Nuevo Crédito';
       case 'pagos': return 'Consola del Operador de Pagos';
-      case 'pagos-whatsapp': return 'Gestión Cobranza WhatsApp';
+      case 'pagos-whatsapp': return 'Mensajería';
       case 'pagos-telefono': return 'Gestión Cobranza Telefónica';
       case 'pagos-calle': return 'Gestión Cobranza de Campo';
       case 'tesoreria': return 'Caja y Tesorería';
@@ -1279,9 +1279,9 @@ export default function App() {
                         : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                     }`}
                   >
-                    <Users className="w-4 h-4 shrink-0" />
+                    <Search className="w-4 h-4 shrink-0 text-blue-600" />
                     <div className="flex flex-col min-w-0 leading-tight">
-                      <span>Búsqueda de Cliente</span>
+                      <span>Buscar Cliente</span>
                       <span className="text-[10px] font-normal text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
                     </div>
                   </button>
@@ -1310,8 +1310,8 @@ export default function App() {
                         : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                     }`}
                   >
-                    <Briefcase className="w-4 h-4 shrink-0" />
-                    Otorgar Créditos
+                    <Briefcase className="w-4 h-4 shrink-0 text-blue-600" />
+                    Nuevo Crédito
                   </button>
                 )}
 
@@ -1326,8 +1326,8 @@ export default function App() {
                           : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                       }`}
                     >
-                      <Smartphone className="w-4 h-4 shrink-0 text-emerald-600" />
-                      Gestión Cobranza WhatsApp
+                      <MessageCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                      Mensajería
                     </button>
 
                     <button
@@ -1407,8 +1407,8 @@ export default function App() {
                       : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                   }`}
                 >
-                  <Smartphone className="w-4 h-4 shrink-0 text-emerald-600" />
-                  Gestión Cobranza WhatsApp
+                  <MessageCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                  Mensajería
                 </button>
 
                 <button
@@ -1419,9 +1419,9 @@ export default function App() {
                       : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                   }`}
                 >
-                  <Users className="w-4 h-4 shrink-0" />
+                  <Search className="w-4 h-4 shrink-0 text-blue-600" />
                   <div className="flex flex-col min-w-0 leading-tight">
-                    <span>Búsqueda de Cliente</span>
+                    <span>Buscar Cliente</span>
                     <span className="text-[10px] font-normal text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
                   </div>
                 </button>
@@ -1434,8 +1434,8 @@ export default function App() {
                       : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                   }`}
                 >
-                  <Briefcase className="w-4 h-4 shrink-0" />
-                  Otorgar Créditos
+                  <Briefcase className="w-4 h-4 shrink-0 text-blue-600" />
+                  Nuevo Crédito
                 </button>
               </>
             ) : (
@@ -1452,8 +1452,8 @@ export default function App() {
                           : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                       }`}
                     >
-                      <Smartphone className="w-4 h-4 shrink-0 text-emerald-600" />
-                      Gestión Cobranza WhatsApp
+                      <MessageCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                      Mensajería
                     </button>
 
                     <button

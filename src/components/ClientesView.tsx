@@ -1262,15 +1262,17 @@ export default function ClientesView({
                     </div>
 
                     {/* Summary metrics grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                    <div className={`grid grid-cols-2 ${verIngresosCliente ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-4 text-xs text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100`}>
                       <div>
                         <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Entregado</span>
                         <strong className="text-slate-800 text-sm font-bold">${presentLoan.capitalEntregado.toLocaleString('es-AR')}</strong>
                       </div>
-                      <div>
-                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Total Financiado</span>
-                        <strong className="text-slate-800 text-sm font-bold">${presentLoan.totalFinanciado.toLocaleString('es-AR')}</strong>
-                      </div>
+                      {verIngresosCliente && (
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Total Financiado</span>
+                          <strong className="text-slate-800 text-sm font-bold">${presentLoan.totalFinanciado.toLocaleString('es-AR')}</strong>
+                        </div>
+                      )}
                       <div>
                         <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Valor Cuota</span>
                         <strong className="text-slate-800 text-sm font-bold">${presentLoan.valorCuota.toLocaleString('es-AR')}</strong>
