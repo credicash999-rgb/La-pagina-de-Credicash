@@ -198,46 +198,46 @@ export default function DashboardView({
     <div id="dashboard-section" className="space-y-6">
       
       {/* Title & Stats Overview Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-md gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-blue-600" />
+          <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-emerald-400" />
             Consola Gerencial & Dashboard
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-emerald-200/90 mt-1">
             Estado financiero general de su cartera de colocaciones, cobranzas y nivel de morosidad en tiempo real.
           </p>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Eficacia de Cobro</span>
-            <div className="text-lg font-black text-emerald-600">{tasaRecuperacion.toFixed(1)}%</div>
+            <span className="text-[10px] uppercase text-emerald-400 font-black tracking-widest">Eficacia de Cobro</span>
+            <div className="text-lg font-black text-emerald-300">{tasaRecuperacion.toFixed(1)}%</div>
           </div>
-          <div className="text-right border-l border-slate-100 pl-6">
-            <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Índice Mora</span>
-            <div className="text-lg font-black text-rose-600">{tasaMora.toFixed(1)}%</div>
+          <div className="text-right border-l border-emerald-800 pl-6">
+            <span className="text-[10px] uppercase text-rose-400 font-black tracking-widest">Índice Mora</span>
+            <div className="text-lg font-black text-rose-400">{tasaMora.toFixed(1)}%</div>
           </div>
         </div>
       </div>
 
       {/* Sub Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 pb-px">
+      <div className="flex gap-2 border-b border-emerald-800/80 pb-px">
         <button
           onClick={() => setSubTab('kpis')}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+          className={`px-4 py-2.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
             subTab === 'kpis'
-              ? 'border-blue-600 text-blue-600 font-extrabold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-emerald-400 text-emerald-300 font-black'
+              : 'border-transparent text-emerald-200/70 hover:text-white'
           }`}
         >
           Consola General
         </button>
         <button
           onClick={() => setSubTab('estimates')}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+          className={`px-4 py-2.5 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
             subTab === 'estimates'
-              ? 'border-blue-600 text-blue-600 font-extrabold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-emerald-400 text-emerald-300 font-black'
+              : 'border-transparent text-emerald-200/70 hover:text-white'
           }`}
         >
           Estimaciones Financieras
