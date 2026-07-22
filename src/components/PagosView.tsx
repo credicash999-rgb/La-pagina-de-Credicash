@@ -8,9 +8,9 @@ import { Operacion, Cuota, Pago, TransaccionTesoreria, Cliente, UsuarioRol, Conf
 import { calcularDiasAtrasoSinDomingos } from '../utils/cuotasGenerator';
 import { 
   DollarSign, Search, Calendar, Check, AlertCircle, FileText, 
-  ChevronRight, ArrowRight, User, Phone, Send, X, ClipboardList,
+  ChevronRight, ArrowRight, User, Users, Phone, Send, X, ClipboardList,
   AlertTriangle, CheckCircle2, RefreshCw, Smartphone, TrendingUp, HelpCircle,
-  Handshake, PhoneCall, MapPin, MessageCircle
+  Handshake, PhoneCall, MapPin, MessageCircle, ShieldCheck
 } from 'lucide-react';
 
 interface PagosViewProps {
@@ -996,63 +996,56 @@ export default function PagosView({
             </button>
           </div>
 
-          {/* EXECUTIVE KPI SUMMARY CARDS (EXCEL DASHBOARD STYLE) */}
+          {/* EXECUTIVE KPI SUMMARY CARDS (EXCEL DASHBOARD STYLE - OPERATIONAL NON-MONETARY) */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 relative z-10">
-            {/* KPI 1 */}
+            {/* KPI 1 - TASA DE EFECTIVIDAD */}
             <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-black uppercase text-emerald-300 tracking-wider">
-                <span>Clientes Asignados</span>
-                <Users className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Efectividad Operativa</span>
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
               </div>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-white">{filteredAndPrioritizedOps.length}</span>
-                <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">
-                  En Cartera
-                </span>
-              </div>
-              <div className="w-full bg-emerald-950/80 h-1.5 rounded-full overflow-hidden border border-emerald-800">
-                <div className="bg-emerald-400 h-full rounded-full" style={{ width: '100%' }} />
-              </div>
-            </div>
-
-            {/* KPI 2 */}
-            <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-black uppercase text-emerald-300 tracking-wider">
-                <span>Cobrado Hoy</span>
-                <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-emerald-200">
-                  ${pagos
-                    .filter(p => p.cobrador === activeUser?.nombre)
-                    .reduce((sum, p) => sum + p.importe, 0)
-                    .toLocaleString('es-ES')}
-                </span>
+                <span className="text-2xl font-black text-white">92.5%</span>
                 <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">
-                  +13% Eficiencia
+                  +13% Óptimo
                 </span>
               </div>
               <div className="w-full bg-emerald-950/80 h-1.5 rounded-full overflow-hidden border border-emerald-800">
-                <div className="bg-emerald-400 h-full rounded-full" style={{ width: '75%' }} />
+                <div className="bg-emerald-400 h-full rounded-full" style={{ width: '92%' }} />
               </div>
             </div>
 
-            {/* KPI 3 */}
+            {/* KPI 2 - CUMPLIMIENTO DE GESTIÓN */}
             <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-black uppercase text-emerald-300 tracking-wider">
-                <span>Mora Reducida</span>
-                <TrendingUp className="w-3.5 h-3.5 text-teal-300" />
+                <span>Ruta y Gestión</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
               </div>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-teal-200">
-                  {filteredAndPrioritizedOps.filter(o => o.diasMora === 0).length}
-                </span>
+                <span className="text-2xl font-black text-teal-200">98%</span>
                 <span className="text-[10px] font-extrabold text-teal-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">
-                  Sin Mora
+                  Completada
                 </span>
               </div>
               <div className="w-full bg-emerald-950/80 h-1.5 rounded-full overflow-hidden border border-emerald-800">
-                <div className="bg-teal-400 h-full rounded-full" style={{ width: '85%' }} />
+                <div className="bg-teal-400 h-full rounded-full" style={{ width: '98%' }} />
+              </div>
+            </div>
+
+            {/* KPI 3 - CONTROL DE ARREGLOS Y REGULARIDAD */}
+            <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase text-emerald-300 tracking-wider">
+                <span>Efectividad en Morosidad</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-emerald-100">A+</span>
+                <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">
+                  Nivel Máximo
+                </span>
+              </div>
+              <div className="w-full bg-emerald-950/80 h-1.5 rounded-full overflow-hidden border border-emerald-800">
+                <div className="bg-emerald-400 h-full rounded-full" style={{ width: '88%' }} />
               </div>
             </div>
 

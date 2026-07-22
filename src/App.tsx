@@ -1436,15 +1436,15 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FAFAF9] flex flex-col font-sans antialiased text-slate-800">
       
-      {/* Clean Utility / Minimal Top Bar Header */}
-      <nav className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-4 sm:px-8 shrink-0 shadow-xs">
+      {/* Executive Financial Excel Top Bar Header */}
+      <nav className="h-16 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white border-b-2 border-emerald-700/80 flex items-center justify-between px-4 sm:px-8 shrink-0 shadow-md">
         <div className="flex items-center gap-4">
           <CrediCashLogo size="md" showSubtitle={true} />
         </div>
 
         <div className="flex gap-4 sm:gap-6 items-center">
-          <div className="hidden md:flex gap-2 text-[13px] font-medium text-slate-500">
-            <span className="hover:text-[#1E803B] cursor-pointer" onClick={() => {
+          <div className="hidden md:flex gap-2 text-[13px] font-medium text-emerald-200/80">
+            <span className="hover:text-emerald-300 cursor-pointer font-semibold transition-colors" onClick={() => {
               const uRole = roles.find(r => r.id === activeUser?.rolId);
               if (uRole?.verDashboard) {
                 setActiveTab('dashboard');
@@ -1452,15 +1452,15 @@ export default function App() {
                 setActiveTab('clientes');
               }
             }}>Panel</span>
-            <span className="text-slate-300">/</span>
-            <span className="text-slate-900 font-semibold">{getTabLabel()}</span>
+            <span className="text-emerald-500/60">/</span>
+            <span className="text-white font-black tracking-wide">{getTabLabel()}</span>
           </div>
-          <div className="hidden md:block h-8 w-px bg-slate-200"></div>
+          <div className="hidden md:block h-8 w-px bg-emerald-800/80"></div>
           
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 border-r border-slate-200/80 pr-4">
+            <div className="flex items-center gap-3 border-r border-emerald-800/80 pr-4">
               <div className="text-right leading-tight hidden sm:block">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Usuario</span>
+                <span className="text-[9px] font-extrabold text-emerald-400/90 uppercase tracking-widest block mb-0.5">Usuario</span>
                 {realUserRolId === 'ADMIN' ? (
                   <select
                     value={activeUser?.id || ''}
@@ -1477,24 +1477,24 @@ export default function App() {
                         }
                       }
                     }}
-                    className="text-xs font-extrabold text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md focus:outline-none cursor-pointer transition-all shadow-xs"
+                    className="text-xs font-extrabold text-white bg-emerald-900/90 hover:bg-emerald-800 border border-emerald-600/70 px-2.5 py-1 rounded-md focus:outline-none cursor-pointer transition-all shadow-xs"
                   >
                     {usuarios.map(u => {
                       const r = roles.find(rol => rol.id === u.rolId);
                       return (
-                        <option key={u.id} value={u.id}>
+                        <option key={u.id} value={u.id} className="bg-emerald-950 text-white">
                           {u.nombre} ({r?.nombre || u.rolId})
                         </option>
                       );
                     })}
                   </select>
                 ) : (
-                  <span className="text-xs font-extrabold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 inline-block">
+                  <span className="text-xs font-extrabold text-emerald-100 bg-emerald-900/90 px-2.5 py-1 rounded-md border border-emerald-700 inline-block">
                     {activeUser?.nombre} ({activeUserRole.nombre})
                   </span>
                 )}
               </div>
-              <div className="w-9 h-9 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full flex items-center justify-center font-bold text-xs uppercase shadow-xs shrink-0" title={`${activeUser?.nombre}`}>
+              <div className="w-9 h-9 bg-emerald-800/90 border border-emerald-500/80 text-emerald-200 rounded-full flex items-center justify-center font-black text-xs uppercase shadow-inner shrink-0" title={`${activeUser?.nombre}`}>
                 {activeUser?.nombre ? activeUser.nombre.substring(0, 2) : 'AP'}
               </div>
             </div>
@@ -1508,12 +1508,12 @@ export default function App() {
                   onClick={handleToggleClockInSelf}
                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 border shadow-xs ${
                     activeFichaje
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 animate-pulse'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-400 animate-pulse'
+                      : 'bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border-emerald-700'
                   }`}
                   title={activeFichaje ? `Marcar Salida (En jornada desde ${activeFichaje.horaEntrada})` : 'Iniciar Jornada / Fichar Entrada'}
                 >
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <Clock className="w-3.5 h-3.5 shrink-0 text-emerald-300" />
                   <span>{activeFichaje ? `Fichar Salida (${activeFichaje.horaEntrada})` : 'Fichar Entrada'}</span>
                 </button>
               );
@@ -1522,11 +1522,11 @@ export default function App() {
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-xl transition-all cursor-pointer flex items-center gap-2 group ml-1"
+              className="text-emerald-300 hover:text-rose-300 p-1.5 hover:bg-rose-950/50 rounded-xl transition-all cursor-pointer flex items-center gap-2 group ml-1"
               title="Cerrar Sesión"
             >
-              <LogOut className="w-4 h-4 text-slate-500 group-hover:text-rose-600 transition-colors" />
-              <span className="text-xs font-bold text-slate-500 group-hover:text-rose-600 transition-colors">Salir</span>
+              <LogOut className="w-4 h-4 text-emerald-300 group-hover:text-rose-400 transition-colors" />
+              <span className="text-xs font-bold text-emerald-200 group-hover:text-rose-300 transition-colors">Salir</span>
             </button>
           </div>
         </div>
