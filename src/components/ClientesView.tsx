@@ -104,6 +104,50 @@ export default function ClientesView({
   const [docReciboSueldo, setDocReciboSueldo] = useState('');
   const [docOtros, setDocOtros] = useState('');
 
+  // Subtab navigation for ClientesView: 'buscador' (default) vs 'asignacion' (Superadmin rotation)
+  const [clientSubTab, setClientSubTab] = useState<'buscador' | 'asignacion'>('buscador');
+
+  // Rotation & portfolio assignment states
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [targetOperatorId, setTargetOperatorId] = useState<string>('');
+  const [rotationFilterOperator, setRotationFilterOperator] = useState<string>('TODOS');
+  const [rotationFilterEstado, setRotationFilterEstado] = useState<string>('TODOS');
+  const [rotationSearchTerm, setRotationSearchTerm] = useState<string>('');
+
+  const handleBatchAssignOperator = () => {
+    if (selectedClientIds.length === 0) {
+      alert('Por favor seleccione al menos un cliente de la lista.');
+      return;
+    }
+    const opUser = usuarios.find(u => u.id === targetOperatorId);
+    const targetName = opUser ? opUser.nombre : (targetOperatorId ? 'Operador Asignado' : '');
+
+    selectedClientIds.forEach(id => {
+      const c = clientes.find(cl => cl.id === id);
+      if (c) {
+        onUpdateCliente({
+          ...c,
+          operadorAsignadoId: targetOperatorId,
+          operadorAsignadoNombre: targetName
+        });
+      }
+    });
+
+    alert(`Se han asignado ${selectedClientIds.length} cliente(s) a: ${targetName || 'Sin operador (Cualquiera)'}.`);
+    setSelectedClientIds([]);
+  };
+
+  const handleAssignSingleClient = (client: Cliente, newOpId: string) => {
+    const opUser = usuarios.find(u => u.id === newOpId);
+    const targetName = opUser ? opUser.nombre : (newOpId ? 'Operador Asignado' : '');
+
+    onUpdateCliente({
+      ...client,
+      operadorAsignadoId: newOpId,
+      operadorAsignadoNombre: targetName
+    });
+  };
+
   const handleOpenAdd = () => {
     // Generate automatic ID based on max ID
     const nextNum = clientes.reduce((max, c) => {
@@ -1028,8 +1072,37 @@ export default function ClientesView({
         </form>
       ) : null}
 
-      {/* List and Search - Centered Search Focus */}
-      {!selectedClient ? (
+      {/* Sub-tab Navigation for Superadmin / Administrator */}
+      {isAdmin && !isAdding && !selectedClient && (
+        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-fit">
+          <button
+            onClick={() => setClientSubTab('buscador')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+              clientSubTab === 'buscador'
+                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>1. Búsqueda de Expedientes</span>
+          </button>
+
+          <button
+            onClick={() => setClientSubTab('asignacion')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+              clientSubTab === 'asignacion'
+                ? 'bg-white text-emerald-800 shadow-xs border border-emerald-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-600" />
+            <span>2. Asignación y Rotación de Cartera (Superadmin)</span>
+          </button>
+        </div>
+      )}
+
+      {/* RENDER VIEW 1: SEARCH / BUSCADOR */}
+      {!selectedClient && clientSubTab === 'buscador' ? (
         <div className="flex flex-col items-center justify-center min-h-[480px] bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
           <div className="w-full max-w-xl text-center space-y-4">
             <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs border border-emerald-100">
@@ -1120,8 +1193,279 @@ export default function ClientesView({
             )}
           </div>
         </div>
-      ) : (
-        /* Selected Client Details Screen */
+      ) : null}
+
+      {/* RENDER VIEW 2: PORTFOLIO ASSIGNMENT & ROTATION (ASIGNACION) */}
+      {!selectedClient && clientSubTab === 'asignacion' && isAdmin ? (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Summary KPI Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Clientes en Sistema</span>
+              <span className="text-xl font-black text-slate-800">{clientes.length}</span>
+              <span className="text-[10px] text-slate-500 block mt-0.5">Cartera global administrada</span>
+            </div>
+            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-xs">
+              <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">Clientes Asignados</span>
+              <span className="text-xl font-black text-emerald-900">
+                {clientes.filter(c => c.operadorAsignadoId || c.operadorAsignadoNombre).length}
+              </span>
+              <span className="text-[10px] text-emerald-700 block mt-0.5">Asignados a un operador/cobrador</span>
+            </div>
+            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-xs">
+              <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">Clientes Sin Asignar</span>
+              <span className="text-xl font-black text-amber-900">
+                {clientes.filter(c => !c.operadorAsignadoId && !c.operadorAsignadoNombre).length}
+              </span>
+              <span className="text-[10px] text-amber-700 block mt-0.5">Disponibles para rotación</span>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 shadow-xs">
+              <span className="text-[10px] font-black text-blue-800 uppercase tracking-wider block">Operadores Disponibles</span>
+              <span className="text-xl font-black text-blue-900">{usuarios.length}</span>
+              <span className="text-[10px] text-blue-700 block mt-0.5">Agentes de gestión diaria</span>
+            </div>
+          </div>
+
+          {/* Role Restriction Banner */}
+          <div className="bg-slate-900 text-slate-200 p-4 rounded-xl border border-slate-800 flex items-start gap-3 shadow-sm">
+            <Shield className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="text-xs space-y-1">
+              <strong className="text-white font-bold block uppercase tracking-wider text-[11px]">Reglas de Acceso a Cartera por Rol:</strong>
+              <p className="text-slate-300 leading-relaxed">
+                • Los <strong>Operadores / Cobradores</strong> solo visualizan los clientes <strong>Activos</strong> y de <strong>Renovación</strong> asignados específicamente a su legajo.
+                <br />
+                • Los clientes con estado <strong>INACTIVO</strong> o <strong>CONGELADO</strong> quedan estrictamente ocultos para los operadores y solo son accesibles por el Superadministrador.
+              </p>
+            </div>
+          </div>
+
+          {/* Bulk Assignment Toolbar & Filters */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">
+                  Asignación Masiva y Rotación de Cartera
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Seleccione uno o varios clientes para rotarlos en lote a un operador específico.
+                </p>
+              </div>
+
+              {/* Batch Action Controls */}
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <select
+                  value={targetOperatorId}
+                  onChange={(e) => setTargetOperatorId(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-hidden focus:border-emerald-500"
+                >
+                  <option value="">-- Sin operador (Desasignar / Todos) --</option>
+                  {usuarios.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.nombre} ({u.rolId})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleBatchAssignOperator}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Asignar {selectedClientIds.length > 0 ? `(${selectedClientIds.length})` : ''} Seleccionados</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Table Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Buscar Cliente o DNI</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={rotationSearchTerm}
+                    onChange={(e) => setRotationSearchTerm(e.target.value)}
+                    placeholder="Filtrar por nombre o DNI..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Filtrar por Operador Actual</label>
+                <select
+                  value={rotationFilterOperator}
+                  onChange={(e) => setRotationFilterOperator(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700"
+                >
+                  <option value="TODOS">Todos los Operadores</option>
+                  <option value="SIN_ASIGNAR">⚠️ Solo Sin Asignar</option>
+                  {usuarios.map(u => (
+                    <option key={u.id} value={u.id}>{u.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Filtrar por Estado</label>
+                <select
+                  value={rotationFilterEstado}
+                  onChange={(e) => setRotationFilterEstado(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700"
+                >
+                  <option value="TODOS">Todos los Estados</option>
+                  <option value="ACTIVO">Solo Activos</option>
+                  <option value="EN_MORA">Solo En Mora</option>
+                  <option value="INACTIVO">Solo Inactivos (Superadmin)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Clients Rotation Table */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
+                    <th className="p-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={
+                          clientes.length > 0 && selectedClientIds.length === clientes.length
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedClientIds(clientes.map(c => c.id));
+                          } else {
+                            setSelectedClientIds([]);
+                          }
+                        }}
+                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                      />
+                    </th>
+                    <th className="p-3">ID / Cliente</th>
+                    <th className="p-3">DNI / Teléfono</th>
+                    <th className="p-3">Estado Crediticio</th>
+                    <th className="p-3">Analista / Captador</th>
+                    <th className="p-3">Operador Asignado Actual</th>
+                    <th className="p-3 text-right">Acción Rápida</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {(() => {
+                    const filtered = clientes.filter(c => {
+                      const matchSearch = rotationSearchTerm === '' || 
+                        `${c.nombre} ${c.apellido} ${c.dni} ${c.id}`.toLowerCase().includes(rotationSearchTerm.toLowerCase());
+                      
+                      const matchOp = rotationFilterOperator === 'TODOS'
+                        ? true
+                        : rotationFilterOperator === 'SIN_ASIGNAR'
+                        ? !c.operadorAsignadoId && !c.operadorAsignadoNombre
+                        : c.operadorAsignadoId === rotationFilterOperator || c.operadorAsignadoNombre === usuarios.find(u => u.id === rotationFilterOperator)?.nombre;
+
+                      const matchEstado = rotationFilterEstado === 'TODOS' || c.estado === rotationFilterEstado;
+
+                      return matchSearch && matchOp && matchEstado;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-slate-400 font-bold text-xs">
+                            No se encontraron clientes que coincidan con los criterios de rotación.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filtered.map(c => {
+                      const isSelected = selectedClientIds.includes(c.id);
+                      const isInactive = c.estado === 'INACTIVO' || c.estado === 'CONGELADO';
+
+                      return (
+                        <tr key={c.id} className={`hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-emerald-50/40' : ''}`}>
+                          <td className="p-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedClientIds(prev => [...prev, c.id]);
+                                } else {
+                                  setSelectedClientIds(prev => prev.filter(id => id !== c.id));
+                                }
+                              }}
+                              className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <div className="font-bold text-slate-900">{c.nombre} {c.apellido}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{c.id}</div>
+                          </td>
+                          <td className="p-3">
+                            <div className="font-mono text-slate-800">{c.dni}</div>
+                            <div className="text-[10px] text-slate-400">{c.telefono || 'Sin tel'}</div>
+                          </td>
+                          <td className="p-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              c.estado === 'ACTIVO' 
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                : c.estado === 'EN_MORA'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}>
+                              {c.estado}
+                            </span>
+                            {isInactive && (
+                              <span className="block text-[8px] font-extrabold text-rose-600 mt-0.5">
+                                🔒 Oculto p/ Operadores
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-[11px]">
+                            <div><strong className="text-slate-500">Analista:</strong> {c.analista || 'N/I'}</div>
+                            <div><strong className="text-slate-500">Captador:</strong> {c.captador || 'N/I'}</div>
+                          </td>
+                          <td className="p-3">
+                            {c.operadorAsignadoNombre || c.operadorAsignadoId ? (
+                              <span className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-md font-bold text-[11px] border border-emerald-200 inline-block">
+                                👤 {c.operadorAsignadoNombre || c.operadorAsignadoId}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded-md font-bold text-[10px] border border-slate-200 inline-block">
+                                ⚠️ Sin operador
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            <select
+                              value={c.operadorAsignadoId || ''}
+                              onChange={(e) => handleAssignSingleClient(c, e.target.value)}
+                              className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-bold text-slate-800 focus:outline-hidden focus:border-blue-500 cursor-pointer shadow-2xs"
+                            >
+                              <option value="">-- Sin Operador --</option>
+                              {usuarios.map(u => (
+                                <option key={u.id} value={u.id}>
+                                  Reasignar a: {u.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {/* Selected Client Details Screen */}
+      {selectedClient && (
         <div className="space-y-6 animate-fadeIn">
           {/* Action Header bar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">

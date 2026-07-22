@@ -1179,27 +1179,57 @@ export default function App() {
   }, [activeUser, roles, activeTab]);
 
   // Role Based Access Data Filtering
-  // "cobrador solo puede ver clientes que van a su lista..."
-  const isCobrador = activeUser?.rolId === 'COBRADOR';
+  // Non-ADMIN operators (Cobradores, Operadores) only see active/renewal clients assigned to them.
+  // Inactive clients are ONLY visible to the Superadministrador (ADMIN).
+  const isOperator = activeUser?.rolId !== 'ADMIN';
 
-  const filteredOperaciones = isCobrador
-    ? operaciones.filter(o => o.cobrador === activeUser.nombre)
-    : operaciones;
-
-  const filteredClientes = isCobrador
+  const filteredClientes = isOperator
     ? clientes.filter(c => {
-        // Only clients with active/pending loans where this user is the cobrador, or where this user was the captador
-        const hasOp = operaciones.some(o => o.idCliente === c.id && o.cobrador === activeUser.nombre);
-        return hasOp || c.captador === activeUser.nombre;
+        // Rule 1: Operators CANNOT see inactive, frozen or suspended clients under any circumstances
+        const isInactive = c.estado === 'INACTIVO' || c.estado === 'CONGELADO' || c.estado === 'SUSPENDIDO';
+        if (isInactive) return false;
+
+        // Rule 2: Operator MUST ONLY see clients explicitly assigned to them
+        const isAssignedToUser = 
+          c.operadorAsignadoId === activeUser?.id ||
+          (c.operadorAsignadoNombre && activeUser?.nombre && c.operadorAsignadoNombre.toLowerCase() === activeUser.nombre.toLowerCase()) ||
+          (c.analista && activeUser?.nombre && c.analista.toLowerCase() === activeUser.nombre.toLowerCase()) ||
+          (c.captador && activeUser?.nombre && c.captador.toLowerCase() === activeUser.nombre.toLowerCase()) ||
+          operaciones.some(o => o.idCliente === c.id && (o.cobrador === activeUser?.nombre || o.operadorAsignadoId === activeUser?.id));
+
+        return isAssignedToUser;
       })
     : clientes;
 
-  const filteredCuotas = isCobrador
-    ? cuotas.filter(c => c.cobrador === activeUser.nombre)
+  const filteredOperaciones = isOperator
+    ? operaciones.filter(o => {
+        const client = clientes.find(c => c.id === o.idCliente);
+        if (!client || client.estado === 'INACTIVO' || client.estado === 'CONGELADO' || client.estado === 'SUSPENDIDO') {
+          return false;
+        }
+        return (
+          o.cobrador === activeUser?.nombre || 
+          o.operadorAsignadoId === activeUser?.id || 
+          client.operadorAsignadoId === activeUser?.id || 
+          client.operadorAsignadoNombre === activeUser?.nombre ||
+          client.analista === activeUser?.nombre ||
+          client.captador === activeUser?.nombre
+        );
+      })
+    : operaciones;
+
+  const filteredCuotas = isOperator
+    ? cuotas.filter(cuo => {
+        const op = operaciones.find(o => o.id === cuo.idOperacion);
+        if (!op) return false;
+        return filteredOperaciones.some(fop => fop.id === op.id);
+      })
     : cuotas;
 
-  const filteredPagos = isCobrador
-    ? pagos.filter(p => p.cobrador === activeUser.nombre)
+  const filteredPagos = isOperator
+    ? pagos.filter(p => {
+        return filteredOperaciones.some(fop => fop.id === p.idOperacion);
+      })
     : pagos;
 
   // Human readable active tab label
@@ -1667,7 +1697,7 @@ export default function App() {
         </aside>
 
         {/* Content Pane */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 overflow-x-auto">
           {activeTab === 'dashboard' && activeUserRole.verDashboard && (
             <DashboardView
               clientes={filteredClientes}

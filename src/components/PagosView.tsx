@@ -55,6 +55,9 @@ export default function PagosView({
   // Double confirmation modal state for payment registrations
   const [showPaymentConfirmModal, setShowPaymentConfirmModal] = useState<boolean>(false);
 
+  // Option to include total pending debt in exported PDF
+  const [includeTotalInPDF, setIncludeTotalInPDF] = useState<boolean>(false);
+
   // Form states inside actions
   const [fechaPago, setFechaPago] = useState(new Date().toISOString().split('T')[0]);
   const [importeCobrado, setImporteCobrado] = useState<string>('');
@@ -598,7 +601,7 @@ export default function PagosView({
   };
 
   // Helper to export Amortization Schedule to high-quality printable PDF
-  const handleExportPDF = (op: Operacion) => {
+  const handleExportPDF = (op: Operacion, includeTotalSaldo: boolean = false) => {
     const cliDetails = getClienteDetails(op.idCliente);
     const opCuotas = cuotas.filter(c => c.idOperacion === op.id);
     
@@ -799,7 +802,7 @@ export default function PagosView({
               <th>Fecha Vencimiento</th>
               <th>Monto Cuota</th>
               <th>Interés / Gastos</th>
-              <th>Saldo Pendiente</th>
+              ${includeTotalSaldo ? '<th>Saldo Pendiente</th>' : ''}
               <th>Estado de Pago</th>
             </tr>
           </thead>
@@ -820,7 +823,7 @@ export default function PagosView({
                   <td>${c.fechaVencimiento}</td>
                   <td>$${c.valorTotalCuota.toLocaleString('es-ES')}</td>
                   <td>Incluido</td>
-                  <td>$${c.saldoPendiente.toLocaleString('es-ES')}</td>
+                  ${includeTotalSaldo ? `<td>$${c.saldoPendiente.toLocaleString('es-ES')}</td>` : ''}
                   <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                 </tr>
               `;
@@ -828,9 +831,11 @@ export default function PagosView({
           </tbody>
         </table>
 
+        ${includeTotalSaldo ? `
         <div class="totals-section">
           Saldo Pendiente de Pago: <strong style="color: #b91c1c;">$${op.totalPendiente.toLocaleString('es-ES')} ARS</strong>
         </div>
+        ` : ''}
 
         <table class="signatures">
           <tr>
@@ -1538,10 +1543,19 @@ export default function PagosView({
                 <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2.5">
                   <div className="flex justify-between items-center border-b border-white/5 pb-1.5 gap-2 flex-wrap">
                     <span className="text-[9px] uppercase tracking-widest text-emerald-300 font-black">📅 Cronograma de Amortización</span>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="flex items-center gap-1.5 text-[9px] font-semibold text-emerald-100/90 cursor-pointer select-none bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={includeTotalInPDF}
+                          onChange={(e) => setIncludeTotalInPDF(e.target.checked)}
+                          className="w-3 h-3 text-emerald-500 rounded focus:ring-emerald-400 cursor-pointer accent-emerald-500"
+                        />
+                        <span>Incluir Total Saldo en PDF</span>
+                      </label>
                       <button
-                        onClick={() => handleExportPDF(selectedOp)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] px-2.5 py-1 rounded transition-colors flex items-center gap-1 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleExportPDF(selectedOp, includeTotalInPDF)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] px-2.5 py-1 rounded transition-colors flex items-center gap-1 uppercase tracking-wider cursor-pointer shadow-xs"
                         title="Exportar cronograma a PDF"
                       >
                         <FileText className="w-3 h-3" />
