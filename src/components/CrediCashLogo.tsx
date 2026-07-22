@@ -90,20 +90,20 @@ export const CrediCashLogo: React.FC<CrediCashLogoProps> = ({
         <div className="flex items-center gap-3.5 sm:gap-5">
           {/* Main Brand Title */}
           <div className={`font-black tracking-tight ${currentTextSize.brand} leading-none flex items-baseline`}>
-            <span className="text-[#054B27]">Credi</span>
-            <span className="text-[#10B981] bg-gradient-to-r from-[#10B981] to-[#059669] bg-clip-text text-transparent">Cash</span>
-            <span className="text-[#10B981] font-bold ml-0.5">.</span>
+            <span className="text-white">Credi</span>
+            <span className="text-emerald-400 bg-gradient-to-r from-emerald-300 to-teal-400 bg-clip-text text-transparent ml-0.5">Cash</span>
+            <span className="text-emerald-400 font-bold ml-0.5">.</span>
           </div>
 
           {/* Elegant Vertical Divider */}
-          <div className="h-6 sm:h-7 w-[2px] bg-emerald-800/20 rounded-full shrink-0" />
+          <div className="h-6 sm:h-7 w-[2px] bg-emerald-700/60 rounded-full shrink-0" />
 
           {/* Horizontal Wide Subtitle Banner */}
           <div className="flex flex-col justify-center">
-            <span className={`uppercase font-black text-[#054B27] ${currentTextSize.subtitle} block whitespace-nowrap`}>
+            <span className={`uppercase font-black text-emerald-200 ${currentTextSize.subtitle} block whitespace-nowrap`}>
               Sistema Central de Gestión
             </span>
-            <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600/80 tracking-widest uppercase block whitespace-nowrap">
+            <span className="text-[8px] sm:text-[9px] font-extrabold text-emerald-400/90 tracking-widest uppercase block whitespace-nowrap">
               Plataforma Integral de Finanzas & Cobranzas
             </span>
           </div>
@@ -157,13 +157,13 @@ export const CrediCashLogo: React.FC<CrediCashLogoProps> = ({
 
       <div className="flex flex-col text-left leading-none">
         <div className={`font-black tracking-tight ${currentTextSize.brand} leading-none flex items-baseline`}>
-          <span className="text-[#054B27]">Credi</span>
-          <span className="text-[#10B981] bg-gradient-to-r from-[#10B981] to-[#059669] bg-clip-text text-transparent">Cash</span>
-          <span className="text-[#10B981] font-bold ml-0.5">.</span>
+          <span className="text-white">Credi</span>
+          <span className="text-emerald-400 bg-gradient-to-r from-emerald-300 to-teal-400 bg-clip-text text-transparent ml-0.5">Cash</span>
+          <span className="text-emerald-400 font-bold ml-0.5">.</span>
         </div>
 
         {showSubtitle && (
-          <span className={`uppercase font-extrabold text-[#054B27]/90 ${currentTextSize.subtitle} mt-1 block tracking-wider border-t border-emerald-900/10 pt-1`}>
+          <span className={`uppercase font-extrabold text-emerald-200 ${currentTextSize.subtitle} mt-1 block tracking-wider border-t border-emerald-800/40 pt-1`}>
             Sistema Central de Gestión
           </span>
         )}
