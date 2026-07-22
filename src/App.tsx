@@ -901,6 +901,186 @@ export default function App() {
     syncToGoogleSheet('add_pago', { pago: nuevoPago, cuotas: updatedCuotasList, operacion: updatedOperacion });
   };
 
+  // Reorganize / Reallocate payment modality (e.g. switching from Option A to Option B)
+  const handleReorganizePagoAllocation = (
+    pagoId: string,
+    newModalidad: 'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B',
+    newMetodoPago?: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO',
+    newFechaPago?: string,
+    newImporte?: number,
+    newObservaciones?: string
+  ) => {
+    const targetPago = pagos.find(p => p.id === pagoId);
+    if (!targetPago) return;
+
+    const opId = targetPago.idOperacion;
+    const targetOp = operaciones.find(o => o.id === opId);
+    if (!targetOp) return;
+
+    // 1. Clone & Update target payment in the payments array
+    const updatedPagosList = pagos.map(p => {
+      if (p.id === pagoId) {
+        return {
+          ...p,
+          modalidad: newModalidad,
+          metodoPago: newMetodoPago || p.metodoPago,
+          fechaPago: newFechaPago || p.fechaPago,
+          importe: newImporte !== undefined ? newImporte : p.importe,
+          observaciones: newObservaciones !== undefined ? newObservaciones : p.observaciones,
+        };
+      }
+      return p;
+    });
+
+    // 2. Get all payments for this operation
+    const opPayments = updatedPagosList.filter(p => p.idOperacion === opId);
+
+    // 3. Reset all cuotas for this operation to initial baseline (unpaid)
+    const opCuotasOriginal = cuotas.filter(c => c.idOperacion === opId);
+    const resetCuotasMap = new Map<string, Cuota>();
+    opCuotasOriginal.forEach(c => {
+      resetCuotasMap.set(c.id, {
+        ...c,
+        importePagado: 0,
+        saldoPendiente: c.valorTotalCuota,
+        estado: 'PENDIENTE',
+        fechaPago: '',
+        cobrador: ''
+      });
+    });
+
+    let totalCapitalPaid = 0;
+    let totalInteresPaid = 0;
+    let totalAmountPaid = 0;
+    let lastPaymentDate = '';
+
+    // 4. Re-apply all payments sequentially according to their modality
+    const sortedOpPayments = [...opPayments].sort((a, b) => new Date(a.fechaPago).getTime() - new Date(b.fechaPago).getTime());
+
+    sortedOpPayments.forEach(p => {
+      let rem = p.importe;
+      totalAmountPaid += p.importe;
+      lastPaymentDate = p.fechaPago;
+
+      const currentCuotasList = Array.from(resetCuotasMap.values());
+      let processOrder: Cuota[] = [];
+
+      if (p.modalidad === 'PAGO_ADELANTADO_OPCION_A') {
+        // Option A: Unpaid cuotas descending (from the end backwards)
+        processOrder = currentCuotasList.filter(c => c.estado !== 'PAGADA').sort((a, b) => b.numeroCuota - a.numeroCuota);
+      } else {
+        // Option B / Regular / Partial: Unpaid cuotas ascending (earliest due first)
+        processOrder = currentCuotasList.filter(c => c.estado !== 'PAGADA').sort((a, b) => a.numeroCuota - b.numeroCuota);
+      }
+
+      const affectedCuotaNumbers: number[] = [];
+
+      processOrder.forEach(cuo => {
+        if (rem <= 0) return;
+        const currentCuo = resetCuotasMap.get(cuo.id)!;
+        const cuoSaldo = currentCuo.saldoPendiente;
+
+        affectedCuotaNumbers.push(currentCuo.numeroCuota);
+
+        if (rem >= cuoSaldo) {
+          const paidThis = cuoSaldo;
+          rem = parseFloat((rem - paidThis).toFixed(2));
+
+          const ratioCap = currentCuo.capitalCuota / currentCuo.valorTotalCuota;
+          const ratioInt = currentCuo.interesCuota / currentCuo.valorTotalCuota;
+
+          totalCapitalPaid += parseFloat((paidThis * ratioCap).toFixed(2));
+          totalInteresPaid += parseFloat((paidThis * ratioInt).toFixed(2));
+
+          currentCuo.importePagado = parseFloat((currentCuo.importePagado + paidThis).toFixed(2));
+          currentCuo.saldoPendiente = 0;
+          currentCuo.estado = 'PAGADA';
+          currentCuo.fechaPago = p.fechaPago;
+          currentCuo.cobrador = p.cobrador;
+        } else {
+          const paidThis = rem;
+          rem = 0;
+
+          const ratioCap = currentCuo.capitalCuota / currentCuo.valorTotalCuota;
+          const ratioInt = currentCuo.interesCuota / currentCuo.valorTotalCuota;
+
+          totalCapitalPaid += parseFloat((paidThis * ratioCap).toFixed(2));
+          totalInteresPaid += parseFloat((paidThis * ratioInt).toFixed(2));
+
+          currentCuo.importePagado = parseFloat((currentCuo.importePagado + paidThis).toFixed(2));
+          currentCuo.saldoPendiente = parseFloat((currentCuo.saldoPendiente - paidThis).toFixed(2));
+          currentCuo.estado = 'PAGO_PARCIAL';
+          currentCuo.fechaPago = p.fechaPago;
+          currentCuo.cobrador = p.cobrador;
+        }
+        resetCuotasMap.set(currentCuo.id, currentCuo);
+      });
+
+      p.cuotasAfectadas = affectedCuotaNumbers.length > 0 ? `Cuotas N° ${affectedCuotaNumbers.sort((a,b)=>a-b).join(', ')}` : 'Sin cuotas';
+    });
+
+    // 5. Build final updated cuotas list
+    const updatedCuotasForOp = Array.from(resetCuotasMap.values());
+    const updatedCuotasMap = new Map<string, Cuota>(updatedCuotasForOp.map(c => [c.id, c]));
+    const mergedCuotas = cuotas.map(c => updatedCuotasMap.get(c.id) || c);
+
+    // 6. Build updated operation object
+    const updatedOp = { ...targetOp };
+    updatedOp.capitalRecuperado = parseFloat(totalCapitalPaid.toFixed(2));
+    updatedOp.interesCobrado = parseFloat(totalInteresPaid.toFixed(2));
+    updatedOp.capitalPendiente = Math.max(0, parseFloat((targetOp.capitalEntregado - totalCapitalPaid).toFixed(2)));
+    updatedOp.totalPendiente = Math.max(0, parseFloat((targetOp.totalFinanciado - totalAmountPaid).toFixed(2)));
+
+    const totalCuotasCount = updatedCuotasForOp.length;
+    const pagadasCount = updatedCuotasForOp.filter(c => c.estado === 'PAGADA').length;
+    updatedOp.cuotasPagadas = pagadasCount;
+    updatedOp.cuotasPendientes = totalCuotasCount - pagadasCount;
+    updatedOp.ultimoPago = lastPaymentDate || targetOp.ultimoPago;
+
+    const nextPendingCuo = updatedCuotasForOp
+      .filter(c => c.estado !== 'PAGADA')
+      .sort((a, b) => a.numeroCuota - b.numeroCuota)[0];
+
+    if (nextPendingCuo) {
+      updatedOp.proximoVencimiento = nextPendingCuo.fechaVencimiento;
+      const dueTime = new Date(nextPendingCuo.fechaVencimiento).getTime();
+      const todayTime = new Date().getTime();
+      const diffDays = Math.ceil((todayTime - dueTime) / (1000 * 60 * 60 * 24));
+      updatedOp.diasMora = diffDays > 0 ? diffDays : 0;
+      updatedOp.estado = 'ACTIVA';
+    } else {
+      updatedOp.proximoVencimiento = 'PAGADO TOTAL';
+      updatedOp.estado = 'FINALIZADA';
+      updatedOp.fechaFinalizacion = lastPaymentDate || new Date().toISOString().split('T')[0];
+      updatedOp.diasMora = 0;
+    }
+
+    if (updatedOp.diasMora === 0) {
+      updatedOp.nivelMora = 'Sano';
+    } else if (updatedOp.diasMora <= 3) {
+      updatedOp.nivelMora = 'Atraso Regular (1-3 días)';
+    } else if (updatedOp.diasMora <= 6) {
+      updatedOp.nivelMora = 'Cobranza Telefónica (4-6 días)';
+    } else {
+      updatedOp.nivelMora = 'Cobrador de Calle (7+ días)';
+    }
+
+    // 7. Update state and localStorage
+    setPagos(updatedPagosList);
+    saveToLocalStorage(STORAGE_KEYS.PAGOS, updatedPagosList);
+
+    setCuotas(mergedCuotas);
+    saveToLocalStorage(STORAGE_KEYS.CUOTAS, mergedCuotas);
+
+    handleUpdateOperacion(updatedOp);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      const pMod = updatedPagosList.find(p => p.id === pagoId);
+      if (pMod) uploadDocToFirestore('pagos', pMod.id, pMod);
+      updatedCuotasForOp.forEach(c => uploadDocToFirestore('cuotas', c.id, c));
+    }
+  };
+
   const handleUpdateConfiguracion = (newConfig: Configuracion) => {
     setConfiguracion(newConfig);
     saveToLocalStorage(STORAGE_KEYS.CONFIGURACION, newConfig);
@@ -1755,6 +1935,7 @@ export default function App() {
               activeUser={activeUser}
               configuracion={configuracion}
               onAddPago={handleAddPago}
+              onReorganizePago={handleReorganizePagoAllocation}
               canAddPago={activeUserRole.registrarPagos}
               mode="WHATSAPP"
             />
@@ -1769,6 +1950,7 @@ export default function App() {
               activeUser={activeUser}
               configuracion={configuracion}
               onAddPago={handleAddPago}
+              onReorganizePago={handleReorganizePagoAllocation}
               canAddPago={activeUserRole.registrarPagos}
               mode="TELEFONO"
             />
@@ -1783,6 +1965,7 @@ export default function App() {
               activeUser={activeUser}
               configuracion={configuracion}
               onAddPago={handleAddPago}
+              onReorganizePago={handleReorganizePagoAllocation}
               canAddPago={activeUserRole.registrarPagos}
               mode="CALLE"
             />

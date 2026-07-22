@@ -120,9 +120,12 @@ export interface Pago {
   idCliente: string;
   nombreCliente: string;
   fechaPago: string;
+  horaPago?: string; // HH:MM:SS
   importe: number;
   cobrador: string;
   metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO';
+  modalidad?: 'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B' | 'NO_PAGO' | 'PROMESA' | 'OBSERVACION';
+  cuotasAfectadas?: string;
   observaciones: string;
 }
 

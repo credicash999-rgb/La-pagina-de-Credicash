@@ -21,6 +21,14 @@ interface PagosViewProps {
   activeUser: UsuarioRol | null;
   configuracion?: Configuracion;
   onAddPago: (pago: Pago, updatedCuotas: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
+  onReorganizePago?: (
+    pagoId: string,
+    newModalidad: 'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B',
+    newMetodoPago?: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO',
+    newFechaPago?: string,
+    newImporte?: number,
+    newObservaciones?: string
+  ) => void;
   canAddPago?: boolean;
   mode?: 'WHATSAPP' | 'TELEFONO' | 'CALLE';
 }
@@ -33,9 +41,13 @@ export default function PagosView({
   activeUser,
   configuracion,
   onAddPago,
+  onReorganizePago,
   canAddPago = true,
   mode = 'WHATSAPP',
 }: PagosViewProps) {
+  // Main view tab (Cobranza vs Registro Histórico de Pagos)
+  const [viewTab, setViewTab] = useState<'cobranza' | 'registro_pagos'>('cobranza');
+
   // Navigation tab for the Operator layout
   const [activeSubTab, setActiveSubTab] = useState<'gestion' | 'buscador'>('gestion');
   
@@ -50,7 +62,7 @@ export default function PagosView({
   
   // Action state (which modal option is active)
   const [activeAction, setActiveAction] = useState<'pago' | 'pago_parcial' | 'pago_adelantado' | 'no_pago' | 'promesa' | 'observaciones' | 'visita' | null>(null);
-  const [prepaymentMode, setPrepaymentMode] = useState<'FINAL_ATRAS' | 'CONSECUTIVO_INMEDIATO'>('FINAL_ATRAS');
+  const [prepaymentMode, setPrepaymentMode] = useState<'FINAL_ATRAS' | 'CONSECUTIVO_INMEDIATO'>('CONSECUTIVO_INMEDIATO');
 
   // Double confirmation modal state for payment registrations
   const [showPaymentConfirmModal, setShowPaymentConfirmModal] = useState<boolean>(false);
@@ -64,6 +76,18 @@ export default function PagosView({
   const [medioPago, setMedioPago] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO'>('EFECTIVO');
   const [observacionesInput, setObservacionesInput] = useState('');
   const [promesaFecha, setPromesaFecha] = useState('');
+
+  // Payment Audit & Registry Filter and Editing States
+  const [pagoSearchTerm, setPagoSearchTerm] = useState('');
+  const [pagoFilterModalidad, setPagoFilterModalidad] = useState<string>('TODOS');
+  const [pagoFilterMetodo, setPagoFilterMetodo] = useState<string>('TODOS');
+  
+  const [editingPago, setEditingPago] = useState<Pago | null>(null);
+  const [editModalidad, setEditModalidad] = useState<'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B'>('PAGO_ADELANTADO_OPCION_B');
+  const [editMetodoPago, setEditMetodoPago] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO'>('EFECTIVO');
+  const [editFechaPago, setEditFechaPago] = useState<string>('');
+  const [editImporte, setEditImporte] = useState<string>('');
+  const [editObservaciones, setEditObservaciones] = useState<string>('');
 
   // Find the details of a client by ID
   const getClienteDetails = (idCliente: string): Cliente | undefined => {
@@ -404,16 +428,22 @@ export default function PagosView({
     const loggedInUserName = activeUser?.nombre || 'Operador Central';
     const valorCobrado = parseFloat(importeCobrado);
 
-    // Proportional allocation logic to update cuotas based on prepayment option or standard payment
+    // Determine payment modality
+    let modality: 'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B' = 'PAGO_REGULAR';
+    if (activeAction === 'pago_parcial') {
+      modality = 'PAGO_PARCIAL';
+    } else if (activeAction === 'pago_adelantado') {
+      modality = prepaymentMode === 'FINAL_ATRAS' ? 'PAGO_ADELANTADO_OPCION_A' : 'PAGO_ADELANTADO_OPCION_B';
+    }
+
     let remPago = valorCobrado;
     const updatedCuotas: Cuota[] = [];
     
-    const allOpCuotas = cuotas
-      .filter(c => c.idOperacion === selectedOp.id);
+    const allOpCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
 
     // Sort cuotas to allocate payment based on prepayment configuration
     let cuotasToProcess = [...allOpCuotas];
-    if (activeAction === 'pago_adelantado' && prepaymentMode === 'FINAL_ATRAS') {
+    if (modality === 'PAGO_ADELANTADO_OPCION_A') {
       // Option A: pay unpaid installments starting from the highest number (end backward)
       cuotasToProcess.sort((a, b) => {
         const aPaid = a.estado === 'PAGADA' ? 1 : 0;
@@ -422,13 +452,19 @@ export default function PagosView({
         return b.numeroCuota - a.numeroCuota; // Descending order
       });
     } else {
-      // Option B or regular: pay unpaid installments in chronological order (ascending)
-      cuotasToProcess.sort((a, b) => a.numeroCuota - b.numeroCuota);
+      // Option B or regular: pay unpaid installments in chronological order (ascending: earliest unpaid first)
+      cuotasToProcess.sort((a, b) => {
+        const aPaid = a.estado === 'PAGADA' ? 1 : 0;
+        const bPaid = b.estado === 'PAGADA' ? 1 : 0;
+        if (aPaid !== bPaid) return aPaid - bPaid; // Unpaid first
+        return a.numeroCuota - b.numeroCuota; // Ascending order
+      });
     }
 
     let totalCapitalPaid = 0;
     let totalInteresPaid = 0;
     const processedCuotasMap = new Map<string, Cuota>();
+    const affectedCuotaNumbers: number[] = [];
 
     cuotasToProcess.forEach(cuo => {
       if (cuo.estado === 'PAGADA' || remPago <= 0) {
@@ -438,6 +474,7 @@ export default function PagosView({
 
       const cuoCopy = { ...cuo };
       const currentSaldo = cuoCopy.saldoPendiente;
+      affectedCuotaNumbers.push(cuoCopy.numeroCuota);
 
       if (remPago >= currentSaldo) {
         // Full payment of this installment
@@ -518,6 +555,7 @@ export default function PagosView({
       const payTime = new Date(fechaPago).getTime();
       const diffDays = Math.ceil((payTime - dueTime) / (1000 * 60 * 60 * 24));
       updatedOp.diasMora = diffDays > 0 ? diffDays : 0;
+      updatedOp.estado = 'ACTIVA';
     } else {
       updatedOp.proximoVencimiento = 'PAGADO TOTAL';
       updatedOp.estado = 'FINALIZADA';
@@ -526,7 +564,7 @@ export default function PagosView({
       updatedOp.diasMora = 0;
     }
 
-    // Arrears classification system based on 3-cuotas and 7-cuotas rules
+    // Arrears classification system
     if (updatedOp.diasMora === 0) {
       updatedOp.nivelMora = 'Sano';
     } else if (updatedOp.diasMora <= 3) {
@@ -543,10 +581,15 @@ export default function PagosView({
     updatedOp.elegibleAmpliacion = pctPaid >= 40 && updatedOp.diasMora <= 2;
 
     // Append general observations
-    const paymentMsg = `[Pago de $${valorCobrado} vía ${medioPago} el ${fechaPago} por ${loggedInUserName}] ${observacionesInput}`;
+    const paymentMsg = `[Pago de $${valorCobrado} vía ${medioPago} el ${fechaPago} (${modality})] ${observacionesInput}`;
     updatedOp.observaciones = updatedOp.observaciones 
       ? `${updatedOp.observaciones}\n${paymentMsg}` 
       : paymentMsg;
+
+    const formattedTime = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const cuotasAfectadasText = affectedCuotaNumbers.length > 0 
+      ? `Cuotas N° ${affectedCuotaNumbers.sort((a,b) => a - b).join(', ')}`
+      : 'Sin cuotas';
 
     // Create a new Pago record
     const nuevoPago: Pago = {
@@ -555,9 +598,12 @@ export default function PagosView({
       idCliente: selectedOp.idCliente,
       nombreCliente: selectedOp.nombreCliente,
       fechaPago,
+      horaPago: formattedTime,
       importe: valorCobrado,
       cobrador: loggedInUserName,
       metodoPago: medioPago,
+      modalidad: modality,
+      cuotasAfectadas: cuotasAfectadasText,
       observaciones: observacionesInput,
     };
 
@@ -566,7 +612,7 @@ export default function PagosView({
       id: `TRX-${Date.now().toString()}`,
       fecha: fechaPago,
       tipo: 'INGRESO',
-      concepto: `Cobranza de Crédito Nro ${selectedOp.id} - Cliente: ${selectedOp.nombreCliente} (${medioPago})`,
+      concepto: `Cobranza de Crédito N° ${selectedOp.id} - ${selectedOp.nombreCliente} (${medioPago} - ${modality})`,
       monto: valorCobrado,
       referenciaId: nuevoPago.id,
     };
@@ -574,7 +620,7 @@ export default function PagosView({
     // Fire update to main system state
     onAddPago(nuevoPago, updatedCuotas, updatedOp, trxTesoreria);
     
-    alert(`¡Pago de $${valorCobrado.toLocaleString('es-ES')} registrado con éxito!\nEl plan de cuotas, saldos e indicadores generales se actualizaron de forma automática.`);
+    alert(`¡Pago de $${valorCobrado.toLocaleString('es-ES')} registrado con éxito!\nModalidad: ${modality === 'PAGO_ADELANTADO_OPCION_B' ? 'Opción B (Cuota del Día + Consecutivas)' : modality}\n${cuotasAfectadasText}`);
     
     // Update local view item
     setSelectedOp(updatedOp);
@@ -875,6 +921,35 @@ export default function PagosView({
   return (
     <div id="recaudador-section" className="space-y-6">
       
+      {/* Top View Selector: Cobranza vs Registro Histórico de Pagos */}
+      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-fit">
+        <button
+          onClick={() => setViewTab('cobranza')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            viewTab === 'cobranza'
+              ? 'bg-white text-emerald-800 shadow-xs border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+          }`}
+        >
+          <DollarSign className="w-4 h-4 text-emerald-600" />
+          <span>1. Cobranza y Fichas de Crédito</span>
+        </button>
+
+        <button
+          onClick={() => setViewTab('registro_pagos')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            viewTab === 'registro_pagos'
+              ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+          }`}
+        >
+          <ClipboardList className="w-4 h-4 text-blue-600" />
+          <span>2. Registro Histórico y Auditoría de Pagos ({pagos.length})</span>
+        </button>
+      </div>
+
+      {viewTab === 'cobranza' && (
+      <>
       {/* Tab Navigation header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>
@@ -1108,35 +1183,78 @@ export default function PagosView({
                     {(activeAction === 'pago' || activeAction === 'pago_parcial' || activeAction === 'pago_adelantado') && (
                       <div className="space-y-2.5">
                         {activeAction === 'pago_adelantado' && (
-                          <div className="bg-teal-50/50 p-3 rounded-lg border border-teal-200/60 space-y-2">
-                            <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Modalidad de Pago por Adelantado:</span>
-                            <div className="flex flex-col gap-2">
-                              <label className="inline-flex items-start gap-2 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="prepaymentMode"
-                                  checked={prepaymentMode === 'FINAL_ATRAS'}
-                                  onChange={() => setPrepaymentMode('FINAL_ATRAS')}
-                                  className="mt-0.5 rounded-full text-teal-600 focus:ring-teal-500 h-3.5 w-3.5 cursor-pointer"
-                                />
-                                <span className="text-[11px] font-medium text-slate-700 leading-tight">
-                                  <strong>Opción A: Descontar desde el final hacia atrás</strong>
-                                  <span className="block text-[9px] text-slate-400 font-normal mt-0.5">Se abonan las últimas cuotas del crédito (ej. de la cuota 20 hacia atrás), reduciendo el plazo final del crédito.</span>
-                                </span>
-                              </label>
+                          <div className="bg-teal-50/70 p-3.5 rounded-xl border border-teal-200/80 space-y-2.5 shadow-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                                Modalidad de Pago por Adelantado:
+                              </span>
+                              <span className="text-[9px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-full border border-teal-300">
+                                Seleccione Modalidad
+                              </span>
+                            </div>
 
-                              <label className="inline-flex items-start gap-2 cursor-pointer">
+                            <div className="grid grid-cols-1 gap-2.5">
+                              <label
+                                onClick={() => setPrepaymentMode('CONSECUTIVO_INMEDIATO')}
+                                className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                                  prepaymentMode === 'CONSECUTIVO_INMEDIATO'
+                                    ? 'bg-white border-teal-600 shadow-xs ring-2 ring-teal-500/20'
+                                    : 'bg-white/60 border-teal-200/80 hover:bg-white'
+                                }`}
+                              >
                                 <input
                                   type="radio"
                                   name="prepaymentMode"
                                   checked={prepaymentMode === 'CONSECUTIVO_INMEDIATO'}
                                   onChange={() => setPrepaymentMode('CONSECUTIVO_INMEDIATO')}
-                                  className="mt-0.5 rounded-full text-teal-600 focus:ring-teal-500 h-3.5 w-3.5 cursor-pointer"
+                                  className="mt-0.5 rounded-full text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer shrink-0"
                                 />
-                                <span className="text-[11px] font-medium text-slate-700 leading-tight">
-                                  <strong>Opción B: Adelantar cuotas consecutivas inmediatas</strong>
-                                  <span className="block text-[9px] text-slate-400 font-normal mt-0.5">Se abonan las próximas cuotas a vencer consecutivamente. El cliente no tendrá vencimientos pendientes ni mora hasta que pasen los días correspondientes a estas cuotas.</span>
-                                </span>
+                                <div className="space-y-1 text-xs">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <strong className="text-slate-900 font-extrabold text-xs">
+                                      Opción B: Adelantar cuotas consecutivas inmediatas (Cuota del día + siguientes)
+                                    </strong>
+                                    <span className="text-[9px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md uppercase border border-emerald-300">
+                                      ⭐ Recomendada / Al Día
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-600 leading-relaxed font-medium">
+                                    Se abona la cuota del día de hoy (o vencida) + las próximas cuotas a vencer en orden consecutivo (1, 2, 3...). 
+                                    <strong className="text-emerald-700"> El cliente no figura con mora hoy</strong> y queda al día por los días abonados.
+                                  </p>
+                                </div>
+                              </label>
+
+                              <label
+                                onClick={() => setPrepaymentMode('FINAL_ATRAS')}
+                                className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                                  prepaymentMode === 'FINAL_ATRAS'
+                                    ? 'bg-white border-teal-600 shadow-xs ring-2 ring-teal-500/20'
+                                    : 'bg-white/60 border-teal-200/80 hover:bg-white'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="prepaymentMode"
+                                  checked={prepaymentMode === 'FINAL_ATRAS'}
+                                  onChange={() => setPrepaymentMode('FINAL_ATRAS')}
+                                  className="mt-0.5 rounded-full text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer shrink-0"
+                                />
+                                <div className="space-y-1 text-xs">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <strong className="text-slate-900 font-extrabold text-xs">
+                                      Opción A: Descontar desde el final hacia atrás
+                                    </strong>
+                                    <span className="text-[9px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase border border-slate-200 font-bold">
+                                      Amortiza Final
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-600 leading-relaxed font-medium">
+                                    Se abonan las últimas cuotas del contrato (ej. cuota 20 hacia atrás), reduciendo la duración final del crédito. 
+                                    <em className="text-amber-700 font-semibold"> La cuota vencida de hoy no se cancela salvo que cubra todo el saldo.</em>
+                                  </p>
+                                </div>
                               </label>
                             </div>
                           </div>
@@ -1670,6 +1788,14 @@ export default function PagosView({
                 <span className="font-mono font-bold text-slate-700">{selectedOp.id}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
+                <span className="text-slate-500 font-medium">Modalidad:</span>
+                <span className="font-extrabold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 text-[11px]">
+                  {activeAction === 'pago_adelantado'
+                    ? (prepaymentMode === 'CONSECUTIVO_INMEDIATO' ? 'Opción B: Cuota del Día + Consecutivas' : 'Opción A: Desde el final hacia atrás')
+                    : activeAction === 'pago_parcial' ? 'Pago Parcial' : 'Pago Regular'}
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
                 <span className="text-slate-500 font-medium">Monto a Registrar:</span>
                 <span className="text-sm font-black text-emerald-600">${parseFloat(importeCobrado || '0').toLocaleString('es-ES')} ARS</span>
               </div>
@@ -1707,6 +1833,368 @@ export default function PagosView({
               >
                 <Check className="w-4 h-4" />
                 Registrar Pago Seguro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
+      )}
+
+      {/* VIEW TAB 2: REGISTRO HISTÓRICO Y AUDITORÍA DE PAGOS REALIZADOS */}
+      {viewTab === 'registro_pagos' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Header & Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Total Pagos Registrados</span>
+              <span className="text-2xl font-black text-slate-900">{pagos.length}</span>
+              <span className="text-[10px] text-slate-500 block">Cobranzas históricas</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Recaudación Acumulada</span>
+              <span className="text-2xl font-black text-emerald-600">
+                ${pagos.reduce((sum, p) => sum + (p.importe || 0), 0).toLocaleString('es-ES')} ARS
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold block">Cobrado por operadores</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Pagos Opción B (Día + Consecutivas)</span>
+              <span className="text-2xl font-black text-teal-700">
+                {pagos.filter(p => p.modalidad === 'PAGO_ADELANTADO_OPCION_B').length}
+              </span>
+              <span className="text-[10px] text-teal-600 font-semibold block">Sin mora residual</span>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Pagos Opción A (Desde el final)</span>
+              <span className="text-2xl font-black text-amber-700">
+                {pagos.filter(p => p.modalidad === 'PAGO_ADELANTADO_OPCION_A').length}
+              </span>
+              <span className="text-[10px] text-amber-600 font-semibold block">Descuentan al final</span>
+            </div>
+          </div>
+
+          {/* Filters Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+            <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={pagoSearchTerm}
+                  onChange={(e) => setPagoSearchTerm(e.target.value)}
+                  placeholder="Buscar por cliente, DNI, ID pago o ID operación..."
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-600 focus:bg-white transition-all"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={pagoFilterModalidad}
+                  onChange={(e) => setPagoFilterModalidad(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-extrabold focus:outline-none focus:border-blue-600"
+                >
+                  <option value="TODOS">Todas las Modalidades</option>
+                  <option value="PAGO_ADELANTADO_OPCION_B">Opción B (Cuota Día + Consecutivas)</option>
+                  <option value="PAGO_ADELANTADO_OPCION_A">Opción A (Desde el Final)</option>
+                  <option value="PAGO_REGULAR">Pago Regular</option>
+                  <option value="PAGO_PARCIAL">Pago Parcial</option>
+                </select>
+
+                <select
+                  value={pagoFilterMetodo}
+                  onChange={(e) => setPagoFilterMetodo(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-extrabold focus:outline-none focus:border-blue-600"
+                >
+                  <option value="TODOS">Todos los Medios de Pago</option>
+                  <option value="EFECTIVO">EFECTIVO</option>
+                  <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                  <option value="DEPOSITO">DEPÓSITO</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Table of Payments */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">ID Pago & Hora</th>
+                    <th className="py-3 px-4">Cliente</th>
+                    <th className="py-3 px-4">Crédito N°</th>
+                    <th className="py-3 px-4 text-right">Importe Cobrado</th>
+                    <th className="py-3 px-4">Medio</th>
+                    <th className="py-3 px-4">Modalidad Imputada</th>
+                    <th className="py-3 px-4">Cuotas Impactadas</th>
+                    <th className="py-3 px-4">Cobrador</th>
+                    <th className="py-3 px-4 text-center">Acción / Corregir</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {pagos
+                    .filter(p => {
+                      const matchSearch =
+                        !pagoSearchTerm ||
+                        p.nombreCliente.toLowerCase().includes(pagoSearchTerm.toLowerCase()) ||
+                        p.id.toLowerCase().includes(pagoSearchTerm.toLowerCase()) ||
+                        p.idOperacion.toLowerCase().includes(pagoSearchTerm.toLowerCase());
+                      const matchMod = pagoFilterModalidad === 'TODOS' || p.modalidad === pagoFilterModalidad;
+                      const matchMet = pagoFilterMetodo === 'TODOS' || p.metodoPago === pagoFilterMetodo;
+                      return matchSearch && matchMod && matchMet;
+                    })
+                    .sort((a, b) => new Date(b.fechaPago).getTime() - new Date(a.fechaPago).getTime())
+                    .map((pago) => {
+                      const mod = pago.modalidad || 'PAGO_REGULAR';
+                      return (
+                        <tr key={pago.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                            <div>{pago.id}</div>
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              {pago.fechaPago} {pago.horaPago ? `• ${pago.horaPago}` : ''}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-extrabold text-slate-900">
+                            {pago.nombreCliente}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-slate-600">
+                            #{pago.idOperacion}
+                          </td>
+                          <td className="py-3 px-4 text-right font-black text-emerald-700 text-sm">
+                            ${pago.importe.toLocaleString('es-ES')}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="bg-slate-100 text-slate-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-slate-200 uppercase">
+                              {pago.metodoPago}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {mod === 'PAGO_ADELANTADO_OPCION_B' && (
+                              <span className="bg-teal-100 text-teal-800 text-[10px] font-black px-2 py-1 rounded-md border border-teal-300 inline-flex items-center gap-1">
+                                <span>⭐ Opción B: Día + Consecutivas</span>
+                              </span>
+                            )}
+                            {mod === 'PAGO_ADELANTADO_OPCION_A' && (
+                              <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-1 rounded-md border border-amber-300 inline-flex items-center gap-1">
+                                <span>Opción A: Desde el Final</span>
+                              </span>
+                            )}
+                            {mod === 'PAGO_PARCIAL' && (
+                              <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-1 rounded-md border border-blue-300">
+                                Pago Parcial
+                              </span>
+                            )}
+                            {mod === 'PAGO_REGULAR' && (
+                              <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-1 rounded-md border border-slate-300">
+                                Pago Regular
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-[11px] font-semibold text-slate-600">
+                            {pago.cuotasAfectadas || 'Cuotas del periodo'}
+                          </td>
+                          <td className="py-3 px-4 text-xs font-bold text-slate-700">
+                            {pago.cobrador || 'Operador'}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              onClick={() => {
+                                setEditingPago(pago);
+                                setEditModalidad((pago.modalidad as any) || 'PAGO_ADELANTADO_OPCION_B');
+                                setEditMetodoPago(pago.metodoPago);
+                                setEditFechaPago(pago.fechaPago);
+                                setEditImporte(pago.importe.toString());
+                                setEditObservaciones(pago.observaciones || '');
+                              }}
+                              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-extrabold border border-blue-200 transition-all cursor-pointer flex items-center gap-1 mx-auto"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              <span>Corregir / Pasar a Opción B</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REORGANIZE / EDIT PAYMENT MODAL */}
+      {editingPago && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2 text-blue-700">
+                <RefreshCw className="w-5 h-5 animate-spin" style={{ animationDuration: '4s' }} />
+                <h3 className="text-base font-black text-slate-900">Reorganizar Imputación de Pago</h3>
+              </div>
+              <button
+                onClick={() => setEditingPago(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Pago ID:</span>
+                <span className="font-mono font-bold text-slate-900">{editingPago.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Cliente:</span>
+                <span className="font-bold text-slate-900">{editingPago.nombreCliente}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Crédito N°:</span>
+                <span className="font-mono font-bold text-slate-700">#{editingPago.idOperacion}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider block mb-1">
+                  Seleccionar Nueva Modalidad de Imputación:
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  <label
+                    onClick={() => setEditModalidad('PAGO_ADELANTADO_OPCION_B')}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                      editModalidad === 'PAGO_ADELANTADO_OPCION_B'
+                        ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100/80'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="editModalidad"
+                      checked={editModalidad === 'PAGO_ADELANTADO_OPCION_B'}
+                      onChange={() => setEditModalidad('PAGO_ADELANTADO_OPCION_B')}
+                      className="mt-0.5 text-emerald-600 h-4 w-4 shrink-0"
+                    />
+                    <div className="text-xs">
+                      <strong className="text-slate-900 font-extrabold block">
+                        Opción B: Cuota del Día + Consecutivas Inmediatas (RECOMENDADA)
+                      </strong>
+                      <span className="text-[10px] text-slate-600 font-medium block mt-0.5">
+                        Cancela la cuota vencida de hoy y las consecutivas inmediatas. El cliente <strong>deja de figurar en mora hoy</strong>.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label
+                    onClick={() => setEditModalidad('PAGO_ADELANTADO_OPCION_A')}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                      editModalidad === 'PAGO_ADELANTADO_OPCION_A'
+                        ? 'bg-amber-50/80 border-amber-500 ring-2 ring-amber-500/20'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100/80'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="editModalidad"
+                      checked={editModalidad === 'PAGO_ADELANTADO_OPCION_A'}
+                      onChange={() => setEditModalidad('PAGO_ADELANTADO_OPCION_A')}
+                      className="mt-0.5 text-amber-600 h-4 w-4 shrink-0"
+                    />
+                    <div className="text-xs">
+                      <strong className="text-slate-900 font-extrabold block">
+                        Opción A: Descontar desde el final hacia atrás
+                      </strong>
+                      <span className="text-[10px] text-slate-600 font-medium block mt-0.5">
+                        Abona las últimas cuotas del plan de pago (de atrás hacia adelante).
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Monto ($)</label>
+                  <input
+                    type="number"
+                    value={editImporte}
+                    onChange={(e) => setEditImporte(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Medio de Pago</label>
+                  <select
+                    value={editMetodoPago}
+                    onChange={(e) => setEditMetodoPago(e.target.value as any)}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-600"
+                  >
+                    <option value="EFECTIVO">EFECTIVO</option>
+                    <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                    <option value="DEPOSITO">DEPÓSITO</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Fecha de Cobro</label>
+                <input
+                  type="date"
+                  value={editFechaPago}
+                  onChange={(e) => setEditFechaPago(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-blue-600"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Observaciones</label>
+                <textarea
+                  value={editObservaciones}
+                  onChange={(e) => setEditObservaciones(e.target.value)}
+                  rows={2}
+                  placeholder="Motivo de la reorganización..."
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-blue-600"
+                />
+              </div>
+            </div>
+
+            <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-200 text-[11px] text-blue-900 font-medium">
+              💡 <strong>Acción Reorganizadora:</strong> Al guardar, el sistema restablecerá el estado de todas las cuotas del crédito #{editingPago.idOperacion} y re-imputará los pagos aplicados en orden cronológico respetando la nueva modalidad elegida.
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditingPago(null)}
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onReorganizePago && editingPago) {
+                    onReorganizePago(
+                      editingPago.id,
+                      editModalidad,
+                      editMetodoPago,
+                      editFechaPago,
+                      parseFloat(editImporte),
+                      editObservaciones
+                    );
+                    alert('¡Pago reorganizado con éxito! Se re-calculó todo el crédito.');
+                    setEditingPago(null);
+                  }
+                }}
+                className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer text-center flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Confirmar y Recalcular Crédito</span>
               </button>
             </div>
           </div>
