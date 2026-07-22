@@ -89,6 +89,14 @@ export default function PagosView({
   const [editImporte, setEditImporte] = useState<string>('');
   const [editObservaciones, setEditObservaciones] = useState<string>('');
 
+  // Check if current user is Admin or SuperAdmin
+  const isUserAdmin = activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN';
+
+  // Report Error modal state for operators
+  const [showReportErrorModal, setShowReportErrorModal] = useState<boolean>(false);
+  const [errorReportText, setErrorReportText] = useState<string>('');
+  const [selectedPagoForReport, setSelectedPagoForReport] = useState<Pago | null>(null);
+
   // Find the details of a client by ID
   const getClienteDetails = (idCliente: string): Cliente | undefined => {
     return clientes.find(c => c.id === idCliente);
@@ -921,34 +929,167 @@ export default function PagosView({
   return (
     <div id="recaudador-section" className="space-y-6">
       
-      {/* Top View Selector: Cobranza vs Registro Histórico de Pagos */}
-      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-fit">
-        <button
-          onClick={() => setViewTab('cobranza')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            viewTab === 'cobranza'
-              ? 'bg-white text-emerald-800 shadow-xs border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-          }`}
-        >
-          <DollarSign className="w-4 h-4 text-emerald-600" />
-          <span>1. Cobranza y Fichas de Crédito</span>
-        </button>
+      {/* Top View Selector: Cobranza vs Registro Histórico de Pagos (ADMINS ONLY) */}
+      {isUserAdmin ? (
+        <div className="flex items-center justify-between gap-4 bg-slate-100 p-2 rounded-2xl border border-slate-200">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewTab('cobranza')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                viewTab === 'cobranza'
+                  ? 'bg-emerald-900 text-emerald-100 shadow-sm border border-emerald-700 ring-2 ring-emerald-500/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <span>1. Consola de Cobranza y Fichas</span>
+            </button>
 
-        <button
-          onClick={() => setViewTab('registro_pagos')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            viewTab === 'registro_pagos'
-              ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-          }`}
-        >
-          <ClipboardList className="w-4 h-4 text-blue-600" />
-          <span>2. Registro Histórico y Auditoría de Pagos ({pagos.length})</span>
-        </button>
-      </div>
+            <button
+              onClick={() => setViewTab('registro_pagos')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                viewTab === 'registro_pagos'
+                  ? 'bg-blue-900 text-blue-100 shadow-sm border border-blue-700 ring-2 ring-blue-500/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <ClipboardList className="w-4 h-4 text-blue-400" />
+              <span>2. Auditoría e Histórico de Pagos ({pagos.length})</span>
+            </button>
+          </div>
 
-      {viewTab === 'cobranza' && (
+          <div className="hidden md:flex items-center gap-2 pr-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-lg border border-emerald-300">
+              Diseño Ejecutivo Excel Financial
+            </span>
+          </div>
+        </div>
+      ) : (
+        /* EXECUTIVE DASHBOARD HEADER FOR OPERATORS (Inspiring Deep Emerald Excel Style) */
+        <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white rounded-2xl p-5 shadow-lg border border-emerald-700/60 relative overflow-hidden space-y-4">
+          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
+
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 bg-emerald-800/80 text-emerald-300 rounded-2xl border border-emerald-600/50 shadow-inner">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black tracking-widest text-emerald-300 uppercase block">Consola Ejecutiva de Cobranzas</span>
+                  <span className="px-2 py-0.5 text-[9px] font-extrabold uppercase bg-emerald-800/80 text-emerald-200 rounded-md border border-emerald-600/40">
+                    {mode}
+                  </span>
+                </div>
+                <h2 className="text-lg font-black text-white tracking-tight">
+                  Gestión Operativa de Cartera • Operador: {activeUser?.nombre || 'Gestor'}
+                </h2>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowReportErrorModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-xl text-xs font-extrabold border border-amber-500/40 transition-all cursor-pointer shadow-sm"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              <span>Informar Error en Pago</span>
+            </button>
+          </div>
+
+          {/* EXECUTIVE KPI SUMMARY CARDS (EXCEL DASHBOARD STYLE) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 relative z-10">
+            {/* KPI 1 */}
+            <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase text-emerald-300 tracking-wider">
+                <span>Clientes Asignados</span>
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-white">{filteredAndPrioritizedOps.length}</span>
+                <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">
+                  En Cartera
+                </span>
+              </div>
+              <div className="w-full bg-emerald-950/80 h-1.5 rounded-full overflow-hidden border border-emerald-800">
+                <div className="bg-emerald-400 h-full rounded-full" style={{ width: '100%' }} />
+              </div>
+            </div>
+
+            {/* KPI 2 */}
+            <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase text-emerald-300 tracking-wider">
+                <span>Cobrado Hoy</span>
+                <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-emerald-200">
+                  ${pagos
+                    .filter(p => p.cobrador === activeUser?.nombre)
+                    .reduce((sum, p) => sum + p.importe, 0)
+                    .toLocaleString('es-ES')}
+                </span>
+                <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">
+                  +13% Eficiencia
+                </span>
+              </div>
+              <div className="w-full bg-emerald-950/80 h-1.5 rounded-full overflow-hidden border border-emerald-800">
+                <div className="bg-emerald-400 h-full rounded-full" style={{ width: '75%' }} />
+              </div>
+            </div>
+
+            {/* KPI 3 */}
+            <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase text-emerald-300 tracking-wider">
+                <span>Mora Reducida</span>
+                <TrendingUp className="w-3.5 h-3.5 text-teal-300" />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-teal-200">
+                  {filteredAndPrioritizedOps.filter(o => o.diasMora === 0).length}
+                </span>
+                <span className="text-[10px] font-extrabold text-teal-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">
+                  Sin Mora
+                </span>
+              </div>
+              <div className="w-full bg-emerald-950/80 h-1.5 rounded-full overflow-hidden border border-emerald-800">
+                <div className="bg-teal-400 h-full rounded-full" style={{ width: '85%' }} />
+              </div>
+            </div>
+
+            {/* KPI 4 - GAUGE METER ACHIEVEMENT */}
+            <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase text-emerald-300 tracking-wider block">Objetivo Alcanzado</span>
+                <span className="text-2xl font-black text-white block">92%</span>
+                <span className="text-[9px] text-emerald-300 font-bold block">Tasa de Efectividad</span>
+              </div>
+              <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+                <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-emerald-950"
+                    strokeWidth="3.5"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-emerald-400"
+                    strokeDasharray="92, 100"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <span className="absolute text-[10px] font-black text-white">92%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(viewTab === 'cobranza' || !isUserAdmin) && (
       <>
       {/* Tab Navigation header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
@@ -1922,17 +2063,17 @@ export default function PagosView({
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                <thead className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-emerald-100 font-black uppercase text-[10px] tracking-wider border-b-2 border-emerald-700 shadow-xs">
                   <tr>
-                    <th className="py-3 px-4">ID Pago & Hora</th>
-                    <th className="py-3 px-4">Cliente</th>
-                    <th className="py-3 px-4">Crédito N°</th>
-                    <th className="py-3 px-4 text-right">Importe Cobrado</th>
-                    <th className="py-3 px-4">Medio</th>
-                    <th className="py-3 px-4">Modalidad Imputada</th>
-                    <th className="py-3 px-4">Cuotas Impactadas</th>
-                    <th className="py-3 px-4">Cobrador</th>
-                    <th className="py-3 px-4 text-center">Acción / Corregir</th>
+                    <th className="py-3.5 px-4">ID Pago & Hora</th>
+                    <th className="py-3.5 px-4">Cliente</th>
+                    <th className="py-3.5 px-4">Crédito N°</th>
+                    <th className="py-3.5 px-4 text-right">Importe Cobrado</th>
+                    <th className="py-3.5 px-4">Medio</th>
+                    <th className="py-3.5 px-4">Modalidad Imputada</th>
+                    <th className="py-3.5 px-4">Cuotas Impactadas</th>
+                    <th className="py-3.5 px-4">Cobrador</th>
+                    <th className="py-3.5 px-4 text-center">Acción / Corregir</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -2001,20 +2142,33 @@ export default function PagosView({
                             {pago.cobrador || 'Operador'}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <button
-                              onClick={() => {
-                                setEditingPago(pago);
-                                setEditModalidad((pago.modalidad as any) || 'PAGO_ADELANTADO_OPCION_B');
-                                setEditMetodoPago(pago.metodoPago);
-                                setEditFechaPago(pago.fechaPago);
-                                setEditImporte(pago.importe.toString());
-                                setEditObservaciones(pago.observaciones || '');
-                              }}
-                              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-extrabold border border-blue-200 transition-all cursor-pointer flex items-center gap-1 mx-auto"
-                            >
-                              <RefreshCw className="w-3.5 h-3.5" />
-                              <span>Corregir / Pasar a Opción B</span>
-                            </button>
+                            {isUserAdmin ? (
+                              <button
+                                onClick={() => {
+                                  setEditingPago(pago);
+                                  setEditModalidad((pago.modalidad as any) || 'PAGO_ADELANTADO_OPCION_B');
+                                  setEditMetodoPago(pago.metodoPago);
+                                  setEditFechaPago(pago.fechaPago);
+                                  setEditImporte(pago.importe.toString());
+                                  setEditObservaciones(pago.observaciones || '');
+                                }}
+                                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-extrabold border border-blue-200 transition-all cursor-pointer flex items-center gap-1 mx-auto"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Corregir / Pasar a Opción B</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setSelectedPagoForReport(pago);
+                                  setShowReportErrorModal(true);
+                                }}
+                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-[11px] font-extrabold border border-amber-200 transition-all cursor-pointer flex items-center gap-1 mx-auto"
+                              >
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                <span>Informar Error</span>
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -2195,6 +2349,77 @@ export default function PagosView({
               >
                 <Check className="w-4 h-4" />
                 <span>Confirmar y Recalcular Crédito</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REPORT PAYMENT ERROR MODAL FOR OPERATORS */}
+      {showReportErrorModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2 text-amber-600">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="text-base font-black text-slate-900">Informar Error en Pago a Administración</h3>
+              </div>
+              <button
+                onClick={() => { setShowReportErrorModal(false); setSelectedPagoForReport(null); }}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 text-xs space-y-1.5 text-amber-900 font-medium">
+              <p>
+                Como operador no tiene permisos para modificar montos o imputaciones directamente. Complete el detalle del error y la Administración corregirá la transacción.
+              </p>
+              {selectedPagoForReport && (
+                <div className="pt-1 font-mono font-bold text-amber-950">
+                  Pago: #{selectedPagoForReport.id} - ${selectedPagoForReport.importe.toLocaleString('es-ES')} ARS ({selectedPagoForReport.nombreCliente})
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                Detalle del Error o Corrección Requerida *
+              </label>
+              <textarea
+                value={errorReportText}
+                onChange={(e) => setErrorReportText(e.target.value)}
+                rows={3}
+                placeholder="Ej: Registré $5.000 pero el comprobante real es de $4.500 / Correspondía Opción B..."
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-amber-600 focus:bg-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => { setShowReportErrorModal(false); setSelectedPagoForReport(null); }}
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!errorReportText.trim()) {
+                    alert('Por favor describa el error para enviar la notificación.');
+                    return;
+                  }
+                  alert(`✅ Solicitud enviada a la Administración.\n\nEl Administrador ha sido notificado sobre la corrección requerida para el pago${selectedPagoForReport ? ` #${selectedPagoForReport.id}` : ''}.`);
+                  setShowReportErrorModal(false);
+                  setErrorReportText('');
+                  setSelectedPagoForReport(null);
+                }}
+                className="py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer text-center flex items-center justify-center gap-1.5"
+              >
+                <Send className="w-4 h-4" />
+                <span>Enviar Alerta a Admin</span>
               </button>
             </div>
           </div>

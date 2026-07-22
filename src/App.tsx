@@ -1893,6 +1893,7 @@ export default function App() {
             <ClientesView
               clientes={filteredClientes}
               operaciones={operaciones}
+              usuarios={usuarios}
               onAddCliente={handleAddCliente}
               onUpdateCliente={handleUpdateCliente}
               canManage={activeUserRole.crearClientes}

@@ -39,6 +39,16 @@ export default function ClientesView({
   verDireccionCliente = true,
   verIngresosCliente = true
 }: ClientesViewProps) {
+  const [mainTab, setMainTab] = useState<'directorio' | 'asignacion_cartera'>('directorio');
+
+  // Operator Portfolio Assignment States
+  const [selectedOperatorId, setSelectedOperatorId] = useState<string>('USR-2');
+  const [assignedSearch, setAssignedSearch] = useState<string>('');
+  const [availableSearch, setAvailableSearch] = useState<string>('');
+  const [selectedAssignedIds, setSelectedAssignedIds] = useState<string[]>([]);
+  const [selectedAvailableIds, setSelectedAvailableIds] = useState<string[]>([]);
+  const [availableFilterMode, setAvailableFilterMode] = useState<'SIN_ASIGNAR' | 'TODOS'>('SIN_ASIGNAR');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<string>('TODOS');
   const [isAdding, setIsAdding] = useState(false);
@@ -570,8 +580,371 @@ export default function ClientesView({
     doc.save(`Creditos_CrediCash_${client.dni}_${client.apellido}.pdf`);
   };
 
+  const activeOperators = (usuarios && usuarios.length > 0)
+    ? usuarios.filter(u => u.rolId === 'COBRADOR' || u.rolId === 'OPERADOR' || u.rolId === 'ATC' || u.rolId === 'ADMIN')
+    : [
+        { id: 'USR-2', nombre: 'Rodrigo Gómez', email: 'rodrigo.cobros@gmail.com', rolId: 'COBRADOR' },
+        { id: 'USR-3', nombre: 'Carlos López', email: 'carlos.operador@gmail.com', rolId: 'OPERADOR' }
+      ];
+
+  const currentOperator = activeOperators.find(u => u.id === selectedOperatorId) || activeOperators[0];
+
+  const assignedClientsList = clientes.filter(c => {
+    const isAssigned = c.operadorAsignadoId === currentOperator?.id || c.operadorAsignadoNombre === currentOperator?.nombre;
+    const matchSearch = !assignedSearch || 
+      `${c.nombre} ${c.apellido}`.toLowerCase().includes(assignedSearch.toLowerCase()) || 
+      c.dni.includes(assignedSearch) ||
+      c.id.toLowerCase().includes(assignedSearch.toLowerCase());
+    return isAssigned && matchSearch;
+  });
+
+  const availableClientsList = clientes.filter(c => {
+    const isMatchingMode = availableFilterMode === 'SIN_ASIGNAR' 
+      ? (!c.operadorAsignadoId && !c.operadorAsignadoNombre) 
+      : (c.operadorAsignadoId !== currentOperator?.id);
+    const matchSearch = !availableSearch || 
+      `${c.nombre} ${c.apellido}`.toLowerCase().includes(availableSearch.toLowerCase()) || 
+      c.dni.includes(availableSearch) ||
+      c.id.toLowerCase().includes(availableSearch.toLowerCase());
+    return isMatchingMode && matchSearch;
+  });
+
+  const handleAssignSelectedToOperator = () => {
+    if (selectedAvailableIds.length === 0 || !currentOperator) return;
+    selectedAvailableIds.forEach(cliId => {
+      const cli = clientes.find(c => c.id === cliId);
+      if (cli) {
+        onUpdateCliente({
+          ...cli,
+          operadorAsignadoId: currentOperator.id,
+          operadorAsignadoNombre: currentOperator.nombre
+        });
+      }
+    });
+    alert(`✅ ¡Se asignaron ${selectedAvailableIds.length} clientes a ${currentOperator.nombre}!`);
+    setSelectedAvailableIds([]);
+  };
+
+  const handleUnassignSelectedFromOperator = () => {
+    if (selectedAssignedIds.length === 0) return;
+    selectedAssignedIds.forEach(cliId => {
+      const cli = clientes.find(c => c.id === cliId);
+      if (cli) {
+        onUpdateCliente({
+          ...cli,
+          operadorAsignadoId: '',
+          operadorAsignadoNombre: ''
+        });
+      }
+    });
+    alert(`✅ ¡Se desasignaron ${selectedAssignedIds.length} clientes del operador!`);
+    setSelectedAssignedIds([]);
+  };
+
+  const handleEquitableDistribution = () => {
+    const unassigned = clientes.filter(c => !c.operadorAsignadoId);
+    if (unassigned.length === 0) {
+      alert('Todos los clientes ya tienen un operador asignado.');
+      return;
+    }
+    if (activeOperators.length === 0) return;
+
+    unassigned.forEach((cli, idx) => {
+      const op = activeOperators[idx % activeOperators.length];
+      onUpdateCliente({
+        ...cli,
+        operadorAsignadoId: op.id,
+        operadorAsignadoNombre: op.nombre
+      });
+    });
+
+    alert(`🚀 ¡Se distribuyeron ${unassigned.length} clientes equitativamente entre los ${activeOperators.length} operadores activos!`);
+  };
+
   return (
     <div id="clientes-section" className="space-y-6">
+      
+      {/* Top Main View Selector */}
+      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-fit">
+        <button
+          onClick={() => setMainTab('directorio')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            mainTab === 'directorio'
+              ? 'bg-white text-blue-800 shadow-xs border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+          }`}
+        >
+          <Users className="w-4 h-4 text-blue-600" />
+          <span>1. Directorio y Expediente de Clientes</span>
+        </button>
+
+        <button
+          onClick={() => setMainTab('asignacion_cartera')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            mainTab === 'asignacion_cartera'
+              ? 'bg-white text-purple-800 shadow-xs border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+          }`}
+        >
+          <UserPlus className="w-4 h-4 text-purple-600" />
+          <span>2. Asignación de Cartera por Operador ({clientes.filter(c => c.operadorAsignadoId).length}/{clientes.length})</span>
+        </button>
+      </div>
+
+      {/* VIEW TAB 2: SECTOR DE ASIGNACIÓN DE CARTERA POR OPERADOR DE GESTIÓN DIARIA */}
+      {mainTab === 'asignacion_cartera' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Header Stats & Quick Action */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-purple-600" />
+                  Sector de Asignación y Gestión de Cartera
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Asigne o modifique los clientes asignados a cada Operador de Gestión Diaria y Cobranzas. Los operadores verán prioritariamente su cartera.
+                </p>
+              </div>
+
+              <button
+                onClick={handleEquitableDistribution}
+                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer flex items-center gap-2 shrink-0"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Distribuir Clientes Sin Asignar Equitativamente</span>
+              </button>
+            </div>
+
+            {/* Operator Cards Selector */}
+            <div className="pt-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-2">
+                Seleccione el Operador de Gestión Diaria:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                {activeOperators.map((op) => {
+                  const assignedCount = clientes.filter(c => c.operadorAsignadoId === op.id || c.operadorAsignadoNombre === op.nombre).length;
+                  const isSelected = selectedOperatorId === op.id;
+                  return (
+                    <div
+                      key={op.id}
+                      onClick={() => {
+                        setSelectedOperatorId(op.id);
+                        setSelectedAssignedIds([]);
+                        setSelectedAvailableIds([]);
+                      }}
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-purple-50/80 border-purple-500 shadow-sm ring-2 ring-purple-500/20'
+                          : 'bg-slate-50 border-slate-200/80 hover:bg-slate-100/80'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <span className="text-xs font-extrabold text-slate-900 block">{op.nombre}</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">{op.rolId || 'OPERADOR'}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-black text-purple-700 block">{assignedCount}</span>
+                        <span className="text-[9px] font-bold text-slate-400 block">Clientes</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Dual Panel Assignment Workspace */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* LEFT PANEL: Currently Assigned Clients to Selected Operator */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-600" />
+                    Cartera Actual de: <span className="text-purple-700">{currentOperator?.nombre}</span>
+                  </h4>
+                  <span className="text-xs text-slate-500 font-medium">{assignedClientsList.length} Clientes asignados</span>
+                </div>
+
+                {selectedAssignedIds.length > 0 && (
+                  <button
+                    onClick={handleUnassignSelectedFromOperator}
+                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-extrabold border border-rose-200 transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Desasignar ({selectedAssignedIds.length})</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Search filter for assigned */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={assignedSearch}
+                  onChange={(e) => setAssignedSearch(e.target.value)}
+                  placeholder="Filtrar cartera asignada..."
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-purple-600"
+                />
+              </div>
+
+              {/* List of assigned clients */}
+              <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+                {assignedClientsList.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                    No hay clientes asignados a este operador.
+                  </div>
+                ) : (
+                  assignedClientsList.map((cli) => {
+                    const isChecked = selectedAssignedIds.includes(cli.id);
+                    return (
+                      <div
+                        key={cli.id}
+                        onClick={() => {
+                          if (isChecked) {
+                            setSelectedAssignedIds(selectedAssignedIds.filter(id => id !== cli.id));
+                          } else {
+                            setSelectedAssignedIds([...selectedAssignedIds, cli.id]);
+                          }
+                        }}
+                        className={`p-3 rounded-xl border text-xs transition-all cursor-pointer flex items-center justify-between ${
+                          isChecked
+                            ? 'bg-purple-50/90 border-purple-400 font-bold'
+                            : 'bg-slate-50 border-slate-200/70 hover:bg-slate-100/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="rounded text-purple-600 h-4 w-4"
+                          />
+                          <div>
+                            <span className="font-extrabold text-slate-900 block">{cli.nombre} {cli.apellido}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">DNI: {cli.dni} • {cli.id}</span>
+                          </div>
+                        </div>
+
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
+                          cli.estado === 'ACTIVO' ? 'bg-emerald-100 text-emerald-800' :
+                          cli.estado === 'EN_MORA' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {cli.estado}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT PANEL: Available Clients to Assign */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-emerald-600" />
+                    Clientes Disponibles para Asignar
+                  </h4>
+                  <span className="text-xs text-slate-500 font-medium">{availableClientsList.length} Clientes mostrados</span>
+                </div>
+
+                {selectedAvailableIds.length > 0 && (
+                  <button
+                    onClick={handleAssignSelectedToOperator}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Asignar ({selectedAvailableIds.length}) a {currentOperator?.nombre.split(' ')[0]}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Filters for available clients */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={availableSearch}
+                    onChange={(e) => setAvailableSearch(e.target.value)}
+                    placeholder="Buscar clientes por nombre, DNI..."
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-purple-600"
+                  />
+                </div>
+
+                <select
+                  value={availableFilterMode}
+                  onChange={(e) => setAvailableFilterMode(e.target.value as any)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-extrabold focus:outline-none focus:border-purple-600"
+                >
+                  <option value="SIN_ASIGNAR">Solo Sin Asignar</option>
+                  <option value="TODOS">Ver Todos los Clientes</option>
+                </select>
+              </div>
+
+              {/* List of available clients */}
+              <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+                {availableClientsList.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                    No se encontraron clientes disponibles con los filtros aplicados.
+                  </div>
+                ) : (
+                  availableClientsList.map((cli) => {
+                    const isChecked = selectedAvailableIds.includes(cli.id);
+                    return (
+                      <div
+                        key={cli.id}
+                        onClick={() => {
+                          if (isChecked) {
+                            setSelectedAvailableIds(selectedAvailableIds.filter(id => id !== cli.id));
+                          } else {
+                            setSelectedAvailableIds([...selectedAvailableIds, cli.id]);
+                          }
+                        }}
+                        className={`p-3 rounded-xl border text-xs transition-all cursor-pointer flex items-center justify-between ${
+                          isChecked
+                            ? 'bg-purple-50/90 border-purple-400 font-bold'
+                            : 'bg-slate-50 border-slate-200/70 hover:bg-slate-100/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="rounded text-purple-600 h-4 w-4"
+                          />
+                          <div>
+                            <span className="font-extrabold text-slate-900 block">{cli.nombre} {cli.apellido}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              DNI: {cli.dni} • {cli.operadorAsignadoNombre ? `Operador: ${cli.operadorAsignadoNombre}` : 'Sin Operador Asignado'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
+                          cli.operadorAsignadoNombre ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {cli.operadorAsignadoNombre ? 'Asignado' : 'Sin Asignar'}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {mainTab === 'directorio' && (
+      <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
@@ -1328,8 +1701,8 @@ export default function ClientesView({
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
+                <thead className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-emerald-100 font-black uppercase text-[10px] tracking-wider border-b-2 border-emerald-700 shadow-xs">
+                  <tr>
                     <th className="p-3 w-10 text-center">
                       <input
                         type="checkbox"
@@ -1343,7 +1716,7 @@ export default function ClientesView({
                             setSelectedClientIds([]);
                           }
                         }}
-                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                        className="w-4 h-4 text-emerald-400 rounded focus:ring-emerald-500 cursor-pointer"
                       />
                     </th>
                     <th className="p-3">ID / Cliente</th>
@@ -2191,6 +2564,8 @@ export default function ClientesView({
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
