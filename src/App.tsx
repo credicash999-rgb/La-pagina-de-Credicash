@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cliente, Operacion, Cuota, Pago, Feriado, 
-  Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal 
+  Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal, FichajeAsistencia 
 } from './types';
 
 import { calcularDiasAtrasoSinDomingos } from './utils/cuotasGenerator';
@@ -37,7 +37,7 @@ import CrediCashLogo from './components/CrediCashLogo';
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
-  Smartphone, PhoneCall, MapPin, Search, MessageCircle
+  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -52,6 +52,7 @@ const STORAGE_KEYS = {
   ROLES: 'credicash_roles',
   ACTIVE_USER_ID: 'credicash_active_user_id',
   LIQUIDACIONES: 'credicash_liquidaciones',
+  FICHAJES: 'credicash_fichajes',
 };
 
 // Seed Data
@@ -486,6 +487,7 @@ export default function App() {
   const [transacciones, setTransacciones] = useState<TransaccionTesoreria[]>([]);
   const [usuarios, setUsuarios] = useState<UsuarioRol[]>([]);
   const [roles, setRoles] = useState<PermisosRol[]>([]);
+  const [fichajes, setFichajes] = useState<FichajeAsistencia[]>([]);
   const [activeUser, setActiveUser] = useState<UsuarioRol>({
     id: 'USR-1',
     nombre: 'Administrador Principal',
@@ -559,6 +561,28 @@ export default function App() {
     const loadedLiquidaciones = getOrSeed(STORAGE_KEYS.LIQUIDACIONES, SEED_LIQUIDACIONES);
     const loadedUsuarios = getOrSeed(STORAGE_KEYS.USUARIOS, DEFAULT_USUARIOS);
     const loadedRolesRaw = getOrSeed(STORAGE_KEYS.ROLES, DEFAULT_ROLES);
+    const loadedFichajes = getOrSeed<FichajeAsistencia[]>(STORAGE_KEYS.FICHAJES, [
+      {
+        id: 'FICH-001',
+        usuarioId: 'USR-1',
+        usuarioNombre: 'Administrador Principal',
+        usuarioRol: 'ADMIN',
+        fecha: new Date().toISOString().split('T')[0],
+        horaEntrada: '08:00',
+        estado: 'ACTIVA'
+      },
+      {
+        id: 'FICH-002',
+        usuarioId: 'USR-2',
+        usuarioNombre: 'Operador Cobranza 1',
+        usuarioRol: 'OPERADOR',
+        fecha: new Date().toISOString().split('T')[0],
+        horaEntrada: '08:30',
+        horaSalida: '16:30',
+        horasTrabajadas: 8,
+        estado: 'FINALIZADA'
+      }
+    ]);
     
     // Force latest hardcoded role configurations for system defaults, allowing custom roles to merge
     const loadedRoles = loadedRolesRaw.map(r => {
@@ -718,6 +742,7 @@ export default function App() {
     setLiquidaciones(loadedLiquidaciones);
     setUsuarios(loadedUsuarios);
     setRoles(loadedRoles);
+    setFichajes(loadedFichajes);
 
     // Active user setup
     const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
@@ -1022,6 +1047,54 @@ export default function App() {
     saveToLocalStorage(STORAGE_KEYS.ROLES, list);
   };
 
+  const handleAddFichaje = (nuevo: FichajeAsistencia) => {
+    const list = [nuevo, ...fichajes];
+    setFichajes(list);
+    saveToLocalStorage(STORAGE_KEYS.FICHAJES, list);
+  };
+
+  const handleUpdateFichaje = (updated: FichajeAsistencia) => {
+    const list = fichajes.map(f => f.id === updated.id ? updated : f);
+    setFichajes(list);
+    saveToLocalStorage(STORAGE_KEYS.FICHAJES, list);
+  };
+
+  const handleToggleClockInSelf = () => {
+    if (!activeUser) return;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const nowTimeStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+    // Check if user has an active session today
+    const activeSession = fichajes.find(
+      f => f.usuarioId === activeUser.id && f.fecha === todayStr && f.estado === 'ACTIVA'
+    );
+
+    if (activeSession) {
+      // Clock OUT
+      const updated: FichajeAsistencia = {
+        ...activeSession,
+        horaSalida: nowTimeStr,
+        horasTrabajadas: 8,
+        estado: 'FINALIZADA'
+      };
+      handleUpdateFichaje(updated);
+      alert(`Jornada finalizada para ${activeUser.nombre} a las ${nowTimeStr}.`);
+    } else {
+      // Clock IN
+      const nuevo: FichajeAsistencia = {
+        id: `FICH-${Date.now()}`,
+        usuarioId: activeUser.id,
+        usuarioNombre: activeUser.nombre,
+        usuarioRol: activeUserRole.nombre,
+        fecha: todayStr,
+        horaEntrada: nowTimeStr,
+        estado: 'ACTIVA'
+      };
+      handleAddFichaje(nuevo);
+      alert(`Jornada iniciada para ${activeUser.nombre} a las ${nowTimeStr}.`);
+    }
+  };
+
   const handleRestoreBackup = (backupData: any) => {
     if (backupData.clientes) {
       setClientes(backupData.clientes);
@@ -1216,10 +1289,30 @@ export default function App() {
               </div>
             </div>
 
+            {/* Attendance Clock-In/Clock-Out Button */}
+            {(() => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const activeFichaje = fichajes.find(f => f.usuarioId === activeUser?.id && f.fecha === todayStr && f.estado === 'ACTIVA');
+              return (
+                <button
+                  onClick={handleToggleClockInSelf}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 border shadow-xs ${
+                    activeFichaje
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 animate-pulse'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                  }`}
+                  title={activeFichaje ? `Marcar Salida (En jornada desde ${activeFichaje.horaEntrada})` : 'Iniciar Jornada / Fichar Entrada'}
+                >
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span>{activeFichaje ? `Fichar Salida (${activeFichaje.horaEntrada})` : 'Fichar Entrada'}</span>
+                </button>
+              );
+            })()}
+
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-xl transition-all cursor-pointer flex items-center gap-2 group"
+              className="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-xl transition-all cursor-pointer flex items-center gap-2 group ml-1"
               title="Cerrar Sesión"
             >
               <LogOut className="w-4 h-4 text-slate-500 group-hover:text-rose-600 transition-colors" />
@@ -1702,6 +1795,9 @@ export default function App() {
               usuarios={usuarios}
               roles={roles}
               activeUser={activeUser}
+              fichajes={fichajes}
+              onAddFichaje={handleAddFichaje}
+              onUpdateFichaje={handleUpdateFichaje}
               onAddUsuario={handleAddUsuario}
               onUpdateUsuario={handleUpdateUsuario}
               onDeleteUsuario={handleDeleteUsuario}

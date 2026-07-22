@@ -4,17 +4,18 @@
  */
 
 import React, { useState } from 'react';
-import { Cliente, Operacion } from '../types';
+import { Cliente, Operacion, UsuarioRol } from '../types';
 import { 
   Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, FileText, MapPin, 
   Briefcase, Eye, X, Download, Calendar, ArrowLeft, AlertTriangle, Info, 
-  Printer, ArrowRight, RefreshCw, ChevronRight
+  Printer, ArrowRight, RefreshCw, ChevronRight, PauseCircle, Lock
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
 interface ClientesViewProps {
   clientes: Cliente[];
   operaciones?: Operacion[];
+  usuarios?: UsuarioRol[];
   onAddCliente: (cliente: Cliente) => void;
   onUpdateCliente: (cliente: Cliente) => void;
   canManage?: boolean;
@@ -28,6 +29,7 @@ interface ClientesViewProps {
 export default function ClientesView({ 
   clientes, 
   operaciones = [],
+  usuarios = [],
   onAddCliente, 
   onUpdateCliente,
   canManage = true,
@@ -43,6 +45,7 @@ export default function ClientesView({
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [viewingCliente, setViewingCliente] = useState<Cliente | null>(null);
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
+  const [includeTotalInPDF, setIncludeTotalInPDF] = useState<boolean>(false);
 
   const getClientCreditsSummary = (clientId: string) => {
     if (!operaciones || operaciones.length === 0) return 'Sin créditos';
@@ -72,6 +75,8 @@ export default function ClientesView({
   const [ingresos, setIngresos] = useState(0);
   const [captador, setCaptador] = useState('');
   const [analista, setAnalista] = useState('');
+  const [operadorAsignadoId, setOperadorAsignadoId] = useState('');
+  const [operadorAsignadoNombre, setOperadorAsignadoNombre] = useState('');
   const [estado, setEstado] = useState<Cliente['estado']>('SOLICITANTE');
 
   // Extended form states
@@ -121,6 +126,8 @@ export default function ClientesView({
     setIngresos(0);
     setCaptador('');
     setAnalista('');
+    setOperadorAsignadoId('');
+    setOperadorAsignadoNombre('');
     setEstado('SOLICITANTE');
 
     // Reset extended fields
@@ -162,6 +169,8 @@ export default function ClientesView({
     setIngresos(c.ingresos || 0);
     setCaptador(c.captador);
     setAnalista(c.analista);
+    setOperadorAsignadoId(c.operadorAsignadoId || '');
+    setOperadorAsignadoNombre(c.operadorAsignadoNombre || '');
     setEstado(c.estado);
 
     // Load extended fields
@@ -217,6 +226,8 @@ export default function ClientesView({
         ingresos,
         captador,
         analista,
+        operadorAsignadoId,
+        operadorAsignadoNombre,
         estado,
         fechaNacimiento,
         sexo,
@@ -267,6 +278,8 @@ export default function ClientesView({
         ingresos,
         captador,
         analista,
+        operadorAsignadoId,
+        operadorAsignadoNombre,
         estado,
         fechaRegistro: new Date().toISOString().split('T')[0],
         fechaNacimiento,
@@ -319,7 +332,7 @@ export default function ClientesView({
     return matchesSearch && matchesEstado;
   });
 
-  const handleExportPDF = (client: Cliente) => {
+  const handleExportPDF = (client: Cliente, includeTotalSaldo: boolean = false) => {
     if (!isAdmin) return;
     const clientLoans = operaciones.filter(o => o.idCliente === client.id);
     const sortedLoans = [...clientLoans].sort((a, b) => b.fechaOtorgamiento.localeCompare(a.fechaOtorgamiento));
@@ -371,7 +384,7 @@ export default function ClientesView({
     doc.text(`Estado Crediticio: ${client.estado}`, 115, 68);
     doc.text(`Alta en Sistema: ${client.fechaRegistro}`, 115, 74);
     doc.text(`Trabajo / Actividad: ${client.trabajo || 'N/A'}`, 115, 80);
-    doc.text(`Ingresos Declarados: $${client.ingresos?.toLocaleString('es-AR') || '0'}`, 115, 86);
+    doc.text(`Operador / Cobrador: ${client.operadorAsignadoNombre || client.captador || 'Asignado'}`, 115, 86);
     
     let currentY = 98;
     
@@ -387,7 +400,7 @@ export default function ClientesView({
       doc.setTextColor(30, 41, 59);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text(`2. CREDITO PRINCIPAL SELECCIONADO / MAS RECIENTE`, 20, currentY + 8);
+      doc.text(`2. PLAN DE CREDITO VIGENTE`, 20, currentY + 8);
       
       // Draw status tag
       const isFin = presentLoan.estado === 'FINALIZADA';
@@ -405,18 +418,28 @@ export default function ClientesView({
       // Left side details
       doc.text(`ID Operacion: ${presentLoan.id}`, 20, currentY + 18);
       doc.text(`Fecha Otorgamiento: ${presentLoan.fechaOtorgamiento}`, 20, currentY + 24);
-      doc.text(`Capital Entregado: $${presentLoan.capitalEntregado.toLocaleString('es-AR')}`, 20, currentY + 30);
-      doc.text(`Total Financiado: $${presentLoan.totalFinanciado.toLocaleString('es-AR')}`, 20, currentY + 36);
-      doc.text(`Valor de Cuota: $${presentLoan.valorCuota.toLocaleString('es-AR')} (${presentLoan.frecuencia})`, 20, currentY + 42);
-      doc.text(`Plan de Financiacion: ${presentLoan.cantidadCuotas} cuotas`, 20, currentY + 48);
+      doc.text(`Credito Otorgado: $${presentLoan.capitalEntregado.toLocaleString('es-AR')}`, 20, currentY + 30);
+      doc.text(`Valor de Cuota: $${presentLoan.valorCuota.toLocaleString('es-AR')} (${presentLoan.frecuencia})`, 20, currentY + 36);
+      doc.text(`Plan de Financiacion: ${presentLoan.cantidadCuotas} cuotas`, 20, currentY + 42);
+      doc.text(`Cuotas Pendientes: ${presentLoan.cuotasPendientes} cuotas restantes`, 20, currentY + 48);
       
       // Right side details
       doc.text(`Cuotas Pagadas: ${presentLoan.cuotasPagadas} de ${presentLoan.cantidadCuotas}`, 115, currentY + 18);
-      doc.text(`Capital Recuperado: $${presentLoan.capitalRecuperado.toLocaleString('es-AR')}`, 115, currentY + 24);
-      doc.text(`Saldo Total Pendiente: $${presentLoan.totalPendiente.toLocaleString('es-AR')}`, 115, currentY + 30);
-      doc.text(`Proximo Vencimiento: ${presentLoan.proximoVencimiento || 'N/A'}`, 115, currentY + 36);
-      doc.text(`Dias de Mora: ${presentLoan.diasMora} dias (${presentLoan.nivelMora || 'Sin Mora'})`, 115, currentY + 42);
-      doc.text(`Cobrador Asignado: ${presentLoan.cobrador || 'No asignado'}`, 115, currentY + 48);
+      doc.text(`Proximo Vencimiento: ${presentLoan.proximoVencimiento || 'N/A'}`, 115, currentY + 24);
+      
+      // Include total pending ONLY if administrator checked the option
+      if (includeTotalSaldo) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(185, 28, 28); // Red
+        doc.text(`Saldo Total Pendiente: $${presentLoan.totalPendiente.toLocaleString('es-AR')}`, 115, currentY + 30);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(30, 41, 59);
+      } else {
+        doc.text(`Cuotas al Dia: ${presentLoan.diasMora === 0 ? 'Si (Al dia)' : 'Atrasado'}`, 115, currentY + 30);
+      }
+      
+      doc.text(`Dias de Mora: ${presentLoan.diasMora} dias (${presentLoan.nivelMora || 'Sin Mora'})`, 115, currentY + 36);
+      doc.text(`Cobrador Asignado: ${presentLoan.cobrador || 'No asignado'}`, 115, currentY + 42);
       
       currentY += 66;
     } else {
@@ -816,35 +839,72 @@ export default function ClientesView({
               </div>
             </div>
 
-            {/* Sección 6: Configuración Comercial */}
+            {/* Sección 6: Configuración Comercial y Asignación de Operador */}
             <div className="border-t border-slate-100 pt-6">
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                6. Clasificación Comercial y Operadores
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  6. Clasificación Comercial y Operador de Cobranza
+                </h4>
+                <div className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md border border-slate-200 flex items-center gap-1 font-medium">
+                  <Info className="w-3 h-3 text-blue-500 shrink-0" />
+                  <span>El <strong>Analista</strong> aprueba los papeles; el <strong>Operador</strong> realiza el contacto diario.</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Captador</label>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Captador (Promotor / Vendedor)
+                  </label>
                   <input
                     type="text"
                     value={captador}
                     onChange={(e) => setCaptador(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    placeholder="Nombre del captador"
+                    placeholder="Ej: Marcos Vendedor (Mesa Entrada)"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Analista Asignado</label>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Analista Riesgo (Revisor de Papeles)
+                  </label>
                   <input
                     type="text"
                     value={analista}
                     onChange={(e) => setAnalista(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    placeholder="Nombre del analista de crédito"
+                    placeholder="Ej: Lic. Gómez (Mesa Alta)"
                   />
                 </div>
+                <div className="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-200">
+                  <label className="block text-[11px] font-black text-emerald-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Operador Asignado (Contacto Diario)</span>
+                    <span className="text-[9px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded font-extrabold">Exclusivo</span>
+                  </label>
+                  <select
+                    value={operadorAsignadoId}
+                    onChange={(e) => {
+                      const selectedOpId = e.target.value;
+                      setOperadorAsignadoId(selectedOpId);
+                      const opUser = usuarios.find(u => u.id === selectedOpId);
+                      setOperadorAsignadoNombre(opUser ? opUser.nombre : (selectedOpId ? 'Operador Asignado' : 'Sin asignar'));
+                    }}
+                    className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-sm font-bold text-slate-800 focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="">-- Sin operador asignado (Todos) --</option>
+                    {usuarios.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.nombre} ({u.rolId}) - {u.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Estado de Crédito</label>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Estado Crediticio General</label>
                   <select
                     value={estado}
                     onChange={(e) => setEstado(e.target.value as Cliente['estado'])}
@@ -853,6 +913,7 @@ export default function ClientesView({
                     <option value="SOLICITANTE">SOLICITANTE (En Evaluación)</option>
                     <option value="ACTIVO">ACTIVO (Sin deudas vencidas)</option>
                     <option value="EN_MORA">EN MORA</option>
+                    <option value="CONGELADO">CONGELADO (En Standby / Pausado)</option>
                     <option value="INACTIVO">INACTIVO</option>
                   </select>
                 </div>
@@ -1075,24 +1136,56 @@ export default function ClientesView({
               Volver a buscar
             </button>
             
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
               {canManage && (
                 <button
                   onClick={() => handleOpenEdit(selectedClient)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer shadow-xs"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer shadow-xs"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   Editar expediente
                 </button>
               )}
+
               {isAdmin && (
                 <button
-                  onClick={() => handleExportPDF(selectedClient)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer shadow-md flex-1 sm:flex-none justify-center"
+                  onClick={() => {
+                    const newEstado = selectedClient.estado === 'CONGELADO' ? 'ACTIVO' : 'CONGELADO';
+                    const updated = { ...selectedClient, estado: newEstado as Cliente['estado'] };
+                    onUpdateCliente(updated);
+                    setSelectedClient(updated);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer border ${
+                    selectedClient.estado === 'CONGELADO'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                      : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                  }`}
+                  title="Congelar para pausar cobranza temporalmente"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  Exportar PDF de Cliente
+                  <PauseCircle className="w-3.5 h-3.5" />
+                  {selectedClient.estado === 'CONGELADO' ? 'Descongelar Ficha' : 'Congelar Crédito'}
                 </button>
+              )}
+
+              {isAdmin && (
+                <div className="flex items-center gap-2 bg-slate-50 p-1.5 px-3 rounded-lg border border-slate-200 text-xs">
+                  <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={includeTotalInPDF}
+                      onChange={(e) => setIncludeTotalInPDF(e.target.checked)}
+                      className="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Incluir Total de Deuda en PDF</span>
+                  </label>
+                  <button
+                    onClick={() => handleExportPDF(selectedClient, includeTotalInPDF)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors cursor-pointer shadow-xs ml-1"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Exportar PDF
+                  </button>
+                </div>
               )}
             </div>
           </div>

@@ -28,13 +28,27 @@ export default function DashboardView({
   onNavigateTo,
 }: DashboardViewProps) {
   
-  const [subTab, setSubTab] = useState<'kpis' | 'estimates'>('kpis');
+  // Default to 'estimates' as requested by administrator
+  const [subTab, setSubTab] = useState<'kpis' | 'estimates'>('estimates');
+  const [estimateFilter, setEstimateFilter] = useState<'activos' | 'inactivos' | 'combinado'>('activos');
 
-  // Group operations by month of fechaOtorgamiento for Estimaciones Financieras
-  const estimacionesMensuales = React.useMemo(() => {
+  // Map clients for quick lookup
+  const clientMap = React.useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
+
+  // Group operations by month & status segment for Estimaciones Financieras
+  const estimacionesPorSegmento = React.useMemo(() => {
+    const filterOps = operaciones.filter(op => {
+      const client = clientMap.get(op.idCliente);
+      const isInactive = op.estado === 'CONGELADA' || client?.estado === 'INACTIVO' || client?.estado === 'CONGELADO';
+      
+      if (estimateFilter === 'activos') return !isInactive;
+      if (estimateFilter === 'inactivos') return isInactive;
+      return true; // 'combinado'
+    });
+
     const groups: Record<string, { monthLabel: string, capitalEntregado: number, gananciaEstimada: number, totalFinanciado: number, count: number }> = {};
     
-    operaciones.forEach(op => {
+    filterOps.forEach(op => {
       const dateParts = op.fechaOtorgamiento.split('-');
       if (dateParts.length < 2) return;
       const key = `${dateParts[0]}-${dateParts[1]}`; // e.g. "2026-06"
@@ -63,7 +77,26 @@ export default function DashboardView({
     return Object.entries(groups)
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, data]) => ({ key, ...data }));
-  }, [operaciones]);
+  }, [operaciones, clientMap, estimateFilter]);
+
+  // Segment Summary Totals
+  const segmentTotals = React.useMemo(() => {
+    const filterOps = operaciones.filter(op => {
+      const client = clientMap.get(op.idCliente);
+      const isInactive = op.estado === 'CONGELADA' || client?.estado === 'INACTIVO' || client?.estado === 'CONGELADO';
+      
+      if (estimateFilter === 'activos') return !isInactive;
+      if (estimateFilter === 'inactivos') return isInactive;
+      return true;
+    });
+
+    const totalCap = filterOps.reduce((acc, o) => acc + o.capitalEntregado, 0);
+    const totalFin = filterOps.reduce((acc, o) => acc + o.totalFinanciado, 0);
+    const totalInt = totalFin - totalCap;
+    const countOps = filterOps.length;
+
+    return { totalCap, totalFin, totalInt, countOps };
+  }, [operaciones, clientMap, estimateFilter]);
 
   // 1. KPI Calculations
   const totalClientes = clientes.length;
@@ -668,78 +701,153 @@ export default function DashboardView({
     </>
   ) : (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
-              Planificación y Estimaciones Financieras
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Análisis predictivo de colocación de capital y proyección de ganancias estimadas (intereses generados) por mes.
-            </p>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-emerald-600" />
+                Planificación y Estimaciones Financieras
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Análisis de colocación de capital, estimación de ganancias por mes e impacto contable de clientes activos e inactivos.
+              </p>
+            </div>
+
+            {/* Segment Selector Control */}
+            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 self-start md:self-center">
+              <button
+                onClick={() => setEstimateFilter('activos')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  estimateFilter === 'activos'
+                    ? 'bg-white text-emerald-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Clientes Activos
+              </button>
+
+              <button
+                onClick={() => setEstimateFilter('inactivos')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  estimateFilter === 'inactivos'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-200"></span>
+                Inactivos / Congelados
+              </button>
+
+              <button
+                onClick={() => setEstimateFilter('combinado')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                  estimateFilter === 'combinado'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-blue-300"></span>
+                Total Combinado
+              </button>
+            </div>
           </div>
 
-          {/* General Global Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+          {/* Segment Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Capital Entregado (Histórico)</span>
-                <h3 className="text-2xl font-black text-slate-900">
-                  ${capitalEntregado.toLocaleString('es-AR')}
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {estimateFilter === 'activos' ? 'Capital Entregado Activo' : estimateFilter === 'inactivos' ? 'Capital Paralizado / Standby' : 'Capital Total Desembolsado'}
+                </span>
+                <h3 className="text-xl font-black text-slate-900">
+                  ${segmentTotals.totalCap.toLocaleString('es-AR')}
                 </h3>
-                <p className="text-[10px] text-slate-500 font-medium">Suma de todo el capital líquido desembolsado</p>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  {segmentTotals.countOps} crédito{segmentTotals.countOps !== 1 ? 's' : ''} en este segmento
+                </p>
               </div>
-              <div className="p-3.5 bg-blue-50 text-blue-600 rounded-xl">
-                <DollarSign className="w-6 h-6" />
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                <DollarSign className="w-5 h-5" />
               </div>
             </div>
 
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ganancia Estimada Total (Intereses)</span>
-                <h3 className="text-2xl font-black text-emerald-600">
-                  ${interesTotal.toLocaleString('es-AR')}
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ganancia Estimada (Interés)</span>
+                <h3 className="text-xl font-black text-emerald-600">
+                  ${segmentTotals.totalInt.toLocaleString('es-AR')}
                 </h3>
-                <p className="text-[10px] text-emerald-600 font-bold">Ganancia pura proyectada sobre colocaciones</p>
+                <p className="text-[10px] text-emerald-600 font-bold">
+                  Intereses acordados sobre el capital
+                </p>
               </div>
-              <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl">
-                <TrendingUp className="w-6 h-6" />
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {estimateFilter === 'inactivos' ? 'Retorno Potencial de Recuperación' : 'Total Financiado a Cobrar'}
+                </span>
+                <h3 className="text-xl font-black text-blue-600">
+                  ${segmentTotals.totalFin.toLocaleString('es-AR')}
+                </h3>
+                <p className="text-[10px] text-blue-600 font-bold">
+                  {estimateFilter === 'inactivos' ? 'Capital + Ganancia si se recuperan' : 'Capital Líquido + Interés Total'}
+                </p>
+              </div>
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                <Target className="w-5 h-5" />
               </div>
             </div>
           </div>
 
           {/* Monthly Breakdowns */}
           <div className="space-y-4 pt-2">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Desglose Mensual de Rendimiento
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center justify-between">
+              <span>Desglose Mensual por Fecha de Entrega</span>
+              <span className="text-[10px] text-slate-400 font-normal">
+                Segmento actual: <strong className="uppercase text-slate-700">{estimateFilter}</strong>
+              </span>
             </h4>
 
-            {estimacionesMensuales.length === 0 ? (
-              <p className="text-xs text-slate-400 italic text-center py-8">No hay operaciones registradas para estimar ganancias.</p>
+            {estimacionesPorSegmento.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl space-y-2">
+                <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
+                <p className="text-xs text-slate-600 font-bold">No hay créditos registrados en el segmento "{estimateFilter}".</p>
+                <p className="text-[11px] text-slate-400">
+                  {estimateFilter === 'inactivos' 
+                    ? 'No se registran créditos inactivos ni congelados por el momento.' 
+                    : 'Puede agregar créditos o cambiar de segmento arriba.'}
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
-                {estimacionesMensuales.map((item) => (
-                  <div key={item.key} className="p-5 bg-slate-50/40 border border-slate-200 rounded-2xl shadow-xs space-y-4">
-                    <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                {estimacionesPorSegmento.map((item) => (
+                  <div key={item.key} className="p-5 bg-slate-50/50 border border-slate-200 rounded-2xl shadow-xs space-y-4">
+                    <div className="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
                       <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
                         {item.monthLabel}
                       </span>
-                      <span className="text-[10px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-bold">
-                        {item.count} Crédito{item.count !== 1 ? 's' : ''} Otorgado{item.count !== 1 ? 's' : ''}
+                      <span className="text-[10px] bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full font-extrabold border border-emerald-200/50">
+                        {item.count} Crédito{item.count !== 1 ? 's' : ''} registrado{item.count !== 1 ? 's' : ''}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-600">
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-150">
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                         <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider mb-0.5">Capital Entregado</span>
                         <strong className="text-slate-800 text-sm font-black">${item.capitalEntregado.toLocaleString('es-AR')}</strong>
                       </div>
 
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-150">
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                         <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider mb-0.5">Ganancia Estimada (Intereses)</span>
                         <strong className="text-emerald-600 text-sm font-black">${item.gananciaEstimada.toLocaleString('es-AR')}</strong>
                       </div>
 
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-150">
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-200">
                         <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider mb-0.5">Total Financiado (Retorno)</span>
                         <strong className="text-blue-600 text-sm font-black">${item.totalFinanciado.toLocaleString('es-AR')}</strong>
                       </div>
@@ -751,11 +859,11 @@ export default function DashboardView({
                       return (
                         <div className="space-y-1.5 pt-1 text-xs">
                           <div className="flex justify-between font-bold text-slate-500">
-                            <span>Margen de Ganancia de Colocación</span>
+                            <span>Margen de Rentabilidad del Mes</span>
                             <span className="text-emerald-600">{pctGain.toFixed(1)}%</span>
                           </div>
-                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${pctGain}%` }}></div>
+                          <div className="w-full bg-slate-200/70 h-2 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${pctGain}%` }}></div>
                           </div>
                         </div>
                       );

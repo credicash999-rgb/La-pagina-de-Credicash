@@ -14,7 +14,9 @@ export interface Cliente {
   ingresos: number;
   captador: string;
   analista: string;
-  estado: 'ACTIVO' | 'INACTIVO' | 'EN_MORA' | 'SOLICITANTE' | 'PROSPECTO' | 'SUSPENDIDO';
+  operadorAsignadoId?: string;
+  operadorAsignadoNombre?: string;
+  estado: 'ACTIVO' | 'INACTIVO' | 'EN_MORA' | 'SOLICITANTE' | 'PROSPECTO' | 'SUSPENDIDO' | 'CONGELADO';
   fechaRegistro: string;
 
   // Nuevos campos solicitados por el usuario
@@ -53,9 +55,11 @@ export interface Operacion {
   fechaOtorgamiento: string;
   idCliente: string;
   nombreCliente: string;
-  estado: 'ACTIVA' | 'FINALIZADA' | 'REFINANCIADA' | 'VENCIDA';
+  estado: 'ACTIVA' | 'FINALIZADA' | 'REFINANCIADA' | 'VENCIDA' | 'CONGELADA';
   tipoOperacion: 'NUEVO' | 'RENOVACION' | 'REFINANCIACION' | 'AMPLIACION';
   descripcion: string;
+  operadorAsignadoId?: string;
+  operadorAsignadoNombre?: string;
   capitalEntregado: number;
   promocionAplicada: string;
   descuentoPorcentaje: number;
@@ -202,5 +206,20 @@ export interface UsuarioRol {
   email: string;
   password?: string; // Contraseña para el inicio de sesión
   rolId: string;
+}
+
+export interface FichajeAsistencia {
+  id: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  rolNombre?: string;
+  usuarioRol?: string;
+  fecha: string; // YYYY-MM-DD
+  horaEntrada: string; // HH:MM:SS
+  horaSalida?: string; // HH:MM:SS
+  duracionMinutos?: number;
+  horasTrabajadas?: number;
+  estado: 'ACTIVA' | 'FINALIZADA';
+  observaciones?: string;
 }
 

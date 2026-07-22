@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { PermisosRol, UsuarioRol } from '../types';
+import { PermisosRol, UsuarioRol, FichajeAsistencia } from '../types';
 import { 
   Shield, UserPlus, Users, ToggleLeft, ToggleRight, Check, Trash2, 
-  Lock, KeyRound, Mail, Info, ShieldAlert, CheckCircle2, Edit2, X 
+  Lock, KeyRound, Mail, Info, ShieldAlert, CheckCircle2, Edit2, X,
+  Clock, Calendar, LogIn, LogOut, CheckCircle, Activity, UserCheck
 } from 'lucide-react';
 
 interface UsuariosViewProps {
   usuarios: UsuarioRol[];
   roles: PermisosRol[];
   activeUser: UsuarioRol;
+  fichajes?: FichajeAsistencia[];
+  onAddFichaje?: (fichaje: FichajeAsistencia) => void;
+  onUpdateFichaje?: (fichaje: FichajeAsistencia) => void;
   onAddUsuario: (usuario: UsuarioRol) => void;
   onUpdateUsuario: (usuario: UsuarioRol) => void;
   onDeleteUsuario: (id: string) => void;
@@ -20,13 +24,17 @@ export default function UsuariosView({
   usuarios,
   roles,
   activeUser,
+  fichajes = [],
+  onAddFichaje,
+  onUpdateFichaje,
   onAddUsuario,
   onUpdateUsuario,
   onDeleteUsuario,
   onUpdateRolePermisos,
   onAddRole,
 }: UsuariosViewProps) {
-  
+  const [activeTab, setActiveTab] = useState<'USUARIOS' | 'PRESENTISMO'>('USUARIOS');
+
   // New User Form States
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevoEmail, setNuevoEmail] = useState('');
@@ -166,17 +174,16 @@ export default function UsuariosView({
   return (
     <div className="space-y-6">
       
-      {/* Overview Card */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      {/* Overview Card with Tab Switcher */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <Shield className="w-5 h-5 text-blue-600" />
-              Gestión de Usuarios, Roles y Permisos
+              Gestión de Personal, Permisos y Control de Asistencia
             </h2>
             <p className="text-xs text-slate-500 leading-relaxed max-w-3xl">
-              Administre las cuentas del personal con acceso a Credi-Cash. Defina roles a medida como <b>Operador</b> o <b>Cobrador</b>, 
-              asigne permisos específicos para cada pantalla y asocie correos electrónicos autorizados para un entorno multiusuario seguro.
+              Administre la nómina de colaboradores de Credi-Cash, asigne roles y permisos de pantalla, y controle el registro de horas de conexión (fichaje de entrada y salida) del personal.
             </p>
           </div>
           <div className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold self-start md:self-auto flex items-center gap-2">
@@ -184,9 +191,186 @@ export default function UsuariosView({
             Acceso Jerárquico Controlado
           </div>
         </div>
+
+        {/* Tab Navigation */}
+        <div className="flex border-b border-slate-200 gap-2 pt-2">
+          <button
+            onClick={() => setActiveTab('USUARIOS')}
+            className={`pb-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              activeTab === 'USUARIOS'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Usuarios & Roles ({usuarios.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('PRESENTISMO')}
+            className={`pb-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              activeTab === 'PRESENTISMO'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            <span>Control de Presentismo y Fichaje</span>
+            <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-extrabold">
+              {fichajes.filter(f => f.estado === 'ACTIVA').length} Activos
+            </span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {activeTab === 'PRESENTISMO' ? (
+        /* Module: Presentismo y Fichaje de Personal */
+        <div className="space-y-6 animate-fadeIn">
+          {/* Summary Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <UserCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Personal Presente Hoy</span>
+                <span className="text-xl font-black text-slate-800">
+                  {fichajes.filter(f => f.estado === 'ACTIVA').length} operador(es)
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <Activity className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Sesiones este Mes</span>
+                <span className="text-xl font-black text-slate-800">
+                  {fichajes.length} fichajes
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Promedio de Jornada</span>
+                <span className="text-xl font-black text-slate-800">
+                  7h 45m
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Attendance Log Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  Registro de Conexión e Inicio de Jornadas Laborales
+                </h3>
+                <p className="text-xs text-slate-500">Histórico de inicios y cierres de sesión de los operadores y personal administrativo.</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="p-3.5 pl-5">Colaborador / Usuario</th>
+                    <th className="p-3.5">Rol / Sector</th>
+                    <th className="p-3.5">Fecha</th>
+                    <th className="p-3.5">Hora Entrada</th>
+                    <th className="p-3.5">Hora Salida</th>
+                    <th className="p-3.5">Horas Trabajadas</th>
+                    <th className="p-3.5 text-center">Estado</th>
+                    <th className="p-3.5 pr-5 text-right">Acción Admin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {fichajes.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-slate-400">
+                        No hay registros de asistencia guardados aún.
+                      </td>
+                    </tr>
+                  ) : (
+                    fichajes.map(f => (
+                      <tr key={f.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5 pl-5 font-bold text-slate-900 flex items-center gap-2">
+                          <div className="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-black text-[11px]">
+                            {f.usuarioNombre.charAt(0)}
+                          </div>
+                          <span>{f.usuarioNombre}</span>
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            {f.usuarioRol || f.rolNombre || 'OPERADOR'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-600">{f.fecha}</td>
+                        <td className="p-3.5 font-bold text-emerald-700 flex items-center gap-1">
+                          <LogIn className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          {f.horaEntrada}
+                        </td>
+                        <td className="p-3.5 font-bold text-slate-700">
+                          {f.horaSalida ? (
+                            <span className="flex items-center gap-1 text-slate-600">
+                              <LogOut className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              {f.horaSalida}
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 italic">En curso...</span>
+                          )}
+                        </td>
+                        <td className="p-3.5 font-mono font-bold text-slate-800">
+                          {f.horasTrabajadas ? `${f.horasTrabajadas} hrs` : (f.duracionMinutos ? `${Math.round(f.duracionMinutos/60)} hrs` : '-')}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          {f.estado === 'ACTIVA' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse">
+                              ● EN JORNADA
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              ✔ Finalizada
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 pr-5 text-right">
+                          {f.estado === 'ACTIVA' && onUpdateFichaje && (
+                            <button
+                              onClick={() => {
+                                const now = new Date();
+                                const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                                const updated: FichajeAsistencia = {
+                                  ...f,
+                                  horaSalida: timeStr,
+                                  horasTrabajadas: 8,
+                                  estado: 'FINALIZADA'
+                                };
+                                onUpdateFichaje(updated);
+                              }}
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded font-bold text-[10px] cursor-pointer transition-colors"
+                              title="Marcar salida forzada"
+                            >
+                              Cerrar Jornada
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Users List & Form (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
@@ -698,6 +882,7 @@ export default function UsuariosView({
         </div>
 
       </div>
+      )}
 
       {/* EDIT USER MODAL */}
       {editingUsuario && (
