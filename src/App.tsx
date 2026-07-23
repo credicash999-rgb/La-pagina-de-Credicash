@@ -1474,17 +1474,17 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#061814] text-slate-100 flex flex-col font-sans antialiased">
+    <div className="min-h-screen bg-[#0b132a] text-slate-100 flex flex-col font-sans antialiased">
       
       {/* Executive Financial Excel Top Bar Header */}
-      <nav className="h-16 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white border-b-2 border-emerald-700/80 flex items-center justify-between px-4 sm:px-8 shrink-0 shadow-md">
+      <nav className="h-16 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between px-4 sm:px-8 shrink-0 shadow-md">
         <div className="flex items-center gap-4">
           <CrediCashLogo size="md" showSubtitle={true} />
         </div>
 
         <div className="flex gap-4 sm:gap-6 items-center">
-          <div className="hidden md:flex gap-2 text-[13px] font-medium text-emerald-200">
-            <span className="hover:text-emerald-300 cursor-pointer font-semibold transition-colors" onClick={() => {
+          <div className="hidden md:flex gap-2 text-[13px] font-medium text-slate-300">
+            <span className="hover:text-emerald-400 cursor-pointer font-semibold transition-colors" onClick={() => {
               const uRole = roles.find(r => r.id === activeUser?.rolId);
               if (uRole?.verDashboard) {
                 setActiveTab('dashboard');
@@ -1492,13 +1492,13 @@ export default function App() {
                 setActiveTab('clientes');
               }
             }}>Panel</span>
-            <span className="text-emerald-500/60">/</span>
+            <span className="text-slate-600">/</span>
             <span className="text-white font-black tracking-wide">{getTabLabel()}</span>
           </div>
-          <div className="hidden md:block h-8 w-px bg-emerald-800/80"></div>
+          <div className="hidden md:block h-8 w-px bg-slate-800"></div>
           
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 border-r border-emerald-800/80 pr-4">
+            <div className="flex items-center gap-3 border-r border-slate-800 pr-4">
               <div className="text-right leading-tight hidden sm:block">
                 <span className="text-[9px] font-extrabold text-emerald-400 uppercase tracking-widest block mb-0.5">Usuario</span>
                 {realUserRolId === 'ADMIN' ? (
@@ -1517,24 +1517,24 @@ export default function App() {
                         }
                       }
                     }}
-                    className="text-xs font-extrabold text-white bg-emerald-900/90 hover:bg-emerald-800 border border-emerald-600/70 px-2.5 py-1 rounded-md focus:outline-none cursor-pointer transition-all shadow-xs"
+                    className="text-xs font-extrabold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1 rounded-md focus:outline-none cursor-pointer transition-all shadow-xs"
                   >
                     {usuarios.map(u => {
                       const r = roles.find(rol => rol.id === u.rolId);
                       return (
-                        <option key={u.id} value={u.id} className="bg-emerald-950 text-white">
+                        <option key={u.id} value={u.id} className="bg-slate-900 text-white">
                           {u.nombre} ({r?.nombre || u.rolId})
                         </option>
                       );
                     })}
                   </select>
                 ) : (
-                  <span className="text-xs font-extrabold text-emerald-100 bg-emerald-900/90 px-2.5 py-1 rounded-md border border-emerald-700 inline-block">
+                  <span className="text-xs font-extrabold text-white bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700 inline-block">
                     {activeUser?.nombre} ({activeUserRole.nombre})
                   </span>
                 )}
               </div>
-              <div className="w-9 h-9 bg-emerald-800/90 border border-emerald-500/80 text-emerald-200 rounded-full flex items-center justify-center font-black text-xs uppercase shadow-inner shrink-0" title={`${activeUser?.nombre}`}>
+              <div className="w-9 h-9 bg-emerald-700 border border-emerald-500 text-white rounded-full flex items-center justify-center font-black text-xs uppercase shadow-inner shrink-0" title={`${activeUser?.nombre}`}>
                 {activeUser?.nombre ? activeUser.nombre.substring(0, 2) : 'AP'}
               </div>
             </div>
@@ -1549,11 +1549,11 @@ export default function App() {
                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 border shadow-xs ${
                     activeFichaje
                       ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 border-emerald-300 animate-pulse'
-                      : 'bg-emerald-900/90 hover:bg-emerald-800 text-emerald-200 border-emerald-700'
+                      : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-slate-700'
                   }`}
                   title={activeFichaje ? `Marcar Salida (En jornada desde ${activeFichaje.horaEntrada})` : 'Iniciar Jornada / Fichar Entrada'}
                 >
-                  <Clock className="w-3.5 h-3.5 shrink-0 text-emerald-300" />
+                  <Clock className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                   <span>{activeFichaje ? `Fichar Salida (${activeFichaje.horaEntrada})` : 'Fichar Entrada'}</span>
                 </button>
               );
@@ -1562,11 +1562,11 @@ export default function App() {
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="text-emerald-300 hover:text-rose-300 p-1.5 hover:bg-rose-950/50 rounded-xl transition-all cursor-pointer flex items-center gap-2 group ml-1"
+              className="text-slate-300 hover:text-rose-400 p-1.5 hover:bg-slate-800 rounded-xl transition-all cursor-pointer flex items-center gap-2 group ml-1"
               title="Cerrar Sesión"
             >
-              <LogOut className="w-4 h-4 text-emerald-300 group-hover:text-rose-400 transition-colors" />
-              <span className="text-xs font-bold text-emerald-200 group-hover:text-rose-300 transition-colors">Salir</span>
+              <LogOut className="w-4 h-4 text-slate-400 group-hover:text-rose-400 transition-colors" />
+              <span className="text-xs font-bold text-slate-300 group-hover:text-rose-300 transition-colors">Salir</span>
             </button>
           </div>
         </div>
@@ -1577,15 +1577,15 @@ export default function App() {
         
         {/* Navigation Sidebar */}
         <aside className="md:w-64 shrink-0 flex flex-col gap-2">
-          <div className="p-3 bg-emerald-900/80 text-emerald-100 rounded-xl border border-emerald-700/80 flex items-center gap-3 mb-1 shadow-sm">
+          <div className="p-3 bg-slate-900 text-slate-100 rounded-xl border border-slate-800 flex items-center gap-3 mb-1 shadow-sm">
             <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse shrink-0"></div>
             <div className="flex flex-col min-w-0">
-              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-300 leading-none">Sesión Activa</span>
+              <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 leading-none">Sesión Activa</span>
               <span className="text-xs font-extrabold text-white truncate mt-1 leading-none uppercase">{activeUserRole.nombre}</span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5 bg-emerald-950/90 p-3.5 rounded-2xl border border-emerald-800/80 shadow-md">
+          <div className="flex flex-col gap-1.5 bg-slate-900 p-3.5 rounded-2xl border border-slate-800 shadow-md">
             {activeUser?.rolId === 'ADMIN' ? (
               // ADMIN Order: Dashboard first, then Clients, New Client, Loans, Operator Payments, Treasury, Configuration, Security
               <>
@@ -1594,11 +1594,11 @@ export default function App() {
                     onClick={() => setActiveTab('dashboard')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'dashboard'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <LayoutDashboard className="w-4 h-4 shrink-0 text-emerald-300" />
+                    <LayoutDashboard className="w-4 h-4 shrink-0 text-emerald-400" />
                     Consola Dashboard
                   </button>
                 )}
@@ -1608,14 +1608,14 @@ export default function App() {
                     onClick={() => setActiveTab('clientes')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'clientes'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <Search className="w-4 h-4 shrink-0 text-teal-300" />
+                    <Search className="w-4 h-4 shrink-0 text-teal-400" />
                     <div className="flex flex-col min-w-0 leading-tight">
                       <span>Buscar Cliente</span>
-                      <span className="text-[10px] font-medium text-emerald-300/80 mt-0.5">(Últimos Créditos Activos)</span>
+                      <span className="text-[10px] font-medium text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
                     </div>
                   </button>
                 )}
@@ -1625,11 +1625,11 @@ export default function App() {
                     onClick={() => setActiveTab('nuevo-cliente')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'nuevo-cliente'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <UserPlus className="w-4 h-4 shrink-0 text-emerald-300" />
+                    <UserPlus className="w-4 h-4 shrink-0 text-emerald-400" />
                     Nuevo Cliente (Ficha)
                   </button>
                 )}
@@ -1639,27 +1639,27 @@ export default function App() {
                     onClick={() => setActiveTab('operaciones')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'operaciones'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <Briefcase className="w-4 h-4 shrink-0 text-emerald-300" />
+                    <Briefcase className="w-4 h-4 shrink-0 text-emerald-400" />
                     Nuevo Crédito
                   </button>
                 )}
 
                 {activeUserRole.verPagos && (
-                  <div className="space-y-1 pl-2 border-l-2 border-emerald-700/80 mt-1 mb-2">
+                  <div className="space-y-1 pl-2 border-l-2 border-slate-700 mt-1 mb-2">
                     <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block px-2 py-1">Consolas de Cobranza</span>
                     <button
                       onClick={() => setActiveTab('pagos-whatsapp')}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-whatsapp'
                           ? 'bg-emerald-500 text-slate-950 font-black border border-emerald-300 shadow-sm'
-                          : 'text-emerald-200 hover:bg-emerald-900/60 hover:text-white border border-transparent'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
-                      <MessageCircle className="w-4 h-4 shrink-0 text-emerald-300" />
+                      <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
                       Gestión Diaria
                     </button>
 
@@ -1668,10 +1668,10 @@ export default function App() {
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-telefono'
                           ? 'bg-amber-500 text-slate-950 font-black border border-amber-300 shadow-sm'
-                          : 'text-emerald-200 hover:bg-emerald-900/60 hover:text-white border border-transparent'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
-                      <PhoneCall className="w-4 h-4 shrink-0 text-amber-300" />
+                      <PhoneCall className="w-4 h-4 shrink-0 text-amber-400" />
                       Gestión Cobranza Telefónica
                     </button>
 
@@ -1680,10 +1680,10 @@ export default function App() {
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-calle'
                           ? 'bg-teal-500 text-slate-950 font-black border border-teal-300 shadow-sm'
-                          : 'text-emerald-200 hover:bg-emerald-900/60 hover:text-white border border-transparent'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
-                      <MapPin className="w-4 h-4 shrink-0 text-teal-300" />
+                      <MapPin className="w-4 h-4 shrink-0 text-teal-400" />
                       Gestión Cobranza de Campo
                     </button>
                   </div>
@@ -1694,11 +1694,11 @@ export default function App() {
                     onClick={() => setActiveTab('tesoreria')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'tesoreria'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <Activity className="w-4 h-4 shrink-0 text-teal-300" />
+                    <Activity className="w-4 h-4 shrink-0 text-teal-400" />
                     Caja y Tesorería
                   </button>
                 )}
@@ -1708,11 +1708,11 @@ export default function App() {
                     onClick={() => setActiveTab('configuracion')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'configuracion'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <Settings className="w-4 h-4 shrink-0 text-emerald-300" />
+                    <Settings className="w-4 h-4 shrink-0 text-emerald-400" />
                     Configuración & Feriados
                   </button>
                 )}
@@ -1721,11 +1721,11 @@ export default function App() {
                   onClick={() => setActiveTab('usuarios')}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                     activeTab === 'usuarios'
-                      ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                      : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                   }`}
                 >
-                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-300" />
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
                   Seguridad y Accesos
                 </button>
               </>
@@ -1736,11 +1736,11 @@ export default function App() {
                   onClick={() => setActiveTab('pagos-whatsapp')}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                     activeTab === 'pagos-whatsapp'
-                      ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                      : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                   }`}
                 >
-                  <MessageCircle className="w-4 h-4 shrink-0 text-emerald-300" />
+                  <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
                   Gestión Diaria
                 </button>
 
@@ -1748,14 +1748,14 @@ export default function App() {
                   onClick={() => setActiveTab('clientes')}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                     activeTab === 'clientes'
-                      ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                      : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                   }`}
                 >
-                  <Search className="w-4 h-4 shrink-0 text-teal-300" />
+                  <Search className="w-4 h-4 shrink-0 text-teal-400" />
                   <div className="flex flex-col min-w-0 leading-tight">
                     <span>Buscar Cliente</span>
-                    <span className="text-[10px] font-medium text-emerald-300/80 mt-0.5">(Últimos Créditos Activos)</span>
+                    <span className="text-[10px] font-medium text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
                   </div>
                 </button>
 
@@ -1763,11 +1763,11 @@ export default function App() {
                   onClick={() => setActiveTab('operaciones')}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                     activeTab === 'operaciones'
-                      ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                      : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                   }`}
                 >
-                  <Briefcase className="w-4 h-4 shrink-0 text-emerald-300" />
+                  <Briefcase className="w-4 h-4 shrink-0 text-emerald-400" />
                   Nuevo Crédito
                 </button>
               </>
@@ -1775,17 +1775,17 @@ export default function App() {
               // OPERATOR / COBRADOR Order: Operator Payments first, then Dashboard (if allowed), Clients, New Client, Loans, Treasury, Configuration
               <>
                 {activeUserRole.verPagos && (
-                  <div className="space-y-1 pl-2 border-l-2 border-emerald-700/80 mt-1 mb-2">
+                  <div className="space-y-1 pl-2 border-l-2 border-slate-700 mt-1 mb-2">
                     <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block px-2 py-1">Consolas de Cobranza</span>
                     <button
                       onClick={() => setActiveTab('pagos-whatsapp')}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-whatsapp'
                           ? 'bg-emerald-500 text-slate-950 font-black border border-emerald-300 shadow-sm'
-                          : 'text-emerald-200 hover:bg-emerald-900/60 hover:text-white border border-transparent'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
-                      <MessageCircle className="w-4 h-4 shrink-0 text-emerald-300" />
+                      <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
                       Gestión Diaria
                     </button>
 
@@ -1794,10 +1794,10 @@ export default function App() {
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-telefono'
                           ? 'bg-amber-500 text-slate-950 font-black border border-amber-300 shadow-sm'
-                          : 'text-emerald-200 hover:bg-emerald-900/60 hover:text-white border border-transparent'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
-                      <PhoneCall className="w-4 h-4 shrink-0 text-amber-300" />
+                      <PhoneCall className="w-4 h-4 shrink-0 text-amber-400" />
                       Gestión Cobranza Telefónica
                     </button>
 
@@ -1806,10 +1806,10 @@ export default function App() {
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-calle'
                           ? 'bg-teal-500 text-slate-950 font-black border border-teal-300 shadow-sm'
-                          : 'text-emerald-200 hover:bg-emerald-900/60 hover:text-white border border-transparent'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
-                      <MapPin className="w-4 h-4 shrink-0 text-teal-300" />
+                      <MapPin className="w-4 h-4 shrink-0 text-teal-400" />
                       Gestión Cobranza de Campo
                     </button>
                   </div>
@@ -1820,11 +1820,11 @@ export default function App() {
                     onClick={() => setActiveTab('dashboard')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'dashboard'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <LayoutDashboard className="w-4 h-4 shrink-0 text-emerald-300" />
+                    <LayoutDashboard className="w-4 h-4 shrink-0 text-emerald-400" />
                     Consola Dashboard
                   </button>
                 )}
@@ -1834,14 +1834,14 @@ export default function App() {
                     onClick={() => setActiveTab('clientes')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'clientes'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <Users className="w-4 h-4 shrink-0 text-teal-300" />
+                    <Users className="w-4 h-4 shrink-0 text-teal-400" />
                     <div className="flex flex-col min-w-0 leading-tight">
                       <span>Búsqueda de Cliente</span>
-                      <span className="text-[10px] font-medium text-emerald-300/80 mt-0.5">(Últimos Créditos Activos)</span>
+                      <span className="text-[10px] font-medium text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
                     </div>
                   </button>
                 )}
@@ -1851,11 +1851,11 @@ export default function App() {
                     onClick={() => setActiveTab('nuevo-cliente')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'nuevo-cliente'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                     }`}
                   >
-                    <UserPlus className="w-4 h-4 shrink-0 text-emerald-300" />
+                    <UserPlus className="w-4 h-4 shrink-0 text-emerald-400" />
                     Nuevo Cliente (Ficha)
                   </button>
                 )}

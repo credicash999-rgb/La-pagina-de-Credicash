@@ -12,13 +12,14 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: #022c22;
-  color: #ecfdf5;
+  background-color: #0b132a;
+  color: #f8fafc;
 }
 
-/* Ensure inputs, selects, and auto-fills have dark backgrounds with readable text */
+/* Ensure inputs, selects, and auto-fills have dark backgrounds with readable white text */
 input, select, textarea {
   color-scheme: dark;
+  color: #ffffff !important;
 }
 
 option {
@@ -32,12 +33,12 @@ option {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #022c22;
+  background: #0b132a;
 }
 ::-webkit-scrollbar-thumb {
-  background: #065f46;
+  background: #1e293b;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #059669;
+  background: #334155;
 }

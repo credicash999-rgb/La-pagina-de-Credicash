@@ -131,7 +131,7 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
     <div className="min-h-screen bg-slate-950 flex flex-col lg:flex-row w-full overflow-x-hidden font-sans antialiased text-white relative">
       
       {/* LEFT COLUMN: BRAND & MARKETING (Shows at bottom on mobile, left on desktop) */}
-      <div className="w-full lg:w-[55%] flex flex-col justify-between bg-emerald-950/90 relative overflow-hidden shrink-0 min-h-screen order-2 lg:order-1 border-r border-emerald-800/80">
+      <div className="w-full lg:w-[55%] flex flex-col justify-between bg-slate-900 relative overflow-hidden shrink-0 min-h-screen order-2 lg:order-1 border-r border-slate-800">
         
         {/* Subtle decorative vector graphic waves or shapes */}
         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-bl from-emerald-500/10 to-transparent rounded-full pointer-events-none blur-3xl"></div>
@@ -153,61 +153,61 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
               </span> <br />
               simples y efectivas.
             </h2>
-            <p className="text-sm text-emerald-200/80 font-medium leading-relaxed max-w-md">
+            <p className="text-sm text-slate-300 font-medium leading-relaxed max-w-md">
               Gestioná clientes, créditos y cobranzas de manera ágil, segura y en tiempo real.
             </p>
           </div>
 
           {/* Core Values Minimalist Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 pt-4 border-t border-emerald-800/80">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 pt-4 border-t border-slate-800">
             <div className="flex gap-3.5 items-start">
-              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0 bg-emerald-900/50">
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 bg-slate-800">
                 <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="flex flex-col text-left">
                 <h4 className="text-xs font-black text-white uppercase tracking-wider">CONFIANZA</h4>
-                <p className="text-[11px] text-emerald-200/70 mt-0.5 leading-normal">Seguridad en cada decisión financiera.</p>
+                <p className="text-[11px] text-slate-300 mt-0.5 leading-normal">Seguridad en cada decisión financiera.</p>
               </div>
             </div>
 
             <div className="flex gap-3.5 items-start">
-              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0 bg-emerald-900/50">
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 bg-slate-800">
                 <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="flex flex-col text-left">
                 <h4 className="text-xs font-black text-white uppercase tracking-wider">CRECIMIENTO</h4>
-                <p className="text-[11px] text-emerald-200/70 mt-0.5 leading-normal">Impulsamos tus metas y proyectos.</p>
+                <p className="text-[11px] text-slate-300 mt-0.5 leading-normal">Impulsamos tus metas y proyectos.</p>
               </div>
             </div>
 
             <div className="flex gap-3.5 items-start">
-              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0 bg-emerald-900/50">
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 bg-slate-800">
                 <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="flex flex-col text-left">
                 <h4 className="text-xs font-black text-white uppercase tracking-wider">VISIÓN GLOBAL</h4>
-                <p className="text-[11px] text-emerald-200/70 mt-0.5 leading-normal">Soluciones inteligentes para un mundo en evolución.</p>
+                <p className="text-[11px] text-slate-300 mt-0.5 leading-normal">Soluciones inteligentes para un mundo en evolución.</p>
               </div>
             </div>
 
             <div className="flex gap-3.5 items-start">
-              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0 bg-emerald-900/50">
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 bg-slate-800">
                 <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="flex flex-col text-left">
                 <h4 className="text-xs font-black text-white uppercase tracking-wider">COMPROMISO</h4>
-                <p className="text-[11px] text-emerald-200/70 mt-0.5 leading-normal">Acompañamiento cercano y responsable.</p>
+                <p className="text-[11px] text-slate-300 mt-0.5 leading-normal">Acompañamiento cercano y responsable.</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Solid Green Protected Notice Footer Bar */}
-        <div className="w-full bg-emerald-900/90 border-t border-emerald-800/80 px-8 py-5 flex items-center gap-4 relative z-10 mt-12 text-left">
+        {/* Solid Protected Notice Footer Bar */}
+        <div className="w-full bg-slate-800/90 border-t border-slate-700/80 px-8 py-5 flex items-center gap-4 relative z-10 mt-12 text-left">
           <div className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
             <Lock className="w-4 h-4 stroke-[3]" />
           </div>
-          <p className="text-[10px] md:text-xs text-emerald-100 font-medium leading-relaxed">
+          <p className="text-[10px] md:text-xs text-slate-200 font-medium leading-relaxed">
             <b>Tu información está protegida.</b> Utilizamos tecnología de encriptación avanzada para garantizar la seguridad de tus datos de manera permanente.
           </p>
         </div>
@@ -217,20 +217,20 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
       {/* RIGHT COLUMN: LOGIN BOX (Shows at top on mobile, right on desktop) */}
       <div className="w-full lg:w-[45%] bg-slate-950 p-6 md:p-12 lg:p-16 flex items-center justify-center shrink-0 min-h-screen order-1 lg:order-2">
         
-        <div className="w-full max-w-[420px] bg-slate-900 rounded-[32px] shadow-2xl border border-emerald-800/80 p-8 md:p-10 space-y-6 relative z-10 text-left backdrop-blur-md">
+        <div className="w-full max-w-[420px] bg-slate-900 rounded-[32px] shadow-2xl border border-slate-800 p-8 md:p-10 space-y-6 relative z-10 text-left backdrop-blur-md">
           
           {/* Padlock Icon & Brand Title inside the Card */}
           <div className="flex flex-col items-center text-center space-y-3.5">
-            <div className="w-14 h-14 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-950/50 border-2 border-emerald-400/30">
+            <div className="w-14 h-14 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-emerald-400/30">
               <Lock className="w-6 h-6 stroke-[2]" />
             </div>
             <div>
               <h3 className="text-2xl font-black text-white tracking-tight">Iniciar Sesión</h3>
-              <p className="text-xs text-emerald-300/80 font-semibold mt-1">Bienvenido a CrediCash</p>
+              <p className="text-xs text-slate-400 font-semibold mt-1">Bienvenido a CrediCash</p>
             </div>
 
             {/* Operating Schedule Notice Badge */}
-            <div className="px-3 py-1.5 bg-emerald-950 text-emerald-300 border border-emerald-700/80 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-inner">
+            <div className="px-3 py-1.5 bg-slate-800 text-emerald-400 border border-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-inner">
               <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>Horario Operadores: <b>08:00 AM - 01:00 PM</b></span>
             </div>
