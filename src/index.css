@@ -6,7 +6,38 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+:root {
+  color-scheme: dark;
+}
+
 body {
   font-family: var(--font-sans);
-  background-color: #F8F9FB;
+  background-color: #022c22;
+  color: #ecfdf5;
+}
+
+/* Ensure inputs, selects, and auto-fills have dark backgrounds with readable text */
+input, select, textarea {
+  color-scheme: dark;
+}
+
+option {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #022c22;
+}
+::-webkit-scrollbar-thumb {
+  background: #065f46;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #059669;
 }

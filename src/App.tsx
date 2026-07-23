@@ -637,12 +637,16 @@ export default function App() {
         
         let targetDiasMora = 0;
         let targetNivelMora = 'Sano';
+        let targetProximoVencimiento = op.proximoVencimiento;
         
         if (sortedPending.length > 0) {
           const oldestPending = sortedPending[0];
+          targetProximoVencimiento = oldestPending.fechaVencimiento;
           if (oldestPending.fechaVencimiento < todayStr) {
             targetDiasMora = calcularDiasAtrasoSinDomingos(oldestPending.fechaVencimiento, todayStr);
           }
+        } else {
+          targetProximoVencimiento = 'PAGADO TOTAL';
         }
 
         if (targetDiasMora === 0) {
@@ -701,9 +705,9 @@ export default function App() {
           }
         }
 
-        if (op.diasMora !== targetDiasMora || op.nivelMora !== targetNivelMora) {
+        if (op.diasMora !== targetDiasMora || op.nivelMora !== targetNivelMora || op.proximoVencimiento !== targetProximoVencimiento) {
           opsChanged = true;
-          return { ...op, diasMora: targetDiasMora, nivelMora: targetNivelMora };
+          return { ...op, diasMora: targetDiasMora, nivelMora: targetNivelMora, proximoVencimiento: targetProximoVencimiento };
         }
       }
       return op;

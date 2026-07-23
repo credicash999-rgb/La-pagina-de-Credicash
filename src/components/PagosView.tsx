@@ -222,14 +222,18 @@ export default function PagosView({
 
   // Helper: Check if next due date is within 3 days (or overdue)
   const isVencimientoProximo = (op: Operacion): boolean => {
-    if (!op.proximoVencimiento) return false;
-    
+    const opCuotas = cuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
+    if (opCuotas.length === 0) return false;
+
+    const sorted = [...opCuotas].sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento));
+    const earliestPendingDate = sorted[0].fechaVencimiento;
+
     const today = new Date(getTodayStr() + 'T00:00:00');
-    const dueDate = new Date(op.proximoVencimiento + 'T00:00:00');
-    
+    const dueDate = new Date(earliestPendingDate + 'T00:00:00');
+
     const diffTime = dueDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return diffDays <= 3;
   };
 

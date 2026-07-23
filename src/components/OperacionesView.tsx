@@ -87,21 +87,22 @@ export default function OperacionesView({
     setCantidadCuotas(standardCuotas);
   }, [frecuencia]);
 
-  // 2. Automatically compute Primer Vencimiento for DIARIA frequency
+  // 2. Automatically compute Primer Vencimiento depending on Frecuencia
   useEffect(() => {
+    const grantDate = new Date(fechaOtorgamiento + 'T12:00:00');
     if (frecuencia === 'DIARIA') {
-      const grantDate = new Date(fechaOtorgamiento + 'T12:00:00');
-      // Next business day after granting date
       const nextDay = new Date(grantDate.getTime() + 24 * 60 * 60 * 1000);
       const calculatedDate = obtenerProximoDiaHabil(nextDay, feriados);
       setPrimerVencimiento(calculatedDate.toISOString().split('T')[0]);
-    } else {
-      // For Weekly, Biweekly, Monthly, let user pick manually, default to +7 days if empty
-      if (!primerVencimiento) {
-        const grantDate = new Date(fechaOtorgamiento + 'T12:00:00');
-        const defaultNext = new Date(grantDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-        setPrimerVencimiento(defaultNext.toISOString().split('T')[0]);
-      }
+    } else if (frecuencia === 'SEMANAL') {
+      const defaultNext = new Date(grantDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      setPrimerVencimiento(defaultNext.toISOString().split('T')[0]);
+    } else if (frecuencia === 'QUINCENAL') {
+      const defaultNext = new Date(grantDate.getTime() + 15 * 24 * 60 * 60 * 1000);
+      setPrimerVencimiento(defaultNext.toISOString().split('T')[0]);
+    } else if (frecuencia === 'MENSUAL') {
+      const defaultNext = new Date(grantDate.getFullYear(), grantDate.getMonth() + 1, grantDate.getDate(), 12, 0, 0);
+      setPrimerVencimiento(defaultNext.toISOString().split('T')[0]);
     }
   }, [frecuencia, fechaOtorgamiento, feriados]);
 
