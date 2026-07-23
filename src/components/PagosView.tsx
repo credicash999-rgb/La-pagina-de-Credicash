@@ -1883,11 +1883,11 @@ export default function PagosView({
               </div>
             </>
           ) : (
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 border-dashed text-center space-y-3.5 py-12">
-              <ClipboardList className="w-11 h-11 text-slate-300 mx-auto" />
+            <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 border-dashed text-center space-y-3.5 py-12 shadow-md">
+              <ClipboardList className="w-11 h-11 text-emerald-400/60 mx-auto" />
               <div className="space-y-1">
-                <h4 className="text-sm font-extrabold text-slate-700">Ficha del Cliente de Cobro</h4>
-                <p className="text-xs text-slate-400 max-w-[220px] mx-auto leading-relaxed">
+                <h4 className="text-sm font-extrabold text-white">Ficha del Cliente de Cobro</h4>
+                <p className="text-xs text-emerald-200/70 max-w-[220px] mx-auto leading-relaxed">
                   Seleccione un cliente del listado de la izquierda para ver su resumen general y realizar cobranzas.
                 </p>
               </div>
@@ -1900,53 +1900,53 @@ export default function PagosView({
 
       {/* SECONDARY PAYMENT CONFIRMATION MODAL */}
       {showPaymentConfirmModal && selectedOp && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center gap-3 text-amber-600">
-              <div className="p-2.5 bg-amber-50 rounded-xl">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-emerald-950 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-emerald-700/80 space-y-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="p-2.5 bg-amber-950/80 rounded-xl border border-amber-800/50">
                 <AlertTriangle className="w-6 h-6 animate-pulse" />
               </div>
               <div>
-                <h3 className="text-base font-extrabold text-slate-950">Confirmación de Seguridad</h3>
-                <p className="text-xs text-slate-500">Por favor, verifique los datos antes de registrar el pago.</p>
+                <h3 className="text-base font-extrabold text-white">Confirmación de Seguridad</h3>
+                <p className="text-xs text-emerald-200/80">Por favor, verifique los datos antes de registrar el pago.</p>
               </div>
             </div>
 
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/60 space-y-2.5 text-xs">
-              <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                <span className="text-slate-500 font-medium">Cliente:</span>
-                <span className="font-extrabold text-slate-800">{selectedOp.nombreCliente}</span>
+            <div className="bg-slate-900/90 rounded-xl p-4 border border-emerald-800/80 space-y-2.5 text-xs">
+              <div className="flex justify-between border-b border-emerald-800/60 pb-1.5">
+                <span className="text-emerald-200/70 font-medium">Cliente:</span>
+                <span className="font-extrabold text-white">{selectedOp.nombreCliente}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                <span className="text-slate-500 font-medium">Crédito ID:</span>
-                <span className="font-mono font-bold text-slate-700">{selectedOp.id}</span>
+              <div className="flex justify-between border-b border-emerald-800/60 pb-1.5">
+                <span className="text-emerald-200/70 font-medium">Crédito ID:</span>
+                <span className="font-mono font-bold text-emerald-300">{selectedOp.id}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                <span className="text-slate-500 font-medium">Modalidad:</span>
-                <span className="font-extrabold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 text-[11px]">
+              <div className="flex justify-between border-b border-emerald-800/60 pb-1.5">
+                <span className="text-emerald-200/70 font-medium">Modalidad:</span>
+                <span className="font-extrabold text-teal-300 bg-teal-950 px-2 py-0.5 rounded-md border border-teal-700 text-[11px]">
                   {activeAction === 'pago_adelantado'
                     ? (prepaymentMode === 'CONSECUTIVO_INMEDIATO' ? 'Opción B: Cuota del Día + Consecutivas' : 'Opción A: Desde el final hacia atrás')
                     : activeAction === 'pago_parcial' ? 'Pago Parcial' : 'Pago Regular'}
                 </span>
               </div>
-              <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                <span className="text-slate-500 font-medium">Monto a Registrar:</span>
-                <span className="text-sm font-black text-emerald-600">${parseFloat(importeCobrado || '0').toLocaleString('es-ES')} ARS</span>
+              <div className="flex justify-between border-b border-emerald-800/60 pb-1.5">
+                <span className="text-emerald-200/70 font-medium">Monto a Registrar:</span>
+                <span className="text-sm font-black text-emerald-400">${parseFloat(importeCobrado || '0').toLocaleString('es-ES')} ARS</span>
               </div>
-              <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                <span className="text-slate-500 font-medium">Medio de Pago:</span>
-                <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md uppercase">{medioPago}</span>
+              <div className="flex justify-between border-b border-emerald-800/60 pb-1.5">
+                <span className="text-emerald-200/70 font-medium">Medio de Pago:</span>
+                <span className="font-bold text-white bg-emerald-900 px-2 py-0.5 rounded-md uppercase border border-emerald-700">{medioPago}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Fecha de Cobro:</span>
-                <span className="font-mono font-bold text-slate-700">{fechaPago}</span>
+                <span className="text-emerald-200/70 font-medium">Fecha de Cobro:</span>
+                <span className="font-mono font-bold text-emerald-300">{fechaPago}</span>
               </div>
             </div>
 
             {observacionesInput && (
               <div className="text-xs space-y-1">
-                <span className="text-slate-500 font-medium block">Comentarios adjuntos:</span>
-                <p className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-medium italic text-slate-600">
+                <span className="text-emerald-200/70 font-medium block">Comentarios adjuntos:</span>
+                <p className="bg-slate-900 p-2.5 rounded-lg border border-emerald-800 font-medium italic text-emerald-100">
                   "{observacionesInput}"
                 </p>
               </div>
@@ -1956,14 +1956,14 @@ export default function PagosView({
               <button
                 type="button"
                 onClick={() => setShowPaymentConfirmModal(false)}
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+                className="py-2.5 bg-emerald-900 hover:bg-emerald-800 text-emerald-100 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center border border-emerald-700"
               >
                 Volver y Corregir
               </button>
               <button
                 type="button"
                 onClick={executePaymentRegistration}
-                className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer text-center flex items-center justify-center gap-1"
+                className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer text-center flex items-center justify-center gap-1"
               >
                 <Check className="w-4 h-4" />
                 Registrar Pago Seguro
@@ -2145,7 +2145,7 @@ export default function PagosView({
                                   setEditImporte(pago.importe.toString());
                                   setEditObservaciones(pago.observaciones || '');
                                 }}
-                                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-extrabold border border-blue-200 transition-all cursor-pointer flex items-center gap-1 mx-auto"
+                                className="px-2.5 py-1.5 bg-blue-900/80 hover:bg-blue-800 text-blue-200 rounded-lg text-[11px] font-extrabold border border-blue-700 transition-all cursor-pointer flex items-center gap-1 mx-auto"
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
                                 <span>Corregir / Pasar a Opción B</span>
@@ -2156,7 +2156,7 @@ export default function PagosView({
                                   setSelectedPagoForReport(pago);
                                   setShowReportErrorModal(true);
                                 }}
-                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-[11px] font-extrabold border border-amber-200 transition-all cursor-pointer flex items-center gap-1 mx-auto"
+                                className="px-2.5 py-1.5 bg-amber-900/80 hover:bg-amber-800 text-amber-200 rounded-lg text-[11px] font-extrabold border border-amber-700 transition-all cursor-pointer flex items-center gap-1 mx-auto"
                               >
                                 <AlertTriangle className="w-3.5 h-3.5" />
                                 <span>Informar Error</span>
@@ -2175,39 +2175,39 @@ export default function PagosView({
 
       {/* REORGANIZE / EDIT PAYMENT MODAL */}
       {editingPago && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2 text-blue-700">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-emerald-950 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-emerald-700/80 space-y-4">
+            <div className="flex items-center justify-between border-b border-emerald-800 pb-3">
+              <div className="flex items-center gap-2 text-blue-400">
                 <RefreshCw className="w-5 h-5 animate-spin" style={{ animationDuration: '4s' }} />
-                <h3 className="text-base font-black text-slate-900">Reorganizar Imputación de Pago</h3>
+                <h3 className="text-base font-black text-white">Reorganizar Imputación de Pago</h3>
               </div>
               <button
                 onClick={() => setEditingPago(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="p-1 text-emerald-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+            <div className="bg-slate-900 p-3 rounded-xl border border-emerald-800 text-xs space-y-1">
               <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Pago ID:</span>
-                <span className="font-mono font-bold text-slate-900">{editingPago.id}</span>
+                <span className="text-emerald-200/70 font-medium">Pago ID:</span>
+                <span className="font-mono font-bold text-white">{editingPago.id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Cliente:</span>
-                <span className="font-bold text-slate-900">{editingPago.nombreCliente}</span>
+                <span className="text-emerald-200/70 font-medium">Cliente:</span>
+                <span className="font-bold text-white">{editingPago.nombreCliente}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Crédito N°:</span>
-                <span className="font-mono font-bold text-slate-700">#{editingPago.idOperacion}</span>
+                <span className="text-emerald-200/70 font-medium">Crédito N°:</span>
+                <span className="font-mono font-bold text-emerald-300">#{editingPago.idOperacion}</span>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider block mb-1">
+                <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block mb-1">
                   Seleccionar Nueva Modalidad de Imputación:
                 </label>
                 <div className="grid grid-cols-1 gap-2">
@@ -2215,8 +2215,8 @@ export default function PagosView({
                     onClick={() => setEditModalidad('PAGO_ADELANTADO_OPCION_B')}
                     className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
                       editModalidad === 'PAGO_ADELANTADO_OPCION_B'
-                        ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20'
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100/80'
+                        ? 'bg-teal-950 border-teal-500 ring-2 ring-teal-500/30'
+                        : 'bg-slate-900 border-emerald-800 hover:bg-slate-800'
                     }`}
                   >
                     <input
@@ -2224,13 +2224,13 @@ export default function PagosView({
                       name="editModalidad"
                       checked={editModalidad === 'PAGO_ADELANTADO_OPCION_B'}
                       onChange={() => setEditModalidad('PAGO_ADELANTADO_OPCION_B')}
-                      className="mt-0.5 text-emerald-600 h-4 w-4 shrink-0"
+                      className="mt-0.5 text-teal-400 h-4 w-4 shrink-0"
                     />
                     <div className="text-xs">
-                      <strong className="text-slate-900 font-extrabold block">
+                      <strong className="text-white font-extrabold block">
                         Opción B: Cuota del Día + Consecutivas Inmediatas (RECOMENDADA)
                       </strong>
-                      <span className="text-[10px] text-slate-600 font-medium block mt-0.5">
+                      <span className="text-[10px] text-emerald-200/80 font-medium block mt-0.5">
                         Cancela la cuota vencida de hoy y las consecutivas inmediatas. El cliente <strong>deja de figurar en mora hoy</strong>.
                       </span>
                     </div>
@@ -2240,8 +2240,8 @@ export default function PagosView({
                     onClick={() => setEditModalidad('PAGO_ADELANTADO_OPCION_A')}
                     className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
                       editModalidad === 'PAGO_ADELANTADO_OPCION_A'
-                        ? 'bg-amber-50/80 border-amber-500 ring-2 ring-amber-500/20'
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100/80'
+                        ? 'bg-amber-950 border-amber-500 ring-2 ring-amber-500/30'
+                        : 'bg-slate-900 border-emerald-800 hover:bg-slate-800'
                     }`}
                   >
                     <input
@@ -2249,13 +2249,13 @@ export default function PagosView({
                       name="editModalidad"
                       checked={editModalidad === 'PAGO_ADELANTADO_OPCION_A'}
                       onChange={() => setEditModalidad('PAGO_ADELANTADO_OPCION_A')}
-                      className="mt-0.5 text-amber-600 h-4 w-4 shrink-0"
+                      className="mt-0.5 text-amber-400 h-4 w-4 shrink-0"
                     />
                     <div className="text-xs">
-                      <strong className="text-slate-900 font-extrabold block">
+                      <strong className="text-white font-extrabold block">
                         Opción A: Descontar desde el final hacia atrás
                       </strong>
-                      <span className="text-[10px] text-slate-600 font-medium block mt-0.5">
+                      <span className="text-[10px] text-emerald-200/80 font-medium block mt-0.5">
                         Abona las últimas cuotas del plan de pago (de atrás hacia adelante).
                       </span>
                     </div>
@@ -2265,21 +2265,21 @@ export default function PagosView({
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Monto ($)</label>
+                  <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block mb-1">Monto ($)</label>
                   <input
                     type="number"
                     value={editImporte}
                     onChange={(e) => setEditImporte(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-600"
+                    className="w-full px-3 py-1.5 bg-slate-900 text-white border border-emerald-700 rounded-xl text-xs font-bold focus:outline-none focus:border-emerald-400"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Medio de Pago</label>
+                  <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block mb-1">Medio de Pago</label>
                   <select
                     value={editMetodoPago}
                     onChange={(e) => setEditMetodoPago(e.target.value as any)}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-600"
+                    className="w-full px-3 py-1.5 bg-slate-900 text-white border border-emerald-700 rounded-xl text-xs font-bold focus:outline-none focus:border-emerald-400"
                   >
                     <option value="EFECTIVO">EFECTIVO</option>
                     <option value="TRANSFERENCIA">TRANSFERENCIA</option>
@@ -2289,28 +2289,28 @@ export default function PagosView({
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Fecha de Cobro</label>
+                <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block mb-1">Fecha de Cobro</label>
                 <input
                   type="date"
                   value={editFechaPago}
                   onChange={(e) => setEditFechaPago(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-blue-600"
+                  className="w-full px-3 py-1.5 bg-slate-900 text-white border border-emerald-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-emerald-400"
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Observaciones</label>
+                <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block mb-1">Observaciones</label>
                 <textarea
                   value={editObservaciones}
                   onChange={(e) => setEditObservaciones(e.target.value)}
                   rows={2}
                   placeholder="Motivo de la reorganización..."
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-blue-600"
+                  className="w-full px-3 py-1.5 bg-slate-900 text-white border border-emerald-700 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-400"
                 />
               </div>
             </div>
 
-            <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-200 text-[11px] text-blue-900 font-medium">
+            <div className="bg-blue-950/80 p-3 rounded-xl border border-blue-700 text-[11px] text-blue-200 font-medium">
               💡 <strong>Acción Reorganizadora:</strong> Al guardar, el sistema restablecerá el estado de todas las cuotas del crédito #{editingPago.idOperacion} y re-imputará los pagos aplicados en orden cronológico respetando la nueva modalidad elegida.
             </div>
 
@@ -2318,7 +2318,7 @@ export default function PagosView({
               <button
                 type="button"
                 onClick={() => setEditingPago(null)}
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+                className="py-2.5 bg-emerald-900 hover:bg-emerald-800 text-emerald-100 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center border border-emerald-700"
               >
                 Cancelar
               </button>
@@ -2338,7 +2338,7 @@ export default function PagosView({
                     setEditingPago(null);
                   }
                 }}
-                className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer text-center flex items-center justify-center gap-1.5"
+                className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer text-center flex items-center justify-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
                 <span>Confirmar y Recalcular Crédito</span>
@@ -2350,34 +2350,34 @@ export default function PagosView({
 
       {/* REPORT PAYMENT ERROR MODAL FOR OPERATORS */}
       {showReportErrorModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2 text-amber-600">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-emerald-950 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-emerald-700/80 space-y-4">
+            <div className="flex items-center justify-between border-b border-emerald-800 pb-3">
+              <div className="flex items-center gap-2 text-amber-400">
                 <AlertTriangle className="w-5 h-5" />
-                <h3 className="text-base font-black text-slate-900">Informar Error en Pago a Administración</h3>
+                <h3 className="text-base font-black text-white">Informar Error en Pago a Administración</h3>
               </div>
               <button
                 onClick={() => { setShowReportErrorModal(false); setSelectedPagoForReport(null); }}
-                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="p-1 text-emerald-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 text-xs space-y-1.5 text-amber-900 font-medium">
+            <div className="bg-amber-950/80 p-3.5 rounded-xl border border-amber-800 text-xs space-y-1.5 text-amber-200 font-medium">
               <p>
                 Como operador no tiene permisos para modificar montos o imputaciones directamente. Complete el detalle del error y la Administración corregirá la transacción.
               </p>
               {selectedPagoForReport && (
-                <div className="pt-1 font-mono font-bold text-amber-950">
+                <div className="pt-1 font-mono font-bold text-amber-300">
                   Pago: #{selectedPagoForReport.id} - ${selectedPagoForReport.importe.toLocaleString('es-ES')} ARS ({selectedPagoForReport.nombreCliente})
                 </div>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+              <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">
                 Detalle del Error o Corrección Requerida *
               </label>
               <textarea
@@ -2385,7 +2385,7 @@ export default function PagosView({
                 onChange={(e) => setErrorReportText(e.target.value)}
                 rows={3}
                 placeholder="Ej: Registré $5.000 pero el comprobante real es de $4.500 / Correspondía Opción B..."
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-amber-600 focus:bg-white"
+                className="w-full p-3 bg-slate-900 border border-emerald-700 text-white rounded-xl text-xs font-medium focus:outline-none focus:border-amber-500"
               />
             </div>
 
@@ -2393,7 +2393,7 @@ export default function PagosView({
               <button
                 type="button"
                 onClick={() => { setShowReportErrorModal(false); setSelectedPagoForReport(null); }}
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+                className="py-2.5 bg-emerald-900 hover:bg-emerald-800 text-emerald-100 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center border border-emerald-700"
               >
                 Cancelar
               </button>
@@ -2409,7 +2409,7 @@ export default function PagosView({
                   setErrorReportText('');
                   setSelectedPagoForReport(null);
                 }}
-                className="py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer text-center flex items-center justify-center gap-1.5"
+                className="py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer text-center flex items-center justify-center gap-1.5"
               >
                 <Send className="w-4 h-4" />
                 <span>Enviar Alerta a Admin</span>

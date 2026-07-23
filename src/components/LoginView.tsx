@@ -62,14 +62,14 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col lg:flex-row w-full overflow-x-hidden font-sans antialiased text-slate-800 relative">
+    <div className="min-h-screen bg-slate-950 flex flex-col lg:flex-row w-full overflow-x-hidden font-sans antialiased text-white relative">
       
       {/* LEFT COLUMN: BRAND & MARKETING (Shows at bottom on mobile, left on desktop) */}
-      <div className="w-full lg:w-[55%] flex flex-col justify-between bg-[#F4FAF6] relative overflow-hidden shrink-0 min-h-screen order-2 lg:order-1">
+      <div className="w-full lg:w-[55%] flex flex-col justify-between bg-emerald-950/90 relative overflow-hidden shrink-0 min-h-screen order-2 lg:order-1 border-r border-emerald-800/80">
         
         {/* Subtle decorative vector graphic waves or shapes */}
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-bl from-emerald-100/40 to-transparent rounded-full pointer-events-none blur-3xl"></div>
-        <div className="absolute bottom-24 -left-12 w-80 h-80 bg-emerald-200/20 rounded-full pointer-events-none blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-bl from-emerald-500/10 to-transparent rounded-full pointer-events-none blur-3xl"></div>
+        <div className="absolute bottom-24 -left-12 w-80 h-80 bg-emerald-600/10 rounded-full pointer-events-none blur-3xl"></div>
 
         {/* Brand Header */}
         <div className="p-8 md:p-12 lg:p-16 flex items-center relative z-10">
@@ -79,69 +79,69 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
         {/* Main Content Info */}
         <div className="px-8 md:px-12 lg:px-16 space-y-10 relative z-10 max-w-xl text-left">
           <div className="space-y-5">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
               Impulsamos tu negocio con <br />
-              <span className="text-[#1E803B] relative inline-block">
+              <span className="text-emerald-400 relative inline-block">
                 soluciones financieras
-                <span className="absolute left-0 bottom-1 h-1.5 w-full bg-[#1E803B]/20 rounded-full"></span>
+                <span className="absolute left-0 bottom-1 h-1.5 w-full bg-emerald-400/20 rounded-full"></span>
               </span> <br />
               simples y efectivas.
             </h2>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-md">
+            <p className="text-sm text-emerald-200/80 font-medium leading-relaxed max-w-md">
               Gestioná clientes, créditos y cobranzas de manera ágil, segura y en tiempo real.
             </p>
           </div>
 
           {/* Core Values Minimalist Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 pt-4 border-t border-slate-200/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 pt-4 border-t border-emerald-800/80">
             <div className="flex gap-3.5 items-start">
-              <div className="w-9 h-9 rounded-full border-2 border-emerald-600/30 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0 bg-emerald-900/50">
                 <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="flex flex-col text-left">
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">CONFIANZA</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">Seguridad en cada decisión financiera.</p>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">CONFIANZA</h4>
+                <p className="text-[11px] text-emerald-200/70 mt-0.5 leading-normal">Seguridad en cada decisión financiera.</p>
               </div>
             </div>
 
             <div className="flex gap-3.5 items-start">
-              <div className="w-9 h-9 rounded-full border-2 border-emerald-600/30 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0 bg-emerald-900/50">
                 <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="flex flex-col text-left">
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">CRECIMIENTO</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">Impulsamos tus metas y proyectos.</p>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">CRECIMIENTO</h4>
+                <p className="text-[11px] text-emerald-200/70 mt-0.5 leading-normal">Impulsamos tus metas y proyectos.</p>
               </div>
             </div>
 
             <div className="flex gap-3.5 items-start">
-              <div className="w-9 h-9 rounded-full border-2 border-emerald-600/30 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0 bg-emerald-900/50">
                 <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="flex flex-col text-left">
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">VISIÓN GLOBAL</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">Soluciones inteligentes para un mundo en evolución.</p>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">VISIÓN GLOBAL</h4>
+                <p className="text-[11px] text-emerald-200/70 mt-0.5 leading-normal">Soluciones inteligentes para un mundo en evolución.</p>
               </div>
             </div>
 
             <div className="flex gap-3.5 items-start">
-              <div className="w-9 h-9 rounded-full border-2 border-emerald-600/30 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0 bg-emerald-900/50">
                 <Check className="w-5 h-5 stroke-[2.5]" />
               </div>
               <div className="flex flex-col text-left">
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">COMPROMISO</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">Acompañamiento cercano y responsable.</p>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">COMPROMISO</h4>
+                <p className="text-[11px] text-emerald-200/70 mt-0.5 leading-normal">Acompañamiento cercano y responsable.</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Solid Green Protected Notice Footer Bar */}
-        <div className="w-full bg-[#0B4B27] px-8 py-5 flex items-center gap-4 relative z-10 mt-12 text-left">
-          <div className="w-8 h-8 rounded-full bg-amber-400 text-[#0B4B27] flex items-center justify-center shrink-0">
+        <div className="w-full bg-emerald-900/90 border-t border-emerald-800/80 px-8 py-5 flex items-center gap-4 relative z-10 mt-12 text-left">
+          <div className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
             <Lock className="w-4 h-4 stroke-[3]" />
           </div>
-          <p className="text-[10px] md:text-xs text-white/90 font-medium leading-relaxed">
+          <p className="text-[10px] md:text-xs text-emerald-100 font-medium leading-relaxed">
             <b>Tu información está protegida.</b> Utilizamos tecnología de encriptación avanzada para garantizar la seguridad de tus datos de manera permanente.
           </p>
         </div>
@@ -149,25 +149,25 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
       </div>
 
       {/* RIGHT COLUMN: LOGIN BOX (Shows at top on mobile, right on desktop) */}
-      <div className="w-full lg:w-[45%] bg-[#F1F5F9] p-6 md:p-12 lg:p-16 flex items-center justify-center shrink-0 min-h-screen order-1 lg:order-2">
+      <div className="w-full lg:w-[45%] bg-slate-950 p-6 md:p-12 lg:p-16 flex items-center justify-center shrink-0 min-h-screen order-1 lg:order-2">
         
-        <div className="w-full max-w-[420px] bg-white rounded-[32px] shadow-xl border border-slate-200/50 p-8 md:p-10 space-y-6 relative z-10 text-left">
+        <div className="w-full max-w-[420px] bg-slate-900 rounded-[32px] shadow-2xl border border-emerald-800/80 p-8 md:p-10 space-y-6 relative z-10 text-left backdrop-blur-md">
           
           {/* Padlock Icon & Brand Title inside the Card */}
           <div className="flex flex-col items-center text-center space-y-3.5">
-            <div className="w-14 h-14 bg-[#0B4B27] text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-950/10 border-2 border-emerald-300/10">
+            <div className="w-14 h-14 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-950/50 border-2 border-emerald-400/30">
               <Lock className="w-6 h-6 stroke-[2]" />
             </div>
             <div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Iniciar Sesión</h3>
-              <p className="text-xs text-slate-400 font-semibold mt-1">Bienvenido a CrediCash</p>
+              <h3 className="text-2xl font-black text-white tracking-tight">Iniciar Sesión</h3>
+              <p className="text-xs text-emerald-300/80 font-semibold mt-1">Bienvenido a CrediCash</p>
             </div>
           </div>
 
           {/* Error Message banner */}
           {error && (
-            <div className="p-3.5 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl flex items-start gap-3">
-              <ShieldAlert className="w-4.5 h-4.5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="p-3.5 bg-rose-950/80 border border-rose-800 text-rose-200 rounded-2xl flex items-start gap-3">
+              <ShieldAlert className="w-4.5 h-4.5 text-rose-400 shrink-0 mt-0.5" />
               <span className="text-xs font-semibold leading-relaxed">{error}</span>
             </div>
           )}
@@ -177,11 +177,11 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
             
             {/* Email field */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+              <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">
                 Correo Electrónico
               </label>
               <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-slate-400">
+                <span className="absolute left-3.5 text-emerald-500">
                   <Mail className="w-4 h-4" />
                 </span>
                 <input 
@@ -190,7 +190,7 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
                   placeholder="ejemplo@credicash.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:bg-white focus:border-[#1E803B] focus:ring-1 focus:ring-[#1E803B] transition-all text-xs font-bold text-slate-800"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-emerald-800/80 rounded-2xl focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-xs font-bold text-white placeholder-emerald-700"
                 />
               </div>
             </div>
@@ -198,12 +198,12 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
             {/* Password field */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">
                   Contraseña
                 </label>
               </div>
               <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-slate-400">
+                <span className="absolute left-3.5 text-emerald-500">
                   <Lock className="w-4 h-4" />
                 </span>
                 <input 
@@ -212,12 +212,12 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:bg-white focus:border-[#1E803B] focus:ring-1 focus:ring-[#1E803B] transition-all text-xs font-bold text-slate-800"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-950 border border-emerald-800/80 rounded-2xl focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-xs font-bold text-white placeholder-emerald-700"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer flex items-center justify-center"
+                  className="absolute right-3.5 text-emerald-500 hover:text-emerald-300 focus:outline-none cursor-pointer flex items-center justify-center"
                 >
                   {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                 </button>
@@ -226,16 +226,16 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
 
             {/* Remember Me and Forgot Password row */}
             <div className="flex items-center justify-between text-[11px] pt-1">
-              <label className="flex items-center gap-2 font-bold text-slate-500 cursor-pointer select-none">
+              <label className="flex items-center gap-2 font-bold text-emerald-200/80 cursor-pointer select-none">
                 <input 
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded text-[#1E803B] focus:ring-[#1E803B] border-slate-300 w-4 h-4 cursor-pointer"
+                  className="rounded text-emerald-600 focus:ring-emerald-500 border-emerald-800 bg-slate-950 w-4 h-4 cursor-pointer"
                 />
                 Recordarme
               </label>
-              <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Por favor contacte al administrador del sistema para reestablecer su contraseña institucional.'); }} className="font-extrabold text-[#1E803B] hover:underline">
+              <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Por favor contacte al administrador del sistema para reestablecer su contraseña institucional.'); }} className="font-extrabold text-emerald-400 hover:underline">
                 ¿Olvidaste tu contraseña?
               </a>
             </div>
@@ -243,7 +243,7 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
             {/* Login Submit Button */}
             <button
               type="submit"
-              className="w-full py-3 bg-[#1E803B] hover:bg-[#0B4B27] text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md hover:shadow-none flex items-center justify-center gap-2 cursor-pointer mt-5"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-none flex items-center justify-center gap-2 cursor-pointer mt-5"
             >
               Iniciar Sesión
               <ChevronRight className="w-4 h-4 stroke-[3]" />
@@ -253,15 +253,15 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
 
           {/* Social Divider / Continued alternative */}
           <div className="relative flex items-center justify-center my-4">
-            <div className="border-t border-slate-200 w-full"></div>
-            <span className="absolute bg-white px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">o continúa con</span>
+            <div className="border-t border-emerald-800/80 w-full"></div>
+            <span className="absolute bg-slate-900 px-3 text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest">o continúa con</span>
           </div>
 
           {/* Google Single Sign-On Button */}
           <button
             type="button"
             onClick={() => alert('Autenticación mediante Google Workspace en proceso de homologación.')}
-            className="w-full py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl text-xs font-black flex items-center justify-center gap-2.5 transition-all cursor-pointer"
+            className="w-full py-2.5 bg-slate-950 border border-emerald-800/80 hover:bg-slate-800 text-emerald-200 rounded-2xl text-xs font-black flex items-center justify-center gap-2.5 transition-all cursor-pointer"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -273,8 +273,8 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
           </button>
 
           {/* Footer Card Notice */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-emerald-700 uppercase tracking-wide">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="pt-2 border-t border-emerald-800/80 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-emerald-300 uppercase tracking-wide">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
             Accedé desde cualquier lugar y dispositivo.
           </div>
 

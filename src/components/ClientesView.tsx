@@ -973,12 +973,12 @@ export default function ClientesView({
       </div>
 
       {isAdding ? (
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 animate-fadeIn">
-          <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
-            <h3 className="text-sm font-bold uppercase text-slate-400 tracking-widest">
+        <form onSubmit={handleSubmit} className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-xl space-y-6 animate-fadeIn">
+          <div className="border-b border-emerald-800/80 pb-3 flex justify-between items-center">
+            <h3 className="text-sm font-extrabold uppercase text-emerald-300 tracking-widest">
               {editingCliente ? `Editar Cliente: ${editingCliente.id}` : 'Registrar Nuevo Cliente'}
             </h3>
-            <span className="text-xs font-mono px-2 py-0.5 bg-slate-100 rounded text-slate-500">
+            <span className="text-xs font-mono px-2.5 py-1 bg-slate-900 rounded-md border border-emerald-700/80 text-emerald-300 font-bold">
               {editingCliente ? editingCliente.id : 'ID: AUTOMÁTICO'}
             </span>
           </div>
@@ -986,59 +986,59 @@ export default function ClientesView({
           <div className="space-y-8">
             {/* Sección 1: Datos de Identidad */}
             <div>
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Users className="w-4 h-4" />
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Users className="w-4 h-4 text-emerald-400" />
                 1. Datos Personales e Identidad
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre *</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Nombre *</label>
                   <input
                     type="text"
                     required
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Nombre del cliente"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Apellido *</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Apellido *</label>
                   <input
                     type="text"
                     required
                     value={apellido}
                     onChange={(e) => setApellido(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Apellido del cliente"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">DNI / Documento *</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">DNI / Documento *</label>
                   <input
                     type="text"
                     required
                     value={dni}
                     onChange={(e) => setDni(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Número de DNI"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Fecha de Nacimiento</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Fecha de Nacimiento</label>
                   <input
                     type="date"
                     value={fechaNacimiento}
                     onChange={(e) => setFechaNacimiento(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Sexo</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Sexo</label>
                   <select
                     value={sexo}
                     onChange={(e) => setSexo(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm bg-white focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                   >
                     <option value="MASCULINO">MASCULINO</option>
                     <option value="FEMENINO">FEMENINO</option>
@@ -1049,59 +1049,59 @@ export default function ClientesView({
             </div>
 
             {/* Sección 2: Contacto y Enlaces */}
-            <div className="border-t border-slate-100 pt-6">
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Phone className="w-4 h-4" />
+            <div className="border-t border-emerald-800/60 pt-6">
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Phone className="w-4 h-4 text-emerald-400" />
                 2. Canales de Contacto y Referencias
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Teléfono Celular</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Teléfono Celular</label>
                   <input
                     type="text"
                     value={telefono}
                     onChange={(e) => setTelefono(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: +54 9 11 1234-5678"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">WhatsApp Directo</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">WhatsApp Directo</label>
                   <input
                     type="text"
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: 5491112345678"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Teléfono Alternativo</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Teléfono Alternativo</label>
                   <input
                     type="text"
                     value={telefonoAlternativo}
                     onChange={(e) => setTelefonoAlternativo(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Teléfono fijo o familiar"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Persona de Referencia</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Persona de Referencia</label>
                   <input
                     type="text"
                     value={personaReferencia}
                     onChange={(e) => setPersonaReferencia(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Nombre del familiar o amigo"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Teléfono de Referencia</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Teléfono de Referencia</label>
                   <input
                     type="text"
                     value={telefonoReferencia}
                     onChange={(e) => setTelefonoReferencia(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Contacto de la referencia"
                   />
                 </div>
@@ -1109,69 +1109,69 @@ export default function ClientesView({
             </div>
 
             {/* Sección 3: Domicilio Declarado */}
-            <div className="border-t border-slate-100 pt-6">
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
+            <div className="border-t border-emerald-800/60 pt-6">
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-emerald-400" />
                 3. Domicilio Declarado
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Calle / Avenida</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Calle / Avenida</label>
                   <input
                     type="text"
                     value={calle}
                     onChange={(e) => setCalle(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Nombre de la calle"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Número</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Número</label>
                   <input
                     type="text"
                     value={numero}
                     onChange={(e) => setNumero(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: 1420"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Barrio</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Barrio</label>
                   <input
                     type="text"
                     value={barrio}
                     onChange={(e) => setBarrio(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Nombre de barrio"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Ciudad / Localidad</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Ciudad / Localidad</label>
                   <input
                     type="text"
                     value={ciudad}
                     onChange={(e) => setCiudad(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: San Miguel"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Provincia / Estado</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Provincia / Estado</label>
                   <input
                     type="text"
                     value={provincia}
                     onChange={(e) => setProvincia(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: Buenos Aires"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Código Postal</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Código Postal</label>
                   <input
                     type="text"
                     value={codigoPostal}
                     onChange={(e) => setCodigoPostal(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: C1425"
                   />
                 </div>
@@ -1179,49 +1179,49 @@ export default function ClientesView({
             </div>
 
             {/* Sección 4: Situación Laboral */}
-            <div className="border-t border-slate-100 pt-6">
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Briefcase className="w-4 h-4" />
+            <div className="border-t border-emerald-800/60 pt-6">
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-emerald-400" />
                 4. Situación Laboral y Solvencia
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Actividad Laboral</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Actividad Laboral</label>
                   <input
                     type="text"
                     value={trabajo}
                     onChange={(e) => setTrabajo(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Profesión o puesto"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Empresa / Lugar de Trabajo</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Empresa / Lugar de Trabajo</label>
                   <input
                     type="text"
                     value={lugarTrabajo}
                     onChange={(e) => setLugarTrabajo(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Nombre del empleador"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Antigüedad (Años/Meses)</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Antigüedad (Años/Meses)</label>
                   <input
                     type="text"
                     value={antiguedad}
                     onChange={(e) => setAntiguedad(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: 3 años y 6 meses"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Ingresos Mensuales Netos</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Ingresos Mensuales Netos</label>
                   <input
                     type="number"
                     value={ingresos}
                     onChange={(e) => setIngresos(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: 350000"
                   />
                 </div>
@@ -1229,29 +1229,29 @@ export default function ClientesView({
             </div>
 
             {/* Sección 5: Datos de Cobro / Bancos */}
-            <div className="border-t border-slate-100 pt-6">
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+            <div className="border-t border-emerald-800/60 pt-6">
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-400" />
                 5. Cuenta Bancaria / Transferencias
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">CBU / CVU / Alias de Cuenta</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">CBU / CVU / Alias de Cuenta</label>
                   <input
                     type="text"
                     value={aliasCbu}
                     onChange={(e) => setAliasCbu(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm font-mono text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: 0170098740000001234567 o alias.pago"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Banco o Billetera Virtual</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Banco o Billetera Virtual</label>
                   <input
                     type="text"
                     value={banco}
                     onChange={(e) => setBanco(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: Banco Nación, Mercado Pago"
                   />
                 </div>
@@ -1259,47 +1259,47 @@ export default function ClientesView({
             </div>
 
             {/* Sección 6: Configuración Comercial y Asignación de Operador */}
-            <div className="border-t border-slate-100 pt-6">
+            <div className="border-t border-emerald-800/60 pt-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
+                <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-emerald-400" />
                   6. Clasificación Comercial y Operador de Cobranza
                 </h4>
-                <div className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md border border-slate-200 flex items-center gap-1 font-medium">
-                  <Info className="w-3 h-3 text-blue-500 shrink-0" />
+                <div className="text-[10px] bg-slate-900 text-emerald-200 px-2.5 py-1 rounded-md border border-emerald-700/80 flex items-center gap-1 font-medium">
+                  <Info className="w-3 h-3 text-emerald-400 shrink-0" />
                   <span>El <strong>Analista</strong> aprueba los papeles; el <strong>Operador</strong> realiza el contacto diario.</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">
                     Captador (Promotor / Vendedor)
                   </label>
                   <input
                     type="text"
                     value={captador}
                     onChange={(e) => setCaptador(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: Marcos Vendedor (Mesa Entrada)"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">
                     Analista Riesgo (Revisor de Papeles)
                   </label>
                   <input
                     type="text"
                     value={analista}
                     onChange={(e) => setAnalista(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 placeholder-emerald-300/40"
                     placeholder="Ej: Lic. Gómez (Mesa Alta)"
                   />
                 </div>
-                <div className="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-200">
-                  <label className="block text-[11px] font-black text-emerald-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-emerald-700">
+                  <label className="block text-[11px] font-black text-emerald-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                     <span>Operador Asignado (Contacto Diario)</span>
-                    <span className="text-[9px] bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded font-extrabold">Exclusivo</span>
+                    <span className="text-[9px] bg-emerald-900 text-emerald-200 px-1.5 py-0.5 rounded font-extrabold border border-emerald-700">Exclusivo</span>
                   </label>
                   <select
                     value={operadorAsignadoId}
@@ -1309,7 +1309,7 @@ export default function ClientesView({
                       const opUser = usuarios.find(u => u.id === selectedOpId);
                       setOperadorAsignadoNombre(opUser ? opUser.nombre : (selectedOpId ? 'Operador Asignado' : 'Sin asignar'));
                     }}
-                    className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-sm font-bold text-slate-800 focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-emerald-600 rounded-lg text-sm font-bold text-white focus:outline-hidden focus:border-emerald-400"
                   >
                     <option value="">-- Sin operador asignado (Todos) --</option>
                     {usuarios.map(u => (
@@ -1323,11 +1323,11 @@ export default function ClientesView({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Estado Crediticio General</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Estado Crediticio General</label>
                   <select
                     value={estado}
                     onChange={(e) => setEstado(e.target.value as Cliente['estado'])}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm bg-white focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400"
                   >
                     <option value="SOLICITANTE">SOLICITANTE (En Evaluación)</option>
                     <option value="ACTIVO">ACTIVO (Sin deudas vencidas)</option>
@@ -1337,11 +1337,11 @@ export default function ClientesView({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Origen de Captación</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Origen de Captación</label>
                   <select
                     value={origen}
                     onChange={(e) => setOrigen(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm bg-white focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400"
                   >
                     <option value="FACEBOOK">Facebook / Redes</option>
                     <option value="WHATSAPP">WhatsApp Directo</option>
@@ -1354,59 +1354,59 @@ export default function ClientesView({
             </div>
 
             {/* Sección 7: Legajo Digital */}
-            <div className="border-t border-slate-100 pt-6">
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+            <div className="border-t border-emerald-800/60 pt-6">
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-400" />
                 7. Legajo Digital (Enlaces de documentos simulados)
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">DNI Frente (Enlace de Imagen o PDF)</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">DNI Frente (Enlace de Imagen o PDF)</label>
                   <input
                     type="text"
                     value={docDniFrente}
                     onChange={(e) => setDocDniFrente(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 placeholder-emerald-300/40"
                     placeholder="https://..."
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">DNI Dorso (Enlace de Imagen o PDF)</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">DNI Dorso (Enlace de Imagen o PDF)</label>
                   <input
                     type="text"
                     value={docDniDorso}
                     onChange={(e) => setDocDniDorso(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 placeholder-emerald-300/40"
                     placeholder="https://..."
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Comprobante de Domicilio (Luz, Agua, etc)</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Comprobante de Domicilio (Luz, Agua, etc)</label>
                   <input
                     type="text"
                     value={docComprobante}
                     onChange={(e) => setDocComprobante(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 placeholder-emerald-300/40"
                     placeholder="https://..."
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Recibo de Sueldo / Comprobante de Ingresos</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Recibo de Sueldo / Comprobante de Ingresos</label>
                   <input
                     type="text"
                     value={docReciboSueldo}
                     onChange={(e) => setDocReciboSueldo(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 placeholder-emerald-300/40"
                     placeholder="https://..."
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Otros Documentos (Garantías, Contratos, etc)</label>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Otros Documentos (Garantías, Contratos, etc)</label>
                   <input
                     type="text"
                     value={docOtros}
                     onChange={(e) => setDocOtros(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 placeholder-emerald-300/40"
                     placeholder="https://..."
                   />
                 </div>
@@ -1414,31 +1414,31 @@ export default function ClientesView({
             </div>
 
             {/* Sección 8: Observaciones */}
-            <div className="border-t border-slate-100 pt-6">
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4">
+            <div className="border-t border-emerald-800/60 pt-6">
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4">
                 8. Observaciones Adicionales
               </h4>
               <textarea
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400 placeholder-emerald-300/40"
                 placeholder="Escriba comentarios sobre el comportamiento del cliente, avales, etc..."
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+          <div className="flex justify-end gap-3 pt-4 border-t border-emerald-800/60">
             <button
               type="button"
               onClick={() => setIsAdding(false)}
-              className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-sm font-semibold transition-colors"
+              className="px-4 py-2 border border-emerald-700/80 text-emerald-200 rounded-lg hover:bg-emerald-900/60 text-sm font-semibold transition-colors cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-bold transition-all shadow-md hover:shadow-none cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" />
               Guardar Cliente
@@ -1449,13 +1449,13 @@ export default function ClientesView({
 
       {/* Sub-tab Navigation for Superadmin / Administrator */}
       {isAdmin && !isAdding && !selectedClient && (
-        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-fit">
+        <div className="flex items-center gap-2 bg-emerald-950/90 p-1.5 rounded-xl border border-emerald-800/80 w-fit">
           <button
             onClick={() => setClientSubTab('buscador')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
               clientSubTab === 'buscador'
-                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                ? 'bg-emerald-900 text-emerald-100 shadow-xs border border-emerald-700'
+                : 'text-emerald-300/70 hover:text-white hover:bg-emerald-900/40'
             }`}
           >
             <Search className="w-3.5 h-3.5" />
@@ -1466,11 +1466,11 @@ export default function ClientesView({
             onClick={() => setClientSubTab('asignacion')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
               clientSubTab === 'asignacion'
-                ? 'bg-white text-emerald-800 shadow-xs border border-emerald-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                ? 'bg-emerald-900 text-emerald-100 shadow-xs border border-emerald-700'
+                : 'text-emerald-300/70 hover:text-white hover:bg-emerald-900/40'
             }`}
           >
-            <Users className="w-3.5 h-3.5 text-emerald-600" />
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
             <span>2. Asignación y Rotación de Cartera (Superadmin)</span>
           </button>
         </div>
@@ -1575,53 +1575,53 @@ export default function ClientesView({
         <div className="space-y-6 animate-fadeIn">
           {/* Summary KPI Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Clientes en Sistema</span>
-              <span className="text-xl font-black text-slate-800">{clientes.length}</span>
-              <span className="text-[10px] text-slate-500 block mt-0.5">Cartera global administrada</span>
+            <div className="bg-emerald-950/90 p-4 rounded-xl border border-emerald-800/80 shadow-xs">
+              <span className="text-[10px] font-bold text-emerald-300/80 uppercase tracking-wider block">Total Clientes en Sistema</span>
+              <span className="text-xl font-black text-white">{clientes.length}</span>
+              <span className="text-[10px] text-emerald-200/60 block mt-0.5">Cartera global administrada</span>
             </div>
-            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-xs">
-              <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">Clientes Asignados</span>
-              <span className="text-xl font-black text-emerald-900">
+            <div className="bg-emerald-950/90 p-4 rounded-xl border border-emerald-700 shadow-xs">
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">Clientes Asignados</span>
+              <span className="text-xl font-black text-emerald-300">
                 {clientes.filter(c => c.operadorAsignadoId || c.operadorAsignadoNombre).length}
               </span>
-              <span className="text-[10px] text-emerald-700 block mt-0.5">Asignados a un operador/cobrador</span>
+              <span className="text-[10px] text-emerald-200/70 block mt-0.5">Asignados a un operador/cobrador</span>
             </div>
-            <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-xs">
-              <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">Clientes Sin Asignar</span>
-              <span className="text-xl font-black text-amber-900">
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-amber-800/80 shadow-xs">
+              <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider block">Clientes Sin Asignar</span>
+              <span className="text-xl font-black text-amber-300">
                 {clientes.filter(c => !c.operadorAsignadoId && !c.operadorAsignadoNombre).length}
               </span>
-              <span className="text-[10px] text-amber-700 block mt-0.5">Disponibles para rotación</span>
+              <span className="text-[10px] text-amber-200/70 block mt-0.5">Disponibles para rotación</span>
             </div>
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 shadow-xs">
-              <span className="text-[10px] font-black text-blue-800 uppercase tracking-wider block">Operadores Disponibles</span>
-              <span className="text-xl font-black text-blue-900">{usuarios.length}</span>
-              <span className="text-[10px] text-blue-700 block mt-0.5">Agentes de gestión diaria</span>
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 shadow-xs">
+              <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">Operadores Disponibles</span>
+              <span className="text-xl font-black text-white">{usuarios.length}</span>
+              <span className="text-[10px] text-emerald-200/60 block mt-0.5">Agentes de gestión diaria</span>
             </div>
           </div>
 
           {/* Role Restriction Banner */}
-          <div className="bg-slate-900 text-slate-200 p-4 rounded-xl border border-slate-800 flex items-start gap-3 shadow-sm">
+          <div className="bg-slate-900 text-slate-200 p-4 rounded-xl border border-emerald-800/80 flex items-start gap-3 shadow-sm">
             <Shield className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
             <div className="text-xs space-y-1">
               <strong className="text-white font-bold block uppercase tracking-wider text-[11px]">Reglas de Acceso a Cartera por Rol:</strong>
-              <p className="text-slate-300 leading-relaxed">
+              <p className="text-emerald-200/80 leading-relaxed">
                 • Los <strong>Operadores / Cobradores</strong> solo visualizan los clientes <strong>Activos</strong> y de <strong>Renovación</strong> asignados específicamente a su legajo.
                 <br />
-                • Los clientes con estado <strong>INACTIVO</strong> o <strong>CONGELADO</strong> quedan estrictamente ocultos para los operadores y solo son accesibles por el Superadministrador.
+                • Los clientes con estado <strong>INACTIVO</strong> o <strong>CONGELADO</strong> quedan strictly ocultos para los operadores y solo son accesibles por el Superadministrador.
               </p>
             </div>
           </div>
 
           {/* Bulk Assignment Toolbar & Filters */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+          <div className="bg-emerald-950/90 p-5 rounded-xl border border-emerald-800/80 shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-emerald-800/60 pb-4">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">
+                <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">
                   Asignación Masiva y Rotación de Cartera
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-emerald-200/70">
                   Seleccione uno o varios clientes para rotarlos en lote a un operador específico.
                 </p>
               </div>
@@ -1631,7 +1631,7 @@ export default function ClientesView({
                 <select
                   value={targetOperatorId}
                   onChange={(e) => setTargetOperatorId(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-hidden focus:border-emerald-500"
+                  className="px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
                 >
                   <option value="">-- Sin operador (Desasignar / Todos) --</option>
                   {usuarios.map(u => (
@@ -1644,7 +1644,7 @@ export default function ClientesView({
                 <button
                   type="button"
                   onClick={handleBatchAssignOperator}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>Asignar {selectedClientIds.length > 0 ? `(${selectedClientIds.length})` : ''} Seleccionados</span>
@@ -1655,25 +1655,25 @@ export default function ClientesView({
             {/* Table Filters */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Buscar Cliente o DNI</label>
+                <label className="block text-[10px] font-bold text-emerald-300/80 uppercase tracking-wider mb-1">Buscar Cliente o DNI</label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-emerald-400" />
                   <input
                     type="text"
                     value={rotationSearchTerm}
                     onChange={(e) => setRotationSearchTerm(e.target.value)}
                     placeholder="Filtrar por nombre o DNI..."
-                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-blue-500"
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-emerald-700/80 rounded-lg text-xs text-white placeholder-emerald-300/40 focus:outline-hidden focus:border-emerald-400"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Filtrar por Operador Actual</label>
+                <label className="block text-[10px] font-bold text-emerald-300/80 uppercase tracking-wider mb-1">Filtrar por Operador Actual</label>
                 <select
                   value={rotationFilterOperator}
                   onChange={(e) => setRotationFilterOperator(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700"
+                  className="w-full px-3 py-1.5 bg-slate-900 border border-emerald-700/80 rounded-lg text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
                 >
                   <option value="TODOS">Todos los Operadores</option>
                   <option value="SIN_ASIGNAR">⚠️ Solo Sin Asignar</option>
@@ -1684,11 +1684,11 @@ export default function ClientesView({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Filtrar por Estado</label>
+                <label className="block text-[10px] font-bold text-emerald-300/80 uppercase tracking-wider mb-1">Filtrar por Estado</label>
                 <select
                   value={rotationFilterEstado}
                   onChange={(e) => setRotationFilterEstado(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700"
+                  className="w-full px-3 py-1.5 bg-slate-900 border border-emerald-700/80 rounded-lg text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400"
                 >
                   <option value="TODOS">Todos los Estados</option>
                   <option value="ACTIVO">Solo Activos</option>
@@ -1700,10 +1700,10 @@ export default function ClientesView({
           </div>
 
           {/* Clients Rotation Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="bg-emerald-950/90 rounded-xl border border-emerald-800/80 shadow-xs overflow-hidden">
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-emerald-100 font-black uppercase text-[10px] tracking-wider border-b-2 border-emerald-700 shadow-xs">
+                <thead className="bg-slate-900 text-emerald-200 font-black uppercase text-[10px] tracking-wider border-b border-emerald-800/80">
                   <tr>
                     <th className="p-3 w-10 text-center">
                       <input
@@ -1718,7 +1718,7 @@ export default function ClientesView({
                             setSelectedClientIds([]);
                           }
                         }}
-                        className="w-4 h-4 text-emerald-400 rounded focus:ring-emerald-500 cursor-pointer"
+                        className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-pointer"
                       />
                     </th>
                     <th className="p-3">ID / Cliente</th>
@@ -1729,7 +1729,7 @@ export default function ClientesView({
                     <th className="p-3 text-right">Acción Rápida</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                <tbody className="divide-y divide-emerald-900/60 font-medium text-emerald-100">
                   {(() => {
                     const filtered = clientes.filter(c => {
                       const matchSearch = rotationSearchTerm === '' || 
@@ -1749,7 +1749,7 @@ export default function ClientesView({
                     if (filtered.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400 font-bold text-xs">
+                          <td colSpan={7} className="p-8 text-center text-emerald-300/60 font-bold text-xs">
                             No se encontraron clientes que coincidan con los criterios de rotación.
                           </td>
                         </tr>
@@ -1761,7 +1761,7 @@ export default function ClientesView({
                       const isInactive = c.estado === 'INACTIVO' || c.estado === 'CONGELADO';
 
                       return (
-                        <tr key={c.id} className={`hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-emerald-50/40' : ''}`}>
+                        <tr key={c.id} className={`hover:bg-emerald-900/40 transition-colors ${isSelected ? 'bg-emerald-900/60' : ''}`}>
                           <td className="p-3 text-center">
                             <input
                               type="checkbox"
@@ -1773,44 +1773,44 @@ export default function ClientesView({
                                   setSelectedClientIds(prev => prev.filter(id => id !== c.id));
                                 }
                               }}
-                              className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                              className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500 cursor-pointer"
                             />
                           </td>
                           <td className="p-3">
-                            <div className="font-bold text-slate-900">{c.nombre} {c.apellido}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{c.id}</div>
+                            <div className="font-bold text-white">{c.nombre} {c.apellido}</div>
+                            <div className="text-[10px] text-emerald-300/70 font-mono">{c.id}</div>
                           </td>
                           <td className="p-3">
-                            <div className="font-mono text-slate-800">{c.dni}</div>
-                            <div className="text-[10px] text-slate-400">{c.telefono || 'Sin tel'}</div>
+                            <div className="font-mono text-emerald-200">{c.dni}</div>
+                            <div className="text-[10px] text-emerald-300/70">{c.telefono || 'Sin tel'}</div>
                           </td>
                           <td className="p-3">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${
                               c.estado === 'ACTIVO' 
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                ? 'bg-emerald-900/80 text-emerald-300 border border-emerald-700' 
                                 : c.estado === 'EN_MORA'
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                : 'bg-slate-900 text-slate-300 border border-slate-700'
                             }`}>
                               {c.estado}
                             </span>
                             {isInactive && (
-                              <span className="block text-[8px] font-extrabold text-rose-600 mt-0.5">
+                              <span className="block text-[8px] font-extrabold text-rose-400 mt-0.5">
                                 🔒 Oculto p/ Operadores
                               </span>
                             )}
                           </td>
                           <td className="p-3 text-[11px]">
-                            <div><strong className="text-slate-500">Analista:</strong> {c.analista || 'N/I'}</div>
-                            <div><strong className="text-slate-500">Captador:</strong> {c.captador || 'N/I'}</div>
+                            <div><strong className="text-emerald-300/80">Analista:</strong> {c.analista || 'N/I'}</div>
+                            <div><strong className="text-emerald-300/80">Captador:</strong> {c.captador || 'N/I'}</div>
                           </td>
                           <td className="p-3">
                             {c.operadorAsignadoNombre || c.operadorAsignadoId ? (
-                              <span className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-md font-bold text-[11px] border border-emerald-200 inline-block">
+                              <span className="px-2 py-1 bg-emerald-900 text-emerald-200 rounded-md font-bold text-[11px] border border-emerald-700 inline-block">
                                 👤 {c.operadorAsignadoNombre || c.operadorAsignadoId}
                               </span>
                             ) : (
-                              <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded-md font-bold text-[10px] border border-slate-200 inline-block">
+                              <span className="px-2 py-1 bg-slate-900 text-slate-400 rounded-md font-bold text-[10px] border border-slate-700 inline-block">
                                 ⚠️ Sin operador
                               </span>
                             )}
@@ -1819,7 +1819,7 @@ export default function ClientesView({
                             <select
                               value={c.operadorAsignadoId || ''}
                               onChange={(e) => handleAssignSingleClient(c, e.target.value)}
-                              className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-bold text-slate-800 focus:outline-hidden focus:border-blue-500 cursor-pointer shadow-2xs"
+                              className="px-2 py-1 bg-slate-900 border border-emerald-700 rounded text-xs font-bold text-white focus:outline-hidden focus:border-emerald-400 cursor-pointer"
                             >
                               <option value="">-- Sin Operador --</option>
                               {usuarios.map(u => (
@@ -1843,13 +1843,13 @@ export default function ClientesView({
       {selectedClient && (
         <div className="space-y-6 animate-fadeIn">
           {/* Action Header bar */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-emerald-950/90 p-4 rounded-xl border border-emerald-800/80 shadow-xs">
             <button
               onClick={() => {
                 setSelectedClient(null);
                 setSearchTerm('');
               }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-200 rounded-lg font-bold text-xs transition-colors cursor-pointer border border-emerald-800/60"
             >
               <ArrowLeft className="w-4 h-4" />
               Volver a buscar
@@ -1859,7 +1859,7 @@ export default function ClientesView({
               {canManage && (
                 <button
                   onClick={() => handleOpenEdit(selectedClient)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer shadow-xs"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer border border-emerald-700/80 shadow-xs"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   Editar expediente
@@ -1876,8 +1876,8 @@ export default function ClientesView({
                   }}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer border ${
                     selectedClient.estado === 'CONGELADO'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                      : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                      ? 'bg-emerald-900 text-emerald-200 border-emerald-700 hover:bg-emerald-800'
+                      : 'bg-amber-950 text-amber-300 border-amber-800 hover:bg-amber-900'
                   }`}
                   title="Congelar para pausar cobranza temporalmente"
                 >
@@ -1887,19 +1887,19 @@ export default function ClientesView({
               )}
 
               {isAdmin && (
-                <div className="flex items-center gap-2 bg-slate-50 p-1.5 px-3 rounded-lg border border-slate-200 text-xs">
-                  <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <div className="flex items-center gap-2 bg-slate-900 p-1.5 px-3 rounded-lg border border-emerald-700/80 text-xs">
+                  <label className="flex items-center gap-1.5 font-medium text-emerald-200/90 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={includeTotalInPDF}
                       onChange={(e) => setIncludeTotalInPDF(e.target.checked)}
-                      className="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                      className="w-3.5 h-3.5 text-emerald-500 rounded focus:ring-emerald-500 cursor-pointer"
                     />
                     <span>Incluir Total de Deuda en PDF</span>
                   </label>
                   <button
                     onClick={() => handleExportPDF(selectedClient, includeTotalInPDF)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors cursor-pointer shadow-xs ml-1"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-bold transition-colors cursor-pointer shadow-xs ml-1"
                   >
                     <Download className="w-3.5 h-3.5" />
                     Exportar PDF
@@ -1911,21 +1911,21 @@ export default function ClientesView({
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* COLUMN 1: Client Personal Profile / Ficha */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-sm">
+            <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-sm space-y-5">
+              <div className="flex items-center gap-3 pb-3 border-b border-emerald-800/60">
+                <div className="w-10 h-10 bg-emerald-900 text-emerald-200 rounded-xl flex items-center justify-center font-black text-sm border border-emerald-700">
                   {selectedClient.id}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 leading-none">
+                  <h3 className="text-sm font-bold text-white leading-none">
                     {selectedClient.nombre} {selectedClient.apellido}
                   </h3>
                   <span className={`inline-block px-2 py-0.5 mt-1.5 rounded-full text-[9px] font-bold ${
                     selectedClient.estado === 'ACTIVO' 
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                      ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' 
                       : selectedClient.estado === 'EN_MORA'
-                      ? 'bg-rose-50 text-rose-700 border border-rose-100'
-                      : 'bg-slate-50 text-slate-600 border border-slate-100'
+                      ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                      : 'bg-slate-900 text-slate-300 border border-slate-700'
                   }`}>
                     {selectedClient.estado}
                   </span>
@@ -1933,31 +1933,31 @@ export default function ClientesView({
               </div>
 
               {/* General Information list */}
-              <div className="space-y-3.5 text-xs text-slate-600">
+              <div className="space-y-3.5 text-xs text-emerald-200/80">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">DNI</span>
-                    <strong className="text-slate-800 font-mono text-[13px]">{selectedClient.dni}</strong>
+                    <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">DNI</span>
+                    <strong className="text-white font-mono text-[13px]">{selectedClient.dni}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Alta Registro</span>
-                    <strong className="text-slate-800">{selectedClient.fechaRegistro}</strong>
+                    <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Alta Registro</span>
+                    <strong className="text-white">{selectedClient.fechaRegistro}</strong>
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Teléfono Celular</span>
-                  <strong className="text-slate-800 text-[13px]">{selectedClient.telefono || 'No registrado'}</strong>
+                  <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Teléfono Celular</span>
+                  <strong className="text-white text-[13px]">{selectedClient.telefono || 'No registrado'}</strong>
                 </div>
 
                 {selectedClient.whatsapp && (
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">WhatsApp Directo</span>
+                    <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">WhatsApp Directo</span>
                     <a
                       href={`https://wa.me/${selectedClient.whatsapp}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-600 font-bold hover:underline flex items-center gap-1 mt-0.5 text-xs"
+                      className="text-emerald-400 font-bold hover:underline flex items-center gap-1 mt-0.5 text-xs"
                     >
                       <Phone className="w-3.5 h-3.5 shrink-0" />
                       {selectedClient.whatsapp} (Enviar mensaje)
@@ -1967,46 +1967,46 @@ export default function ClientesView({
 
                 {verDireccionCliente && (
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Dirección Formateada</span>
-                    <strong className="text-slate-800 block mt-0.5 leading-relaxed">{selectedClient.direccion || 'No especificada'}</strong>
+                    <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Dirección Formateada</span>
+                    <strong className="text-white block mt-0.5 leading-relaxed">{selectedClient.direccion || 'No especificada'}</strong>
                   </div>
                 )}
 
-                <div className={`grid ${verIngresosCliente ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-1 border-t border-slate-100`}>
+                <div className={`grid ${verIngresosCliente ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-1 border-t border-emerald-800/60`}>
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Actividad</span>
-                    <strong className="text-slate-800 truncate block">{selectedClient.trabajo || 'No especificado'}</strong>
+                    <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Actividad</span>
+                    <strong className="text-white truncate block">{selectedClient.trabajo || 'No especificado'}</strong>
                   </div>
                   {verIngresosCliente && (
                     <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Ingresos Netos</span>
-                      <strong className="text-slate-800 block text-[13px]">${selectedClient.ingresos?.toLocaleString('es-AR') || '0'}</strong>
+                      <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Ingresos Netos</span>
+                      <strong className="text-white block text-[13px]">${selectedClient.ingresos?.toLocaleString('es-AR') || '0'}</strong>
                     </div>
                   )}
                 </div>
 
-                <div className="pt-2 border-t border-slate-100">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider mb-2">Legajo Digital Cargado</span>
+                <div className="pt-2 border-t border-emerald-800/60">
+                  <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider mb-2">Legajo Digital Cargado</span>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60">
                       {selectedClient.documentosSimulados?.dniFrente && !selectedClient.documentosSimulados?.dniFrente.includes('unsplash.com') ? (
-                        <span className="text-emerald-600 font-bold flex items-center gap-1">✔ DNI Frente</span>
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">✔ DNI Frente</span>
                       ) : (
-                        <span className="text-amber-600 flex items-center gap-1">❌ Frente (Falta)</span>
+                        <span className="text-amber-400 flex items-center gap-1">❌ Frente (Falta)</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60">
                       {selectedClient.documentosSimulados?.dniDorso && !selectedClient.documentosSimulados?.dniDorso.includes('unsplash.com') ? (
-                        <span className="text-emerald-600 font-bold flex items-center gap-1">✔ DNI Dorso</span>
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">✔ DNI Dorso</span>
                       ) : (
-                        <span className="text-amber-600 flex items-center gap-1">❌ Dorso (Falta)</span>
+                        <span className="text-amber-400 flex items-center gap-1">❌ Dorso (Falta)</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-50 border border-slate-100 col-span-2">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60 col-span-2">
                       {selectedClient.documentosSimulados?.comprobanteDomicilio && !selectedClient.documentosSimulados?.comprobanteDomicilio.includes('unsplash.com') ? (
-                        <span className="text-emerald-600 font-bold flex items-center gap-1">✔ Comprobante de Domicilio</span>
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">✔ Comprobante de Domicilio</span>
                       ) : (
-                        <span className="text-amber-600 flex items-center gap-1">❌ Comp. Domicilio (Falta)</span>
+                        <span className="text-amber-400 flex items-center gap-1">❌ Comp. Domicilio (Falta)</span>
                       )}
                     </div>
                   </div>
@@ -2025,12 +2025,12 @@ export default function ClientesView({
 
                 if (!presentLoan) {
                   return (
-                    <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center space-y-3 flex flex-col items-center">
-                      <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center">
+                    <div className="bg-emerald-950/90 p-8 rounded-2xl border border-emerald-800/80 shadow-sm text-center space-y-3 flex flex-col items-center">
+                      <div className="w-12 h-12 bg-slate-900 text-emerald-400 rounded-full flex items-center justify-center border border-emerald-800">
                         <FileText className="w-6 h-6" />
                       </div>
-                      <h3 className="text-sm font-bold text-slate-800">Sin Créditos Activos</h3>
-                      <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
+                      <h3 className="text-sm font-bold text-white">Sin Créditos Activos</h3>
+                      <p className="text-xs text-emerald-300/70 max-w-sm leading-relaxed">
                         Este cliente no tiene operaciones de crédito en el sistema en este momento. Puede registrar un crédito desde la Consola de Otorgamiento.
                       </p>
                     </div>
@@ -2040,12 +2040,12 @@ export default function ClientesView({
                 const progressPct = Math.round((presentLoan.cuotasPagadas / presentLoan.cantidadCuotas) * 100) || 0;
 
                 return (
-                  <div className={`p-6 rounded-2xl border bg-white shadow-sm space-y-5 relative overflow-hidden ${
+                  <div className={`p-6 rounded-2xl border bg-emerald-950/90 shadow-sm space-y-5 relative overflow-hidden ${
                     presentLoan.estado === 'ACTIVA' 
-                      ? 'border-emerald-200' 
+                      ? 'border-emerald-700' 
                       : presentLoan.estado === 'VENCIDA'
-                      ? 'border-rose-200'
-                      : 'border-slate-200'
+                      ? 'border-rose-800'
+                      : 'border-emerald-800/80'
                   }`}>
                     {/* Decorative state accent */}
                     <div className={`absolute top-0 left-0 right-0 h-1.5 ${
@@ -2053,25 +2053,25 @@ export default function ClientesView({
                         ? 'bg-emerald-500' 
                         : presentLoan.estado === 'VENCIDA'
                         ? 'bg-rose-500'
-                        : 'bg-slate-400'
+                        : 'bg-slate-600'
                     }`} />
 
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                       <div>
-                        <span className="text-[10px] font-extrabold text-[#1E803B] uppercase tracking-wider block">
+                        <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider block">
                           ÚLTIMO CRÉDITO ACTIVO / PRESENTADO
                         </span>
-                        <h4 className="text-lg font-black text-slate-900 mt-1">
-                          Ref: {presentLoan.id} <span className="text-xs font-mono font-medium text-slate-400">({presentLoan.tipoOperacion})</span>
+                        <h4 className="text-lg font-black text-white mt-1">
+                          Ref: {presentLoan.id} <span className="text-xs font-mono font-medium text-emerald-300/70">({presentLoan.tipoOperacion})</span>
                         </h4>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg ${
                           presentLoan.estado === 'ACTIVA'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            ? 'bg-emerald-900 text-emerald-300 border border-emerald-700'
                             : presentLoan.estado === 'VENCIDA'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                            : 'bg-slate-900 text-slate-300 border border-slate-700'
                         }`}>
                           {presentLoan.estado}
                         </span>
@@ -2079,34 +2079,34 @@ export default function ClientesView({
                     </div>
 
                     {/* Summary metrics grid */}
-                    <div className={`grid grid-cols-2 ${verIngresosCliente ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-4 text-xs text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100`}>
+                    <div className={`grid grid-cols-2 ${verIngresosCliente ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-4 text-xs text-emerald-200/80 bg-slate-900/80 p-4 rounded-xl border border-emerald-800/60`}>
                       <div>
-                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Entregado</span>
-                        <strong className="text-slate-800 text-sm font-bold">${presentLoan.capitalEntregado.toLocaleString('es-AR')}</strong>
+                        <span className="text-emerald-300/70 block text-[9px] uppercase font-bold tracking-wider">Entregado</span>
+                        <strong className="text-white text-sm font-bold">${presentLoan.capitalEntregado.toLocaleString('es-AR')}</strong>
                       </div>
                       {verIngresosCliente && (
                         <div>
-                          <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Total Financiado</span>
-                          <strong className="text-slate-800 text-sm font-bold">${presentLoan.totalFinanciado.toLocaleString('es-AR')}</strong>
+                          <span className="text-emerald-300/70 block text-[9px] uppercase font-bold tracking-wider">Total Financiado</span>
+                          <strong className="text-white text-sm font-bold">${presentLoan.totalFinanciado.toLocaleString('es-AR')}</strong>
                         </div>
                       )}
                       <div>
-                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Valor Cuota</span>
-                        <strong className="text-slate-800 text-sm font-bold">${presentLoan.valorCuota.toLocaleString('es-AR')}</strong>
+                        <span className="text-emerald-300/70 block text-[9px] uppercase font-bold tracking-wider">Valor Cuota</span>
+                        <strong className="text-white text-sm font-bold">${presentLoan.valorCuota.toLocaleString('es-AR')}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Frecuencia</span>
-                        <strong className="text-slate-800 text-xs font-bold uppercase">{presentLoan.frecuencia}</strong>
+                        <span className="text-emerald-300/70 block text-[9px] uppercase font-bold tracking-wider">Frecuencia</span>
+                        <strong className="text-white text-xs font-bold uppercase">{presentLoan.frecuencia}</strong>
                       </div>
                     </div>
 
                     {/* Progress Bar of installments */}
                     <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between items-center text-slate-500">
+                      <div className="flex justify-between items-center text-emerald-300/80">
                         <span className="font-medium">Amortización de Cuotas</span>
-                        <span className="font-bold text-slate-800">{presentLoan.cuotasPagadas} de {presentLoan.cantidadCuotas} pagadas ({progressPct}%)</span>
+                        <span className="font-bold text-white">{presentLoan.cuotasPagadas} de {presentLoan.cantidadCuotas} pagadas ({progressPct}%)</span>
                       </div>
-                      <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50 p-0.5">
+                      <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-emerald-800/60 p-0.5">
                         <div 
                           className="h-full rounded-full transition-all duration-500 bg-emerald-500"
                           style={{ width: `${progressPct}%` }}
@@ -2115,47 +2115,47 @@ export default function ClientesView({
                     </div>
 
                     {/* Status & Mora Details */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-600">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-emerald-200/80">
                       {!verIngresosCliente ? (
-                        <div className="col-span-1 sm:col-span-2 bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100 text-emerald-900 leading-relaxed font-bold">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 block mb-1">Información de Cuotas (Consulta)</span>
+                        <div className="col-span-1 sm:col-span-2 bg-slate-900/80 p-3.5 rounded-xl border border-emerald-800/60 text-emerald-200 leading-relaxed font-bold">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 block mb-1">Información de Cuotas (Consulta)</span>
                           {presentLoan.cuotasPagadas} cuotas abonadas y {presentLoan.cuotasPendientes} cuotas pendientes de ${presentLoan.valorCuota.toLocaleString('es-AR')} de valor.
                         </div>
                       ) : (
                         <>
                           <div className="space-y-1.5">
-                            <div className="flex justify-between border-b border-slate-100 pb-1">
-                              <span className="text-slate-400">Capital Recuperado:</span>
-                              <strong className="text-emerald-700 font-bold">${presentLoan.capitalRecuperado.toLocaleString('es-AR')}</strong>
+                            <div className="flex justify-between border-b border-emerald-800/60 pb-1">
+                              <span className="text-emerald-300/70">Capital Recuperado:</span>
+                              <strong className="text-emerald-400 font-bold">${presentLoan.capitalRecuperado.toLocaleString('es-AR')}</strong>
                             </div>
-                            <div className="flex justify-between border-b border-slate-100 pb-1">
-                              <span className="text-slate-400">Total Pendiente:</span>
-                              <strong className="text-rose-600 font-bold">${presentLoan.totalPendiente.toLocaleString('es-AR')}</strong>
+                            <div className="flex justify-between border-b border-emerald-800/60 pb-1">
+                              <span className="text-emerald-300/70">Total Pendiente:</span>
+                              <strong className="text-rose-400 font-bold">${presentLoan.totalPendiente.toLocaleString('es-AR')}</strong>
                             </div>
-                            <div className="flex justify-between border-b border-slate-100 pb-1">
-                              <span className="text-slate-400">Próximo Vencimiento:</span>
-                              <strong className="text-slate-800">{presentLoan.proximoVencimiento || 'N/A'}</strong>
+                            <div className="flex justify-between border-b border-emerald-800/60 pb-1">
+                              <span className="text-emerald-300/70">Próximo Vencimiento:</span>
+                              <strong className="text-white">{presentLoan.proximoVencimiento || 'N/A'}</strong>
                             </div>
                           </div>
 
                           <div className="space-y-1.5">
-                            <div className="flex justify-between border-b border-slate-100 pb-1">
-                              <span className="text-slate-400">Días de Mora:</span>
-                              <strong className={`font-bold ${presentLoan.diasMora > 0 ? 'text-rose-600' : 'text-slate-700'}`}>
+                            <div className="flex justify-between border-b border-emerald-800/60 pb-1">
+                              <span className="text-emerald-300/70">Días de Mora:</span>
+                              <strong className={`font-bold ${presentLoan.diasMora > 0 ? 'text-rose-400' : 'text-emerald-200'}`}>
                                 {presentLoan.diasMora} días
                               </strong>
                             </div>
-                            <div className="flex justify-between border-b border-slate-100 pb-1">
-                              <span className="text-slate-400">Riesgo / Nivel Mora:</span>
+                            <div className="flex justify-between border-b border-emerald-800/60 pb-1">
+                              <span className="text-emerald-300/70">Riesgo / Nivel Mora:</span>
                               <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                                presentLoan.diasMora > 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-slate-50 text-slate-500 border border-slate-200/50'
+                                presentLoan.diasMora > 0 ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-slate-900 text-emerald-300 border border-emerald-800'
                               }`}>
                                 {presentLoan.nivelMora || 'Sin Mora'}
                               </span>
                             </div>
-                            <div className="flex justify-between border-b border-slate-100 pb-1">
-                              <span className="text-slate-400">Cobrador Asignado:</span>
-                              <strong className="text-slate-800">{presentLoan.cobrador || 'No asignado'}</strong>
+                            <div className="flex justify-between border-b border-emerald-800/60 pb-1">
+                              <span className="text-emerald-300/70">Cobrador Asignado:</span>
+                              <strong className="text-white">{presentLoan.cobrador || 'No asignado'}</strong>
                             </div>
                           </div>
                         </>
@@ -2166,15 +2166,15 @@ export default function ClientesView({
               })()}
 
               {/* Complete History Timeline and Simultaneous Credits */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-sm space-y-4">
+                <h3 className="text-xs font-bold text-emerald-300/80 uppercase tracking-widest flex items-center gap-2">
                   Historial Integral de Créditos del Cliente
                 </h3>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-100 font-bold text-slate-500 uppercase tracking-wider">
+                      <tr className="bg-slate-900 border-b border-emerald-800/80 font-bold text-emerald-300 uppercase tracking-wider">
                         <th className="py-2.5 px-4">Ref Crédito</th>
                         <th className="py-2.5 px-4">Otorgamiento</th>
                         <th className="py-2.5 px-4">Valor del Crédito</th>
@@ -2185,7 +2185,7 @@ export default function ClientesView({
                         <th className="py-2.5 px-4 text-center">Estado</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-600">
+                    <tbody className="divide-y divide-emerald-900/60 text-emerald-100">
                       {(() => {
                         const clientLoans = operaciones.filter(o => o.idCliente === selectedClient.id);
                         const sortedLoans = [...clientLoans].sort((a, b) => b.fechaOtorgamiento.localeCompare(a.fechaOtorgamiento));
@@ -2193,7 +2193,7 @@ export default function ClientesView({
                         if (sortedLoans.length === 0) {
                           return (
                             <tr>
-                              <td colSpan={verIngresosCliente ? 8 : 7} className="py-6 text-center text-slate-400 font-medium">
+                              <td colSpan={verIngresosCliente ? 8 : 7} className="py-6 text-center text-emerald-300/60 font-medium">
                                 No registra operaciones de crédito históricas.
                               </td>
                             </tr>
@@ -2201,35 +2201,35 @@ export default function ClientesView({
                         }
 
                         return sortedLoans.map((loan) => (
-                          <tr key={loan.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="py-3 px-4 font-bold font-mono text-slate-900">{loan.id}</td>
-                            <td className="py-3 px-4 text-slate-500">{loan.fechaOtorgamiento}</td>
-                            <td className="py-3 px-4 font-semibold text-slate-700">${loan.capitalEntregado.toLocaleString('es-AR')}</td>
-                            {verIngresosCliente && <td className="py-3 px-4 font-semibold text-slate-700">${loan.totalFinanciado.toLocaleString('es-AR')}</td>}
-                            <td className="py-3 px-4 text-slate-500 uppercase tracking-wide text-[10px]">{loan.frecuencia}</td>
+                          <tr key={loan.id} className="hover:bg-emerald-900/40 transition-colors">
+                            <td className="py-3 px-4 font-bold font-mono text-white">{loan.id}</td>
+                            <td className="py-3 px-4 text-emerald-200/80">{loan.fechaOtorgamiento}</td>
+                            <td className="py-3 px-4 font-semibold text-white">${loan.capitalEntregado.toLocaleString('es-AR')}</td>
+                            {verIngresosCliente && <td className="py-3 px-4 font-semibold text-white">${loan.totalFinanciado.toLocaleString('es-AR')}</td>}
+                            <td className="py-3 px-4 text-emerald-200/70 uppercase tracking-wide text-[10px]">{loan.frecuencia}</td>
                             <td className="py-3 px-4 text-center font-bold">
                               {loan.estado === 'FINALIZADA' ? (
-                                <span className="text-[10px] text-slate-400 uppercase">Liquidado</span>
+                                <span className="text-[10px] text-emerald-300/60 uppercase">Liquidado</span>
                               ) : loan.diasMora > 0 || loan.estado === 'VENCIDA' ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] bg-rose-50 text-rose-700 border border-rose-150">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] bg-rose-950 text-rose-300 border border-rose-800">
                                   ● En Mora
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-150">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] bg-emerald-900 text-emerald-300 border border-emerald-700">
                                   ● Al Día
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-center font-bold text-slate-800">
+                            <td className="py-3 px-4 text-center font-bold text-white">
                               {loan.cuotasPagadas} / {loan.cantidadCuotas}
                             </td>
                             <td className="py-3 px-4 text-center">
                               <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
                                 loan.estado === 'ACTIVA' 
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                  ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' 
                                   : loan.estado === 'FINALIZADA'
-                                  ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                  ? 'bg-slate-900 text-emerald-200 border border-emerald-800'
+                                  : 'bg-slate-900 text-slate-300 border border-slate-700'
                               }`}>
                                 {loan.estado}
                               </span>
@@ -2248,236 +2248,236 @@ export default function ClientesView({
 
       {/* EXPEDIENTE COMPLETO MODAL (CONSULTAR EXPEDIENTE) */}
       {viewingCliente && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-emerald-950 rounded-2xl border border-emerald-800/80 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center sticky top-0 z-10">
+            <div className="p-6 border-b border-emerald-800/80 bg-slate-900 flex justify-between items-center sticky top-0 z-10">
               <div>
-                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
                   EXPEDIENTE DE CLIENTE
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 mt-1">
+                <h3 className="text-lg font-bold text-white mt-1">
                   {viewingCliente.nombre} {viewingCliente.apellido}
                 </h3>
               </div>
               <button
                 onClick={() => setViewingCliente(null)}
-                className="p-1.5 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-emerald-900 rounded-full text-emerald-300/70 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 space-y-8 text-xs text-slate-600">
+            <div className="p-6 space-y-8 text-xs text-emerald-100">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* 1. Datos Personales */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
-                  <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-blue-500" />
+                <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-2.5">
+                  <h4 className="font-bold text-emerald-300 uppercase tracking-wider text-[11px] border-b border-emerald-800/60 pb-1.5 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-emerald-400" />
                     Identidad y Datos Personales
                   </h4>
                   <div className="grid grid-cols-2 gap-y-2">
                     <div>
-                      <span className="text-slate-400 block">ID Cliente</span>
-                      <strong className="font-mono font-bold text-slate-800">{viewingCliente.id}</strong>
+                      <span className="text-emerald-300/70 block">ID Cliente</span>
+                      <strong className="font-mono font-bold text-white">{viewingCliente.id}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">DNI / Documento</span>
-                      <strong className="text-slate-800">{viewingCliente.dni}</strong>
+                      <span className="text-emerald-300/70 block">DNI / Documento</span>
+                      <strong className="text-white">{viewingCliente.dni}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Nombre Completo</span>
-                      <strong className="text-slate-800">{viewingCliente.nombre} {viewingCliente.apellido}</strong>
+                      <span className="text-emerald-300/70 block">Nombre Completo</span>
+                      <strong className="text-white">{viewingCliente.nombre} {viewingCliente.apellido}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Sexo</span>
-                      <strong className="text-slate-800">{viewingCliente.sexo || 'MASCULINO'}</strong>
+                      <span className="text-emerald-300/70 block">Sexo</span>
+                      <strong className="text-white">{viewingCliente.sexo || 'MASCULINO'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Fecha de Nacimiento</span>
-                      <strong className="text-slate-800">{viewingCliente.fechaNacimiento || 'No registrada'}</strong>
+                      <span className="text-emerald-300/70 block">Fecha de Nacimiento</span>
+                      <strong className="text-white">{viewingCliente.fechaNacimiento || 'No registrada'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Fecha Alta en Sistema</span>
-                      <strong className="text-slate-800">{viewingCliente.fechaRegistro}</strong>
+                      <span className="text-emerald-300/70 block">Fecha Alta en Sistema</span>
+                      <strong className="text-white">{viewingCliente.fechaRegistro}</strong>
                     </div>
                   </div>
                 </div>
 
                 {/* 2. Canales de Contacto */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
-                  <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-blue-500" />
+                <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-2.5">
+                  <h4 className="font-bold text-emerald-300 uppercase tracking-wider text-[11px] border-b border-emerald-800/60 pb-1.5 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
                     Canales de Contacto
                   </h4>
                   <div className="grid grid-cols-2 gap-y-2">
                     <div>
-                      <span className="text-slate-400 block">Teléfono Celular</span>
-                      <strong className="text-slate-800">{viewingCliente.telefono || 'N/A'}</strong>
+                      <span className="text-emerald-300/70 block">Teléfono Celular</span>
+                      <strong className="text-white">{viewingCliente.telefono || 'N/A'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">WhatsApp Directo</span>
+                      <span className="text-emerald-300/70 block">WhatsApp Directo</span>
                       {viewingCliente.whatsapp ? (
                         <a
                           href={`https://wa.me/${viewingCliente.whatsapp}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-emerald-600 font-bold hover:underline flex items-center gap-1"
+                          className="text-emerald-400 font-bold hover:underline flex items-center gap-1"
                         >
                           {viewingCliente.whatsapp}
                         </a>
                       ) : (
-                        <strong className="text-slate-800">No especificado</strong>
+                        <strong className="text-white">No especificado</strong>
                       )}
                     </div>
                     <div className="col-span-2">
-                      <span className="text-slate-400 block">Teléfono Alternativo</span>
-                      <strong className="text-slate-800">{viewingCliente.telefonoAlternativo || 'N/A'}</strong>
+                      <span className="text-emerald-300/70 block">Teléfono Alternativo</span>
+                      <strong className="text-white">{viewingCliente.telefonoAlternativo || 'N/A'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Persona de Referencia</span>
-                      <strong className="text-slate-800">{viewingCliente.personaReferencia || 'No registrada'}</strong>
+                      <span className="text-emerald-300/70 block">Persona de Referencia</span>
+                      <strong className="text-white">{viewingCliente.personaReferencia || 'No registrada'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Teléfono Referencia</span>
-                      <strong className="text-slate-800">{viewingCliente.telefonoReferencia || 'No registrado'}</strong>
+                      <span className="text-emerald-300/70 block">Teléfono Referencia</span>
+                      <strong className="text-white">{viewingCliente.telefonoReferencia || 'No registrado'}</strong>
                     </div>
                   </div>
                 </div>
 
                 {/* 3. Domicilio Declarado */}
                 {verDireccionCliente ? (
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
-                    <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                  <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-2.5">
+                    <h4 className="font-bold text-emerald-300 uppercase tracking-wider text-[11px] border-b border-emerald-800/60 pb-1.5 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-400" />
                       Domicilio Declarado
                     </h4>
                     <div className="grid grid-cols-2 gap-y-2">
                       <div className="col-span-2">
-                        <span className="text-slate-400 block">Dirección Formateada</span>
-                        <strong className="text-slate-800">{viewingCliente.direccion}</strong>
+                        <span className="text-emerald-300/70 block">Dirección Formateada</span>
+                        <strong className="text-white">{viewingCliente.direccion}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Calle</span>
-                        <strong className="text-slate-800">{viewingCliente.calle || 'N/A'}</strong>
+                        <span className="text-emerald-300/70 block">Calle</span>
+                        <strong className="text-white">{viewingCliente.calle || 'N/A'}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Número</span>
-                        <strong className="text-slate-800">{viewingCliente.numero || 'N/A'}</strong>
+                        <span className="text-emerald-300/70 block">Número</span>
+                        <strong className="text-white">{viewingCliente.numero || 'N/A'}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Barrio</span>
-                        <strong className="text-slate-800">{viewingCliente.barrio || 'N/A'}</strong>
+                        <span className="text-emerald-300/70 block">Barrio</span>
+                        <strong className="text-white">{viewingCliente.barrio || 'N/A'}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Ciudad / Localidad</span>
-                        <strong className="text-slate-800">{viewingCliente.ciudad || 'N/A'}</strong>
+                        <span className="text-emerald-300/70 block">Ciudad / Localidad</span>
+                        <strong className="text-white">{viewingCliente.ciudad || 'N/A'}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Provincia</span>
-                        <strong className="text-slate-800">{viewingCliente.provincia || 'N/A'}</strong>
+                        <span className="text-emerald-300/70 block">Provincia</span>
+                        <strong className="text-white">{viewingCliente.provincia || 'N/A'}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Código Postal</span>
-                        <strong className="text-slate-800">{viewingCliente.codigoPostal || 'N/A'}</strong>
+                        <span className="text-emerald-300/70 block">Código Postal</span>
+                        <strong className="text-white">{viewingCliente.codigoPostal || 'N/A'}</strong>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
-                    <h4 className="font-bold text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-slate-300" />
+                  <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-2.5">
+                    <h4 className="font-bold text-emerald-300/60 uppercase tracking-wider text-[11px] border-b border-emerald-800/60 pb-1.5 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-400/50" />
                       Domicilio Declarado
                     </h4>
-                    <span className="text-slate-400 italic font-medium">Información restringida por nivel de acceso.</span>
+                    <span className="text-emerald-300/60 italic font-medium">Información restringida por nivel de acceso.</span>
                   </div>
                 )}
 
                 {/* 4. Situación Laboral y Bancaria */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
-                  <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
-                    <Briefcase className="w-3.5 h-3.5 text-blue-500" />
+                <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-2.5">
+                  <h4 className="font-bold text-emerald-300 uppercase tracking-wider text-[11px] border-b border-emerald-800/60 pb-1.5 flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
                     Situación Laboral y Cuenta Bancaria
                   </h4>
                   <div className="grid grid-cols-2 gap-y-2">
                     {verIngresosCliente ? (
                       <>
                         <div>
-                          <span className="text-slate-400 block">Actividad Laboral</span>
-                          <strong className="text-slate-800">{viewingCliente.trabajo || 'Sin especificar'}</strong>
+                          <span className="text-emerald-300/70 block">Actividad Laboral</span>
+                          <strong className="text-white">{viewingCliente.trabajo || 'Sin especificar'}</strong>
                         </div>
                         <div>
-                          <span className="text-slate-400 block">Lugar de Trabajo</span>
-                          <strong className="text-slate-800">{viewingCliente.lugarTrabajo || 'No registrado'}</strong>
+                          <span className="text-emerald-300/70 block">Lugar de Trabajo</span>
+                          <strong className="text-white">{viewingCliente.lugarTrabajo || 'No registrado'}</strong>
                         </div>
                         <div>
-                          <span className="text-slate-400 block">Antigüedad Laboral</span>
-                          <strong className="text-slate-800">{viewingCliente.antiguedad || 'No declarada'}</strong>
+                          <span className="text-emerald-300/70 block">Antigüedad Laboral</span>
+                          <strong className="text-white">{viewingCliente.antiguedad || 'No declarada'}</strong>
                         </div>
                         <div>
-                          <span className="text-slate-400 block">Ingreso Mensual Neto</span>
-                          <strong className="text-emerald-600 font-bold">
+                          <span className="text-emerald-300/70 block">Ingreso Mensual Neto</span>
+                          <strong className="text-emerald-400 font-bold">
                             {viewingCliente.ingresos ? `$${viewingCliente.ingresos.toLocaleString('es-ES')}` : 'No especificado'}
                           </strong>
                         </div>
                       </>
                     ) : (
                       <div className="col-span-2">
-                        <span className="text-slate-400 block">Información Laboral / Ingresos</span>
-                        <strong className="text-slate-400 italic font-medium">Restringido por nivel de acceso</strong>
-                        <div className="mt-3 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
-                          <span className="text-indigo-800 font-bold block uppercase tracking-wider text-[10px] mb-1">
+                        <span className="text-emerald-300/70 block">Información Laboral / Ingresos</span>
+                        <strong className="text-emerald-300/60 italic font-medium">Restringido por nivel de acceso</strong>
+                        <div className="mt-3 bg-emerald-900/60 p-2.5 rounded-lg border border-emerald-700">
+                          <span className="text-emerald-300 font-bold block uppercase tracking-wider text-[10px] mb-1">
                             Créditos del Cliente:
                           </span>
-                          <strong className="text-indigo-950 font-extrabold text-xs">
+                          <strong className="text-white font-extrabold text-xs">
                             {getClientCreditsSummary(viewingCliente.id)}
                           </strong>
                         </div>
                       </div>
                     )}
                     <div>
-                      <span className="text-slate-400 block">CBU / CVU / Alias</span>
-                      <strong className="font-mono text-slate-800 break-all">{viewingCliente.aliasCbu || 'N/A'}</strong>
+                      <span className="text-emerald-300/70 block">CBU / CVU / Alias</span>
+                      <strong className="font-mono text-white break-all">{viewingCliente.aliasCbu || 'N/A'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Banco o Billetera</span>
-                      <strong className="text-slate-800">{viewingCliente.banco || 'N/A'}</strong>
+                      <span className="text-emerald-300/70 block">Banco o Billetera</span>
+                      <strong className="text-white">{viewingCliente.banco || 'N/A'}</strong>
                     </div>
                   </div>
                 </div>
 
                 {/* 5. Clasificación Comercial */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
-                  <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5 text-blue-500" />
+                <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-2.5">
+                  <h4 className="font-bold text-emerald-300 uppercase tracking-wider text-[11px] border-b border-emerald-800/60 pb-1.5 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
                     Clasificación Comercial
                   </h4>
                   <div className="grid grid-cols-2 gap-y-2">
                     <div>
-                      <span className="text-slate-400 block">Captador</span>
-                      <strong className="text-slate-800">{viewingCliente.captador || 'N/A'}</strong>
+                      <span className="text-emerald-300/70 block">Captador</span>
+                      <strong className="text-white">{viewingCliente.captador || 'N/A'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Analista Asignado</span>
-                      <strong className="text-slate-800">{viewingCliente.analista || 'N/A'}</strong>
+                      <span className="text-emerald-300/70 block">Analista Asignado</span>
+                      <strong className="text-white">{viewingCliente.analista || 'N/A'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Origen Captación</span>
-                      <strong className="text-slate-800">{viewingCliente.origen || 'FACEBOOK'}</strong>
+                      <span className="text-emerald-300/70 block">Origen Captación</span>
+                      <strong className="text-white">{viewingCliente.origen || 'FACEBOOK'}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Estado Crediticio</span>
+                      <span className="text-emerald-300/70 block">Estado Crediticio</span>
                       <span
                         className={`inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full ${
                           viewingCliente.estado === 'ACTIVO'
-                            ? 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-emerald-900 text-emerald-300 border border-emerald-700'
                             : viewingCliente.estado === 'EN_MORA'
-                            ? 'bg-rose-100 text-rose-800'
+                            ? 'bg-rose-950 text-rose-300 border border-rose-800'
                             : viewingCliente.estado === 'SOLICITANTE'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-slate-100 text-slate-800'
+                            ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                            : 'bg-slate-900 text-slate-300 border border-slate-700'
                         }`}
                       >
                         {viewingCliente.estado}
@@ -2487,20 +2487,20 @@ export default function ClientesView({
                 </div>
 
                 {/* 6. Observaciones */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2.5">
-                  <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
+                <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-2.5">
+                  <h4 className="font-bold text-emerald-300 uppercase tracking-wider text-[11px] border-b border-emerald-800/60 pb-1.5 flex items-center gap-1.5">
                     Observaciones Generales
                   </h4>
-                  <p className="text-slate-600 bg-white p-2.5 rounded border border-slate-200/60 min-h-[70px] whitespace-pre-wrap">
+                  <p className="text-emerald-100 bg-emerald-950 p-2.5 rounded border border-emerald-800/80 min-h-[70px] whitespace-pre-wrap">
                     {viewingCliente.observaciones || 'Sin comentarios adicionales.'}
                   </p>
                 </div>
               </div>
 
               {/* 7. Legajo de Documentos Digitales (Fila Completa) */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-blue-500" />
+              <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-4">
+                <h4 className="font-bold text-emerald-300 uppercase tracking-wider text-[11px] border-b border-emerald-800/60 pb-1.5 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
                   Legajo de Documentos Digitales (Expediente Visual)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
@@ -2511,9 +2511,9 @@ export default function ClientesView({
                     { label: 'Recibo Sueldo', key: 'reciboSueldo', val: viewingCliente.documentosSimulados?.reciboSueldo },
                     { label: 'Otros Documentos', key: 'otros', val: viewingCliente.documentosSimulados?.otros }
                   ].map((doc, idx) => (
-                    <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200/80 flex flex-col items-center text-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-500 mb-2">{doc.label}</span>
-                      <div className="w-full aspect-[4/3] bg-slate-100 rounded border border-slate-200/80 overflow-hidden relative group">
+                    <div key={idx} className="bg-emerald-950 p-3 rounded-lg border border-emerald-800/80 flex flex-col items-center text-center justify-between">
+                      <span className="text-[10px] font-bold text-emerald-300/80 mb-2">{doc.label}</span>
+                      <div className="w-full aspect-[4/3] bg-slate-900 rounded border border-emerald-800/80 overflow-hidden relative group">
                         {doc.val ? (
                           <>
                             <img
@@ -2522,12 +2522,12 @@ export default function ClientesView({
                               className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
                             />
-                            <div className="absolute inset-0 bg-slate-900/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                            <div className="absolute inset-0 bg-slate-950/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
                               <a
                                 href={doc.val}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1.5 bg-white text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                                className="p-1.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer border border-emerald-700"
                                 title="Ver pantalla completa"
                               >
                                 <Eye className="w-3.5 h-3.5" />
@@ -2535,7 +2535,7 @@ export default function ClientesView({
                               <a
                                 href={doc.val}
                                 download={`${viewingCliente.id}-${doc.key}`}
-                                className="p-1.5 bg-white text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                                className="p-1.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer border border-emerald-700"
                                 title="Descargar"
                               >
                                 <Download className="w-3.5 h-3.5" />
@@ -2543,7 +2543,7 @@ export default function ClientesView({
                             </div>
                           </>
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                          <div className="w-full h-full flex flex-col items-center justify-center text-emerald-300/40">
                             <FileText className="w-6 h-6 mb-1" />
                             <span className="text-[9px]">Sin cargar</span>
                           </div>
@@ -2556,10 +2556,10 @@ export default function ClientesView({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+            <div className="p-6 border-t border-emerald-800/80 flex justify-end gap-3 bg-slate-900">
               <button
                 onClick={() => setViewingCliente(null)}
-                className="px-5 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-bold transition-all text-xs cursor-pointer shadow-md"
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-500 hover:to-teal-500 font-bold transition-all text-xs cursor-pointer shadow-md"
               >
                 CERRAR EXPEDIENTE
               </button>

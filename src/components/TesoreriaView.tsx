@@ -191,10 +191,10 @@ export default function TesoreriaView({
     <div id="tesoreria-section" className="space-y-6">
       
       {/* Title */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-lg backdrop-blur-md">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-blue-600" />
+          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-emerald-400" />
             Control de Caja y Gastos Operativos
           </h2>
           <p className="text-xs text-emerald-300/80 mt-1">
