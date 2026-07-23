@@ -931,17 +931,17 @@ export default function PagosView({
       
       {/* Top View Selector: Cobranza vs Registro Histórico de Pagos (ADMINS ONLY) */}
       {isUserAdmin ? (
-        <div className="flex items-center justify-between gap-4 bg-slate-100 p-2 rounded-2xl border border-slate-200">
+        <div className="flex items-center justify-between gap-4 bg-emerald-950/90 p-2 rounded-2xl border border-emerald-800/80 shadow-md">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewTab('cobranza')}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                 viewTab === 'cobranza'
-                  ? 'bg-emerald-900 text-emerald-100 shadow-sm border border-emerald-700 ring-2 ring-emerald-500/20'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                  ? 'bg-emerald-600 text-white shadow-sm border border-emerald-500'
+                  : 'text-emerald-200/80 hover:text-white hover:bg-emerald-800/50'
               }`}
             >
-              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <DollarSign className="w-4 h-4 text-emerald-300" />
               <span>1. Consola de Cobranza y Fichas</span>
             </button>
 
@@ -949,17 +949,17 @@ export default function PagosView({
               onClick={() => setViewTab('registro_pagos')}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                 viewTab === 'registro_pagos'
-                  ? 'bg-blue-900 text-blue-100 shadow-sm border border-blue-700 ring-2 ring-blue-500/20'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                  ? 'bg-emerald-600 text-white shadow-sm border border-emerald-500'
+                  : 'text-emerald-200/80 hover:text-white hover:bg-emerald-800/50'
               }`}
             >
-              <ClipboardList className="w-4 h-4 text-blue-400" />
+              <ClipboardList className="w-4 h-4 text-emerald-300" />
               <span>2. Auditoría e Histórico de Pagos ({pagos.length})</span>
             </button>
           </div>
 
           <div className="hidden md:flex items-center gap-2 pr-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-lg border border-emerald-300">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-900/80 px-3 py-1 rounded-lg border border-emerald-700">
               Diseño Ejecutivo Excel Financial
             </span>
           </div>
@@ -1479,9 +1479,9 @@ export default function PagosView({
           <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
             {filteredAndPrioritizedOps.length === 0 ? (
               <div className="text-center py-12 px-4 space-y-2">
-                <AlertCircle className="w-10 h-10 text-slate-300 mx-auto" />
-                <h4 className="text-sm font-bold text-slate-700">No hay gestiones requeridas</h4>
-                <p className="text-xs text-slate-400 max-w-[280px] mx-auto">
+                <AlertCircle className="w-10 h-10 text-emerald-400 mx-auto" />
+                <h4 className="text-sm font-bold text-white">No hay gestiones requeridas</h4>
+                <p className="text-xs text-emerald-200/70 max-w-[280px] mx-auto">
                   {searchTerm 
                     ? 'No se encontraron registros que coincidan con la búsqueda.' 
                     : 'Todos tus clientes asignados se encuentran al día y no registran pendientes.'}
@@ -1505,17 +1505,17 @@ export default function PagosView({
 
                 // Priority Badge label
                 let priorityLabel = 'Al Día / Normal';
-                let priorityColor = 'bg-slate-100 text-slate-700 border-slate-200 text-[10px]';
+                let priorityColor = 'bg-emerald-900 text-emerald-300 border-emerald-700 text-[10px]';
                 
                 if (isVencido) {
                   priorityLabel = `🚨 ALERTA ATRASO: ${dynamicDiasMora} DÍAS`;
-                  priorityColor = 'bg-red-600 text-white border-red-700 font-extrabold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider animate-pulse shadow-sm';
+                  priorityColor = 'bg-rose-600 text-white border-rose-500 font-extrabold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider animate-pulse shadow-sm';
                 } else if (isHoy) {
                   priorityLabel = '📅 VENCE HOY';
-                  priorityColor = 'bg-amber-150 text-amber-900 border-amber-300 font-bold px-2 py-0.5 rounded-full text-[10px]';
+                  priorityColor = 'bg-amber-950 text-amber-300 border-amber-800 font-bold px-2 py-0.5 rounded-full text-[10px]';
                 } else if (isPromesa) {
                   priorityLabel = '🤝 PROMESA PENDIENTE';
-                  priorityColor = 'bg-indigo-100 text-indigo-900 border-indigo-200 font-bold px-2 py-0.5 rounded-full text-[10px]';
+                  priorityColor = 'bg-indigo-950 text-indigo-300 border-indigo-800 font-bold px-2 py-0.5 rounded-full text-[10px]';
                 }
 
                 return (
@@ -1524,19 +1524,19 @@ export default function PagosView({
                     onClick={() => setSelectedOp(op)}
                     className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 relative ${
                       selectedOp?.id === op.id
-                        ? 'border-emerald-500 bg-emerald-50/20 shadow-md ring-1 ring-emerald-500/20'
+                        ? 'border-emerald-400 bg-emerald-900/90 shadow-md ring-2 ring-emerald-400/40'
                         : isVencido
-                          ? 'border-rose-300 bg-rose-50/5 hover:bg-rose-50/15 shadow-xs'
-                          : 'border-slate-200/80 hover:border-slate-300 bg-white hover:bg-slate-50/40'
+                          ? 'border-rose-700/80 bg-rose-950/40 hover:bg-rose-950/70 shadow-xs'
+                          : 'border-emerald-800/80 hover:border-emerald-600 bg-slate-900/90 hover:bg-emerald-900/60'
                     }`}
                   >
                     
                     {/* Index or highlight line */}
-                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${isVencido ? 'bg-red-600' : 'bg-emerald-600/10'}`}></div>
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${isVencido ? 'bg-red-500' : 'bg-emerald-400'}`}></div>
                     
                     <div className="space-y-1.5 pl-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-mono font-bold text-slate-400">Cred: {op.id}</span>
+                        <span className="text-[10px] font-mono font-bold text-emerald-300/80">Cred: {op.id}</span>
                         <span className={isVencido ? priorityColor : `text-[9px] font-bold border px-2 py-0.5 rounded-full ${priorityColor}`}>
                           {priorityLabel}
                         </span>
@@ -1576,19 +1576,19 @@ export default function PagosView({
                         })()}
                       </div>
 
-                      <div className="font-extrabold text-slate-800 text-sm flex items-center gap-1">
+                      <div className="font-extrabold text-white text-sm flex items-center gap-1">
                         {op.nombreCliente}
-                        <span className="text-xs font-normal text-slate-400">({op.frecuencia})</span>
+                        <span className="text-xs font-normal text-emerald-300/80">({op.frecuencia})</span>
                       </div>
 
-                      <div className="text-[11px] text-slate-500 font-medium space-x-3">
-                        <span>Cuotas: <strong className="font-bold text-slate-700">{op.cuotasPagadas}/{op.cantidadCuotas}</strong></span>
+                      <div className="text-[11px] text-emerald-200/80 font-medium space-x-3">
+                        <span>Cuotas: <strong className="font-bold text-white">{op.cuotasPagadas}/{op.cantidadCuotas}</strong></span>
                         <span>·</span>
-                        <span>DNI: <strong className="font-mono text-slate-600">{cli?.dni || 'N/A'}</strong></span>
+                        <span>DNI: <strong className="font-mono text-emerald-300">{cli?.dni || 'N/A'}</strong></span>
                         {activeUser?.rolId === 'ADMIN' && op.cobrador && (
                           <>
                             <span>·</span>
-                            <span>Asignado: <strong className="text-slate-600">{op.cobrador}</strong></span>
+                            <span>Asignado: <strong className="text-emerald-200">{op.cobrador}</strong></span>
                           </>
                         )}
                       </div>
@@ -1599,7 +1599,7 @@ export default function PagosView({
                         const exigInfo = getExigiblePendiente(op);
                         return (
                           <>
-                            <div className="text-[10px] font-extrabold text-rose-600 uppercase tracking-wider flex items-center sm:justify-end gap-1">
+                            <div className="text-[10px] font-extrabold text-rose-400 uppercase tracking-wider flex items-center sm:justify-end gap-1">
                               <span>Monto para Estar al Día</span>
                               {exigInfo.esAlertaPagoMinimo && (
                                 <span className="bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded animate-pulse" title={`Supera el límite de pago mínimo (${configuracion?.pagoMinimoCuotas || 2} cuotas)`}>
@@ -1607,13 +1607,13 @@ export default function PagosView({
                                 </span>
                               )}
                             </div>
-                            <div className="text-sm font-black text-rose-600">
+                            <div className="text-sm font-black text-rose-300">
                               ${exigInfo.total.toLocaleString('es-ES')}
                             </div>
-                            <div className="text-[10px] text-slate-400 font-bold">
+                            <div className="text-[10px] text-emerald-300/80 font-bold">
                               {exigInfo.det}
                             </div>
-                            <div className="text-[9px] text-slate-400 font-medium">
+                            <div className="text-[9px] text-emerald-300/70 font-medium">
                               Saldo Total: ${op.totalPendiente.toLocaleString('es-ES')}
                             </div>
                           </>
@@ -1980,48 +1980,48 @@ export default function PagosView({
         <div className="space-y-6 animate-fade-in">
           {/* Header & Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Total Pagos Registrados</span>
-              <span className="text-2xl font-black text-slate-900">{pagos.length}</span>
-              <span className="text-[10px] text-slate-500 block">Cobranzas históricas</span>
+            <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md space-y-1">
+              <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">Total Pagos Registrados</span>
+              <span className="text-2xl font-black text-white">{pagos.length}</span>
+              <span className="text-[10px] text-emerald-200/80 block">Cobranzas históricas</span>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Recaudación Acumulada</span>
-              <span className="text-2xl font-black text-emerald-600">
+            <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md space-y-1">
+              <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">Recaudación Acumulada</span>
+              <span className="text-2xl font-black text-emerald-300">
                 ${pagos.reduce((sum, p) => sum + (p.importe || 0), 0).toLocaleString('es-ES')} ARS
               </span>
-              <span className="text-[10px] text-emerald-600 font-bold block">Cobrado por operadores</span>
+              <span className="text-[10px] text-emerald-400 font-bold block">Cobrado por operadores</span>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Pagos Opción B (Día + Consecutivas)</span>
-              <span className="text-2xl font-black text-teal-700">
+            <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md space-y-1">
+              <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">Pagos Opción B (Día + Consecutivas)</span>
+              <span className="text-2xl font-black text-teal-300">
                 {pagos.filter(p => p.modalidad === 'PAGO_ADELANTADO_OPCION_B').length}
               </span>
-              <span className="text-[10px] text-teal-600 font-semibold block">Sin mora residual</span>
+              <span className="text-[10px] text-teal-400 font-semibold block">Sin mora residual</span>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Pagos Opción A (Desde el final)</span>
-              <span className="text-2xl font-black text-amber-700">
+            <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md space-y-1">
+              <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">Pagos Opción A (Desde el final)</span>
+              <span className="text-2xl font-black text-amber-300">
                 {pagos.filter(p => p.modalidad === 'PAGO_ADELANTADO_OPCION_A').length}
               </span>
-              <span className="text-[10px] text-amber-600 font-semibold block">Descuentan al final</span>
+              <span className="text-[10px] text-amber-400 font-semibold block">Descuentan al final</span>
             </div>
           </div>
 
           {/* Filters Bar */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+          <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md space-y-3">
             <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={pagoSearchTerm}
                   onChange={(e) => setPagoSearchTerm(e.target.value)}
                   placeholder="Buscar por cliente, DNI, ID pago o ID operación..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-600 focus:bg-white transition-all"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-900 text-white placeholder-emerald-300/60 border border-emerald-700 rounded-xl text-xs font-bold focus:outline-none focus:border-emerald-400 transition-all"
                 />
               </div>
 
@@ -2029,7 +2029,7 @@ export default function PagosView({
                 <select
                   value={pagoFilterModalidad}
                   onChange={(e) => setPagoFilterModalidad(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-extrabold focus:outline-none focus:border-blue-600"
+                  className="px-3 py-2 bg-slate-900 text-white border border-emerald-700 rounded-xl text-xs font-extrabold focus:outline-none focus:border-emerald-400"
                 >
                   <option value="TODOS">Todas las Modalidades</option>
                   <option value="PAGO_ADELANTADO_OPCION_B">Opción B (Cuota Día + Consecutivas)</option>
@@ -2041,7 +2041,7 @@ export default function PagosView({
                 <select
                   value={pagoFilterMetodo}
                   onChange={(e) => setPagoFilterMetodo(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-extrabold focus:outline-none focus:border-blue-600"
+                  className="px-3 py-2 bg-slate-900 text-white border border-emerald-700 rounded-xl text-xs font-extrabold focus:outline-none focus:border-emerald-400"
                 >
                   <option value="TODOS">Todos los Medios de Pago</option>
                   <option value="EFECTIVO">EFECTIVO</option>
@@ -2053,7 +2053,7 @@ export default function PagosView({
           </div>
 
           {/* Table of Payments */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="bg-emerald-950/90 rounded-2xl border border-emerald-800/80 shadow-md overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-emerald-100 font-black uppercase text-[10px] tracking-wider border-b-2 border-emerald-700 shadow-xs">
@@ -2069,7 +2069,7 @@ export default function PagosView({
                     <th className="py-3.5 px-4 text-center">Acción / Corregir</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                <tbody className="divide-y divide-emerald-800/60 font-medium text-emerald-100">
                   {pagos
                     .filter(p => {
                       const matchSearch =
@@ -2085,53 +2085,53 @@ export default function PagosView({
                     .map((pago) => {
                       const mod = pago.modalidad || 'PAGO_REGULAR';
                       return (
-                        <tr key={pago.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                        <tr key={pago.id} className="hover:bg-emerald-900/60 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-white">
                             <div>{pago.id}</div>
-                            <span className="text-[10px] text-slate-400 font-normal">
+                            <span className="text-[10px] text-emerald-300/70 font-normal">
                               {pago.fechaPago} {pago.horaPago ? `• ${pago.horaPago}` : ''}
                             </span>
                           </td>
-                          <td className="py-3 px-4 font-extrabold text-slate-900">
+                          <td className="py-3 px-4 font-extrabold text-white">
                             {pago.nombreCliente}
                           </td>
-                          <td className="py-3 px-4 font-mono font-bold text-slate-600">
+                          <td className="py-3 px-4 font-mono font-bold text-emerald-300">
                             #{pago.idOperacion}
                           </td>
-                          <td className="py-3 px-4 text-right font-black text-emerald-700 text-sm">
+                          <td className="py-3 px-4 text-right font-black text-emerald-300 text-sm">
                             ${pago.importe.toLocaleString('es-ES')}
                           </td>
                           <td className="py-3 px-4">
-                            <span className="bg-slate-100 text-slate-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-slate-200 uppercase">
+                            <span className="bg-emerald-900 text-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-md border border-emerald-700 uppercase">
                               {pago.metodoPago}
                             </span>
                           </td>
                           <td className="py-3 px-4">
                             {mod === 'PAGO_ADELANTADO_OPCION_B' && (
-                              <span className="bg-teal-100 text-teal-800 text-[10px] font-black px-2 py-1 rounded-md border border-teal-300 inline-flex items-center gap-1">
+                              <span className="bg-teal-950 text-teal-300 text-[10px] font-black px-2 py-1 rounded-md border border-teal-800 inline-flex items-center gap-1">
                                 <span>⭐ Opción B: Día + Consecutivas</span>
                               </span>
                             )}
                             {mod === 'PAGO_ADELANTADO_OPCION_A' && (
-                              <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-1 rounded-md border border-amber-300 inline-flex items-center gap-1">
+                              <span className="bg-amber-950 text-amber-300 text-[10px] font-black px-2 py-1 rounded-md border border-amber-800 inline-flex items-center gap-1">
                                 <span>Opción A: Desde el Final</span>
                               </span>
                             )}
                             {mod === 'PAGO_PARCIAL' && (
-                              <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-1 rounded-md border border-blue-300">
+                              <span className="bg-blue-950 text-blue-300 text-[10px] font-black px-2 py-1 rounded-md border border-blue-800">
                                 Pago Parcial
                               </span>
                             )}
                             {mod === 'PAGO_REGULAR' && (
-                              <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-2 py-1 rounded-md border border-slate-300">
+                              <span className="bg-slate-900 text-slate-300 text-[10px] font-black px-2 py-1 rounded-md border border-slate-700">
                                 Pago Regular
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-[11px] font-semibold text-slate-600">
+                          <td className="py-3 px-4 text-[11px] font-semibold text-emerald-200/90">
                             {pago.cuotasAfectadas || 'Cuotas del periodo'}
                           </td>
-                          <td className="py-3 px-4 text-xs font-bold text-slate-700">
+                          <td className="py-3 px-4 text-xs font-bold text-emerald-100">
                             {pago.cobrador || 'Operador'}
                           </td>
                           <td className="py-3 px-4 text-center">

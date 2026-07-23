@@ -254,12 +254,12 @@ export default function ConfiguracionView({
     <div id="configuracion-section" className="space-y-6">
       
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <Settings className="w-5 h-5 text-blue-600" />
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-lg backdrop-blur-md">
+        <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+          <Settings className="w-5 h-5 text-emerald-400" />
           Configuración Global del Sistema Maestro
         </h2>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-emerald-200/80 mt-1">
           Ajuste los parámetros financieros fundamentales, la tasa mensual base y el calendario de exclusión de cobro (domingos y feriados).
         </p>
       </div>
@@ -267,9 +267,9 @@ export default function ConfiguracionView({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Left Card: Interest Rates Config */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Percent className="w-4 h-4 text-blue-600" />
+        <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-lg space-y-6 backdrop-blur-md">
+          <h3 className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-800/80 pb-3">
+            <Percent className="w-4 h-4 text-emerald-400" />
             Parámetros y Tasas de Interés
           </h3>
 
@@ -278,10 +278,10 @@ export default function ConfiguracionView({
               
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <label className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider">
                     Tasa Mensual de Interés Diario (%)
                   </label>
-                  <span className="text-[10px] text-[#1E803B] font-bold">20 cuotas por mes</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">20 cuotas por mes</span>
                 </div>
                 <div className="relative">
                   <input
@@ -289,21 +289,21 @@ export default function ConfiguracionView({
                     step={0.1}
                     value={interesDiario}
                     onChange={(e) => setInteresDiario(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white pr-10 focus:outline-hidden focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-emerald-400">%</span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-emerald-300/70 mt-1">
                   Tasa mensual aplicada a créditos diarios. Por ejemplo, 50% de interés mensual sobre el capital.
                 </p>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <label className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider">
                     Tasa Mensual de Interés Semanal (%)
                   </label>
-                  <span className="text-[10px] text-[#1E803B] font-bold">4 cuotas por mes</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">4 cuotas por mes</span>
                 </div>
                 <div className="relative">
                   <input
@@ -311,21 +311,21 @@ export default function ConfiguracionView({
                     step={0.1}
                     value={interesSemanal}
                     onChange={(e) => setInteresSemanal(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white pr-10 focus:outline-hidden focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-emerald-400">%</span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-emerald-300/70 mt-1">
                   Tasa mensual aplicada a créditos semanales. Un plan de 8 cuotas semanales equivale a 2 meses.
                 </p>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <label className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider">
                     Tasa Mensual de Interés Quincenal (%)
                   </label>
-                  <span className="text-[10px] text-[#1E803B] font-bold">2 cuotas por mes</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">2 cuotas por mes</span>
                 </div>
                 <div className="relative">
                   <input
@@ -333,21 +333,21 @@ export default function ConfiguracionView({
                     step={0.1}
                     value={interesQuincenal}
                     onChange={(e) => setInteresQuincenal(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white pr-10 focus:outline-hidden focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-emerald-400">%</span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-emerald-300/70 mt-1">
                   Tasa mensual aplicada a créditos quincenales. Un plan de 4 cuotas quincenales equivale a 2 meses.
                 </p>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <label className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider">
                     Tasa Mensual de Interés Mensual (%)
                   </label>
-                  <span className="text-[10px] text-[#1E803B] font-bold">1 cuota por mes</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">1 cuota por mes</span>
                 </div>
                 <div className="relative">
                   <input
@@ -355,21 +355,21 @@ export default function ConfiguracionView({
                     step={0.1}
                     value={interesMensual}
                     onChange={(e) => setInteresMensual(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white pr-10 focus:outline-hidden focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-emerald-400">%</span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-emerald-300/70 mt-1">
                   Tasa de interés mensual aplicada directamente sobre la cantidad de meses totales del préstamo.
                 </p>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <label className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider">
                     Tasa Mensual Base de Respaldo (%)
                   </label>
-                  <span className="text-[10px] text-slate-400">Para cálculos de amortización extraordinaria</span>
+                  <span className="text-[10px] text-emerald-300/80">Para cálculos de amortización extraordinaria</span>
                 </div>
                 <div className="relative">
                   <input
@@ -377,43 +377,43 @@ export default function ConfiguracionView({
                     step={0.1}
                     value={tasaMensualBase}
                     onChange={(e) => setTasaMensualBase(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 pr-10 focus:outline-hidden focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white pr-10 focus:outline-hidden focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-emerald-400">%</span>
                 </div>
               </div>
 
               {/* Sub-section: Metas de Cobranza y Gestión de Mora */}
-              <div className="pt-4 border-t border-slate-100 space-y-4">
-                <h4 className="text-[10px] font-extrabold text-[#1E803B] uppercase tracking-wider">
+              <div className="pt-4 border-t border-emerald-800/80 space-y-4">
+                <h4 className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">
                   Metas de Cobranza y Alertas de Mora
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
                       Meta de Cobranza ($)
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">$</span>
+                      <span className="absolute left-3 top-2 text-xs font-bold text-emerald-400">$</span>
                       <input
                         type="number"
                         value={metaCobranzaMonto}
                         onChange={(e) => setMetaCobranzaMonto(Number(e.target.value))}
-                        className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:outline-hidden focus:border-blue-500 focus:bg-white"
+                        className="w-full pl-7 pr-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white focus:outline-hidden focus:border-emerald-400"
                         placeholder="Monto meta"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
                       Plazo de la Meta
                     </label>
                     <select
                       value={metaCobranzaPlazo}
                       onChange={(e) => setMetaCobranzaPlazo(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:outline-hidden focus:border-blue-500 focus:bg-white cursor-pointer"
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white focus:outline-hidden focus:border-emerald-400 cursor-pointer"
                     >
                       <option value="diario">Diario</option>
                       <option value="semanal">Semanal</option>
@@ -424,7 +424,7 @@ export default function ConfiguracionView({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
                     Pago Mínimo Requerido (Cuotas para Alerta)
                   </label>
                   <input
@@ -433,95 +433,95 @@ export default function ConfiguracionView({
                     max={10}
                     value={pagoMinimoCuotas}
                     onChange={(e) => setPagoMinimoCuotas(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800 focus:outline-hidden focus:border-blue-500 focus:bg-white"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white focus:outline-hidden focus:border-emerald-400"
                     placeholder="E.g., 2 cuotas"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-emerald-300/70 mt-1">
                     Cantidad de cuotas vencidas que el cobrador requiere saldar para evitar la advertencia de pago mínimo en el panel.
                   </p>
                 </div>
 
                 {/* Políticas de Alertas y Cobranza por Frecuencia */}
-                <div className="pt-4 border-t border-slate-100 space-y-4 text-left">
-                  <h4 className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-100 px-3.5 py-1.5 rounded-lg uppercase tracking-wider inline-block">
+                <div className="pt-4 border-t border-emerald-800/80 space-y-4 text-left">
+                  <h4 className="text-[10px] font-extrabold text-emerald-300 bg-emerald-900/60 border border-emerald-700/80 px-3.5 py-1.5 rounded-lg uppercase tracking-wider inline-block">
                     Políticas de Alertas por Frecuencia
                   </h4>
                   
-                  <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="space-y-4 bg-slate-900/80 p-4 rounded-xl border border-emerald-800/80">
                     {/* DIARIA */}
-                    <div className="space-y-2 border-b border-slate-200/60 pb-3">
+                    <div className="space-y-2 border-b border-emerald-800/50 pb-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-xs font-black text-slate-800">Crédito DIARIO</span>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded uppercase">Días de Mora</span>
+                        <span className="text-xs font-black text-white">Crédito DIARIO</span>
+                        <span className="text-[10px] bg-emerald-900/80 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-700/80 uppercase">Días de Mora</span>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Aviso Regular</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Aviso Regular</label>
                           <input
                             type="number"
                             min={1}
                             value={moraDiarioAvisoDias}
                             onChange={(e) => setMoraDiarioAvisoDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
                           <input
                             type="number"
                             min={1}
                             value={moraDiarioLlamarDias}
                             onChange={(e) => setMoraDiarioLlamarDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
                           <input
                             type="number"
                             min={1}
                             value={moraDiarioCobradorDias}
                             onChange={(e) => setMoraDiarioCobradorDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* SEMANAL */}
-                    <div className="space-y-2 border-b border-slate-200/60 pb-3">
+                    <div className="space-y-2 border-b border-emerald-800/50 pb-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-xs font-black text-slate-800">Crédito SEMANAL</span>
+                        <span className="text-xs font-black text-white">Crédito SEMANAL</span>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Aviso Regular</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Aviso Regular</label>
                           <input
                             type="number"
                             min={1}
                             value={moraSemanalAvisoDias}
                             onChange={(e) => setMoraSemanalAvisoDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
                           <input
                             type="number"
                             min={1}
                             value={moraSemanalLlamarDias}
                             onChange={(e) => setMoraSemanalLlamarDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
                           <input
                             type="number"
                             min={1}
                             value={moraSemanalCobradorDias}
                             onChange={(e) => setMoraSemanalCobradorDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                       </div>
@@ -530,37 +530,37 @@ export default function ConfiguracionView({
                     {/* MENSUAL */}
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-xs font-black text-slate-800">Crédito MENSUAL</span>
+                        <span className="text-xs font-black text-white">Crédito MENSUAL</span>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Aviso Regular</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Aviso Regular</label>
                           <input
                             type="number"
                             min={1}
                             value={moraMensualAvisoDias}
                             onChange={(e) => setMoraMensualAvisoDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Alerta/Llamar</label>
                           <input
                             type="number"
                             min={1}
                             value={moraMensualLlamarDias}
                             onChange={(e) => setMoraMensualLlamarDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
+                          <label className="text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide block mb-1">Enviar Cobrador</label>
                           <input
                             type="number"
                             min={1}
                             value={moraMensualCobradorDias}
                             onChange={(e) => setMoraMensualCobradorDias(Math.max(1, Number(e.target.value)))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-extrabold text-slate-700 font-mono"
+                            className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
                       </div>
@@ -573,7 +573,7 @@ export default function ConfiguracionView({
 
             <button
               type="submit"
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-1.5 cursor-pointer border border-emerald-500/30"
             >
               <CheckCircle2 className="w-4 h-4" />
               Guardar Configuración Financiera
@@ -581,9 +581,9 @@ export default function ConfiguracionView({
           </form>
 
           {/* Guidelines notes */}
-          <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg space-y-2 text-xs text-slate-500">
-            <h4 className="font-bold text-slate-700 uppercase flex items-center gap-1">
-              <ShieldCheck className="w-4 h-4 text-blue-600" />
+          <div className="p-4 bg-slate-900/80 border border-emerald-800/80 rounded-lg space-y-2 text-xs text-emerald-200/80">
+            <h4 className="font-bold text-emerald-300 uppercase flex items-center gap-1">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
               Filosofía del Negocio Credi-Cash
             </h4>
             <p>
@@ -596,16 +596,16 @@ export default function ConfiguracionView({
         </div>
 
         {/* Right Card: Calendario de Feriados (No Cobra) */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Calendar className="w-5 h-5 text-blue-600" />
+        <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-lg space-y-6 backdrop-blur-md">
+          <h3 className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-800/80 pb-3">
+            <Calendar className="w-5 h-5 text-emerald-400" />
             Calendario de Feriados No Cobrables
           </h3>
 
           {/* Form to add custom holiday */}
           <form onSubmit={handleAddFeriadoSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-1">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+              <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
                 Fecha de Exclusión
               </label>
               <input
@@ -613,12 +613,12 @@ export default function ConfiguracionView({
                 required
                 value={nuevaFecha}
                 onChange={(e) => setNuevaFecha(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-blue-500"
+                className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 text-white rounded-lg text-xs focus:outline-hidden focus:border-emerald-400"
               />
             </div>
             <div className="md:col-span-2 flex items-end gap-2">
               <div className="flex-1">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
                   Descripción (Feriado nacional o interno)
                 </label>
                 <input
@@ -627,12 +627,12 @@ export default function ConfiguracionView({
                   placeholder="Ej: Día de la Independencia"
                   value={nuevaDesc}
                   onChange={(e) => setNuevaDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 text-white rounded-lg text-xs focus:outline-hidden focus:border-emerald-400 placeholder:text-emerald-300/40"
                 />
               </div>
               <button
                 type="submit"
-                className="p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer shadow-md hover:shadow-none"
+                className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer shadow-md hover:shadow-none border border-emerald-500/30"
                 title="Agregar Feriado"
               >
                 <Plus className="w-4 h-4" />
@@ -641,12 +641,12 @@ export default function ConfiguracionView({
           </form>
 
           {/* Calendar exclusion rules explanation */}
-          <div className="bg-amber-50 border border-amber-200/60 p-3.5 rounded-lg text-xs text-amber-800 space-y-1.5">
-            <p className="font-bold uppercase tracking-wider flex items-center gap-1 text-[10px]">
+          <div className="bg-amber-950/60 border border-amber-800/80 p-3.5 rounded-lg text-xs text-amber-200 space-y-1.5">
+            <p className="font-bold uppercase tracking-wider flex items-center gap-1 text-[10px] text-amber-300">
               <Calendar className="w-4 h-4 shrink-0" />
               REGLAS DEL CRONOGRAMA AUTOMÁTICO:
             </p>
-            <ul className="list-disc list-inside space-y-1 text-amber-700 text-[11px]">
+            <ul className="list-disc list-inside space-y-1 text-amber-200/90 text-[11px]">
               <li><b>Domingos:</b> Nunca se cobra. Se corre automáticamente al siguiente día hábil.</li>
               <li><b>Feriados:</b> Si el vencimiento programado coincide con un feriado de la lista inferior, se pospone al siguiente día hábil.</li>
             </ul>
@@ -654,22 +654,22 @@ export default function ConfiguracionView({
 
           {/* Holidays list */}
           <div className="space-y-2">
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Feriados Cargados</h4>
+            <h4 className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest">Feriados Cargados</h4>
             
-            <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-[220px] overflow-y-auto">
+            <div className="border border-emerald-800/80 rounded-2xl overflow-hidden max-h-[220px] overflow-y-auto bg-slate-900/60">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                  <tr className="bg-emerald-900/50 border-b border-emerald-800/80 text-emerald-300 font-bold uppercase tracking-wider">
                     <th className="py-2 px-4">Fecha</th>
                     <th className="py-2 px-4">Descripción</th>
                     <th className="py-2 px-4 text-center">Se Cobra</th>
                     <th className="py-2 px-4 text-center">Eliminar</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
+                <tbody className="divide-y divide-emerald-800/50 text-emerald-100 font-medium">
                   {feriados.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-6 text-center text-slate-400 italic">
+                      <td colSpan={4} className="py-6 text-center text-emerald-400/70 italic">
                         No hay feriados nacionales o locales configurados.
                       </td>
                     </tr>
@@ -677,11 +677,11 @@ export default function ConfiguracionView({
                     [...feriados]
                       .sort((a, b) => a.fecha.localeCompare(b.fecha))
                       .map((f) => (
-                        <tr key={f.fecha} className="hover:bg-slate-50/50">
-                          <td className="py-2.5 px-4 font-mono font-bold text-slate-800">{f.fecha}</td>
+                        <tr key={f.fecha} className="hover:bg-emerald-900/30">
+                          <td className="py-2.5 px-4 font-mono font-bold text-white">{f.fecha}</td>
                           <td className="py-2.5 px-4">{f.descripcion}</td>
                           <td className="py-2.5 px-4 text-center">
-                            <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 font-bold rounded-sm text-[9px] uppercase">
+                            <span className="px-1.5 py-0.5 bg-rose-950 text-rose-300 border border-rose-800/80 font-bold rounded-sm text-[9px] uppercase">
                               NO
                             </span>
                           </td>
@@ -689,7 +689,7 @@ export default function ConfiguracionView({
                             <button
                               type="button"
                               onClick={() => onDeleteFeriado(f.fecha)}
-                              className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                              className="text-emerald-400 hover:text-rose-400 transition-colors p-1"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -707,12 +707,12 @@ export default function ConfiguracionView({
       </div>
 
       {/* Export & Excel Section */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-          <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-600" />
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-lg space-y-4 backdrop-blur-md">
+        <h3 className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-800/80 pb-3">
+          <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-400" />
           Exportación de Reportes a Microsoft Excel (CSV)
         </h3>
-        <p className="text-xs text-slate-500 leading-relaxed">
+        <p className="text-xs text-emerald-200/80 leading-relaxed">
           Descargue los datos actuales en formato de texto delimitado por comas (CSV) codificado en UTF-8 con marca de orden de bytes (BOM). 
           Esto permite que Microsoft Excel, Google Sheets, LibreOffice u otras hojas de cálculo abran la información con tildes, símbolos de moneda, números de teléfono y formatos de manera perfecta.
         </p>
@@ -721,66 +721,66 @@ export default function ConfiguracionView({
           <button
             type="button"
             onClick={() => exportClientesToCSV(clientes)}
-            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
+            className="p-3 bg-slate-900 hover:bg-emerald-900/60 hover:text-white text-emerald-200 rounded-xl border border-emerald-800/80 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
           >
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
             <span>Exportar Clientes</span>
           </button>
 
           <button
             type="button"
             onClick={() => exportOperacionesToCSV(operaciones)}
-            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
+            className="p-3 bg-slate-900 hover:bg-emerald-900/60 hover:text-white text-emerald-200 rounded-xl border border-emerald-800/80 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
           >
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
             <span>Exportar Préstamos</span>
           </button>
 
           <button
             type="button"
             onClick={() => exportCuotasToCSV(cuotas)}
-            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
+            className="p-3 bg-slate-900 hover:bg-emerald-900/60 hover:text-white text-emerald-200 rounded-xl border border-emerald-800/80 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
           >
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
             <span>Plan de Cuotas</span>
           </button>
 
           <button
             type="button"
             onClick={() => exportPagosToCSV(pagos)}
-            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
+            className="p-3 bg-slate-900 hover:bg-emerald-900/60 hover:text-white text-emerald-200 rounded-xl border border-emerald-800/80 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center"
           >
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
             <span>Historial Pagos</span>
           </button>
 
           <button
             type="button"
             onClick={() => exportTesoreriaToCSV(transacciones)}
-            className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-xl border border-slate-200 hover:border-emerald-200 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center col-span-2 md:col-span-1"
+            className="p-3 bg-slate-900 hover:bg-emerald-900/60 hover:text-white text-emerald-200 rounded-xl border border-emerald-800/80 text-xs font-semibold flex flex-col items-center gap-2 transition-all cursor-pointer text-center col-span-2 md:col-span-1"
           >
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
             <span>Movimientos Caja</span>
           </button>
 
           <button
             type="button"
             onClick={() => exportAllToZIP({ clientes, operaciones, cuotas, pagos, transacciones })}
-            className="p-3 bg-[#EBFDFA] hover:bg-[#D4FBF2] hover:text-[#0C6D53] text-[#0E7A5C] rounded-xl border border-[#A6ECD6] hover:border-[#73DEC0] text-xs font-bold flex flex-col items-center gap-2 transition-all cursor-pointer text-center col-span-2 md:col-span-1"
+            className="p-3 bg-emerald-900/80 hover:bg-emerald-800 text-white rounded-xl border border-emerald-600 text-xs font-bold flex flex-col items-center gap-2 transition-all cursor-pointer text-center col-span-2 md:col-span-1"
           >
-            <Database className="w-5 h-5 text-[#0E7A5C]" />
+            <Database className="w-5 h-5 text-emerald-300" />
             <span>Respaldo ZIP (Excel)</span>
           </button>
         </div>
       </div>
 
       {/* Backup and Restore Section */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-          <Database className="w-4.5 h-4.5 text-blue-600" />
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-lg space-y-4 backdrop-blur-md">
+        <h3 className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-800/80 pb-3">
+          <Database className="w-4.5 h-4.5 text-emerald-400" />
           Copias de Seguridad y Respaldo Completo (JSON)
         </h3>
-        <p className="text-xs text-slate-500 leading-relaxed">
+        <p className="text-xs text-emerald-200/80 leading-relaxed">
           Descargue un archivo de respaldo completo que incluye absolutamente todos los registros del sistema (clientes, cuotas, configuración de intereses, pagos y movimientos de caja). 
           Puede guardar este archivo en su computadora, Google Drive o enviarlo por correo. En caso de cambiar de computador, simplemente cargue el archivo aquí para recuperar su trabajo al instante.
         </p>
@@ -788,11 +788,11 @@ export default function ConfiguracionView({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
           
           {/* Download card */}
-          <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex flex-col justify-between space-y-4">
+          <div className="p-4 bg-slate-900/80 rounded-xl border border-emerald-800/80 flex flex-col justify-between space-y-4">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Paso 1: Descargar</span>
-              <h4 className="text-xs font-bold text-slate-800">Crear archivo de respaldo maestro</h4>
-              <p className="text-[11px] text-slate-500">Genera una copia en limpio con fecha y hora para resguardar su cartera.</p>
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">Paso 1: Descargar</span>
+              <h4 className="text-xs font-bold text-white">Crear archivo de respaldo maestro</h4>
+              <p className="text-[11px] text-emerald-200/70">Genera una copia en limpio con fecha y hora para resguardar su cartera.</p>
             </div>
             <button
               type="button"
@@ -806,7 +806,7 @@ export default function ConfiguracionView({
                   configuracion
                 });
               }}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-2 cursor-pointer self-start"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-2 cursor-pointer self-start border border-emerald-500/30"
             >
               <Download className="w-4 h-4" />
               Descargar Respaldo Completo
@@ -814,11 +814,11 @@ export default function ConfiguracionView({
           </div>
 
           {/* Upload card */}
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between space-y-4">
+          <div className="p-4 bg-slate-900/80 rounded-xl border border-emerald-800/80 flex flex-col justify-between space-y-4">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Paso 2: Restaurar</span>
-              <h4 className="text-xs font-bold text-slate-800">Cargar un archivo de respaldo previo</h4>
-              <p className="text-[11px] text-slate-500">Seleccione un archivo ".json" de su computador para reestablecer la base de datos.</p>
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">Paso 2: Restaurar</span>
+              <h4 className="text-xs font-bold text-white">Cargar un archivo de respaldo previo</h4>
+              <p className="text-[11px] text-emerald-200/70">Seleccione un archivo ".json" de su computador para reestablecer la base de datos.</p>
             </div>
             
             <div className="relative">
@@ -849,8 +849,8 @@ export default function ConfiguracionView({
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 title="Cargar archivo"
               />
-              <div className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-widest border border-slate-300 transition-all flex items-center justify-center gap-2 pointer-events-none">
-                <Upload className="w-4 h-4 text-slate-500" />
+              <div className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-200 rounded-lg text-xs font-bold uppercase tracking-widest border border-emerald-700 transition-all flex items-center justify-center gap-2 pointer-events-none">
+                <Upload className="w-4 h-4 text-emerald-400" />
                 Seleccionar Respaldo (.json)
               </div>
             </div>
@@ -861,28 +861,28 @@ export default function ConfiguracionView({
       </div>
 
       {/* Cloud & Sync Section */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-          <Cloud className="w-5 h-5 text-blue-600" />
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-lg space-y-6 backdrop-blur-md">
+        <h3 className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-800/80 pb-3">
+          <Cloud className="w-5 h-5 text-emerald-400" />
           Sincronización en la Nube (Firebase & Google Sheets)
         </h3>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
           
           {/* Left Side: Firebase Settings */}
-          <div className="space-y-4 border-r border-slate-100 lg:pr-6">
+          <div className="space-y-4 border-r border-emerald-800/80 lg:pr-6">
             <div className="flex justify-between items-center">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                <Database className="w-4 h-4 text-orange-500" />
+              <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-amber-400" />
                 Configurar Base de Datos Firebase
               </h4>
-              <span className={`px-2 py-0.5 text-[9px] font-bold rounded-sm uppercase tracking-wide flex items-center gap-1 ${fbEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`px-2 py-0.5 text-[9px] font-bold rounded-sm uppercase tracking-wide flex items-center gap-1 ${fbEnabled ? 'bg-emerald-900/80 text-emerald-300 border border-emerald-700/80' : 'bg-slate-900 text-emerald-400/60 border border-emerald-800/80'}`}>
                 {fbEnabled ? <Wifi className="w-2.5 h-2.5" /> : null}
                 {fbEnabled ? 'Activo' : 'Inactivo'}
               </span>
             </div>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-emerald-200/80">
               Complete los campos inferiores con las credenciales de su proyecto Firebase (consola Firebase &gt; Configuración del proyecto &gt; Sus Apps). 
               Esto permitirá subir toda su información financiera de forma segura, duradera y acceder desde cualquier computador.
             </p>
@@ -890,93 +890,93 @@ export default function ConfiguracionView({
             <form onSubmit={handleSaveSyncSettings} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">API Key</label>
+                  <label className="block text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide mb-1">API Key</label>
                   <input
                     type="password"
                     value={fbConfig.apiKey}
                     onChange={(e) => setFbConfig({ ...fbConfig, apiKey: e.target.value })}
                     placeholder="AIzaSy..."
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Project ID</label>
+                  <label className="block text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide mb-1">Project ID</label>
                   <input
                     type="text"
                     value={fbConfig.projectId}
                     onChange={(e) => setFbConfig({ ...fbConfig, projectId: e.target.value })}
                     placeholder="credicash-app"
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Auth Domain</label>
+                  <label className="block text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide mb-1">Auth Domain</label>
                   <input
                     type="text"
                     value={fbConfig.authDomain}
                     onChange={(e) => setFbConfig({ ...fbConfig, authDomain: e.target.value })}
                     placeholder="credicash-app.firebaseapp.com"
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Storage Bucket</label>
+                  <label className="block text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide mb-1">Storage Bucket</label>
                   <input
                     type="text"
                     value={fbConfig.storageBucket}
                     onChange={(e) => setFbConfig({ ...fbConfig, storageBucket: e.target.value })}
                     placeholder="credicash-app.appspot.com"
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Messaging Sender ID</label>
+                  <label className="block text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide mb-1">Messaging Sender ID</label>
                   <input
                     type="text"
                     value={fbConfig.messagingSenderId}
                     onChange={(e) => setFbConfig({ ...fbConfig, messagingSenderId: e.target.value })}
                     placeholder="1234567890"
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">App ID</label>
+                  <label className="block text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide mb-1">App ID</label>
                   <input
                     type="text"
                     value={fbConfig.appId}
                     onChange={(e) => setFbConfig({ ...fbConfig, appId: e.target.value })}
                     placeholder="1:123:web:abc"
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono text-white"
                   />
                 </div>
               </div>
 
               {/* Toggles */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
+              <div className="space-y-2 pt-2 border-t border-emerald-800/80">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={fbEnabled}
                     onChange={(e) => setFbEnabledState(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500/20 w-4 h-4 cursor-pointer"
+                    className="rounded text-emerald-500 focus:ring-emerald-500/20 w-4 h-4 cursor-pointer"
                   />
-                  <span className="text-xs font-bold text-slate-700">Habilitar conexión activa a Firebase</span>
+                  <span className="text-xs font-bold text-white">Habilitar conexión activa a Firebase</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer select-none pl-6">
                   <input
                     type="checkbox"
                     checked={autoSync}
                     onChange={(e) => setAutoSyncState(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500/20 w-4 h-4 cursor-pointer"
+                    className="rounded text-emerald-500 focus:ring-emerald-500/20 w-4 h-4 cursor-pointer"
                     disabled={!fbEnabled}
                   />
-                  <span className="text-[11px] text-slate-500">Auto-guardar en la nube al ingresar un cliente, préstamo o pago</span>
+                  <span className="text-[11px] text-emerald-200/80">Auto-guardar en la nube al ingresar un cliente, préstamo o pago</span>
                 </label>
               </div>
 
@@ -985,15 +985,15 @@ export default function ConfiguracionView({
                   type="button"
                   onClick={handleTestFirebase}
                   disabled={isTesting}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-emerald-200 border border-emerald-800/80 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
                 >
                   {isTesting ? 'Probando...' : 'Probar Conexión'}
-                  {testResult === 'success' && <Check className="w-4 h-4 text-emerald-600" />}
-                  {testResult === 'error' && <X className="w-4 h-4 text-rose-600" />}
+                  {testResult === 'success' && <Check className="w-4 h-4 text-emerald-400" />}
+                  {testResult === 'error' && <X className="w-4 h-4 text-rose-400" />}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-md hover:shadow-none flex-1 flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-md hover:shadow-none flex-1 flex items-center justify-center gap-1.5 cursor-pointer border border-emerald-500/30"
                 >
                   <Lock className="w-3.5 h-3.5" />
                   Guardar Ajustes de Nube
@@ -1003,35 +1003,35 @@ export default function ConfiguracionView({
 
             {/* Cloud actions */}
             {fbEnabled && (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 pt-3">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Panel de Sincronización Manual</span>
+              <div className="p-4 bg-slate-900/80 border border-emerald-800/80 rounded-xl space-y-3 pt-3">
+                <span className="text-[10px] font-black text-emerald-300 uppercase tracking-widest block">Panel de Sincronización Manual</span>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={handleFullUpload}
                     disabled={syncStatus === 'syncing'}
-                    className="p-3 bg-white hover:bg-amber-50 hover:text-amber-700 text-slate-700 rounded-lg border border-slate-200 hover:border-amber-200 text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all text-center shadow-xs"
+                    className="p-3 bg-slate-900 hover:bg-amber-950/50 hover:text-amber-200 text-emerald-200 rounded-lg border border-emerald-800/80 hover:border-amber-700 text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all text-center shadow-xs"
                   >
-                    <Upload className="w-5 h-5 text-amber-500" />
+                    <Upload className="w-5 h-5 text-amber-400" />
                     <span>Subir a Firebase</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleFullDownload}
                     disabled={syncStatus === 'syncing'}
-                    className="p-3 bg-white hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-lg border border-slate-200 hover:border-blue-200 text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all text-center shadow-xs"
+                    className="p-3 bg-slate-900 hover:bg-emerald-900/50 hover:text-white text-emerald-200 rounded-lg border border-emerald-800/80 hover:border-emerald-700 text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-all text-center shadow-xs"
                   >
-                    <Download className="w-5 h-5 text-blue-500" />
+                    <Download className="w-5 h-5 text-emerald-400" />
                     <span>Descargar de Firebase</span>
                   </button>
                 </div>
 
                 {syncStatus !== 'idle' && (
                   <div className={`p-2 rounded text-[11px] font-bold flex items-center gap-1.5 ${
-                    syncStatus === 'syncing' ? 'bg-amber-50 text-amber-800' :
-                    syncStatus === 'success' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'
+                    syncStatus === 'syncing' ? 'bg-amber-950/80 text-amber-200 border border-amber-800' :
+                    syncStatus === 'success' ? 'bg-emerald-900/80 text-emerald-200 border border-emerald-700' : 'bg-rose-950/80 text-rose-200 border border-rose-800'
                   }`}>
-                    {syncStatus === 'syncing' ? <Cloud className="w-3.5 h-3.5 animate-bounce text-amber-500" /> : <Check className="w-3.5 h-3.5" />}
+                    {syncStatus === 'syncing' ? <Cloud className="w-3.5 h-3.5 animate-bounce text-amber-400" /> : <Check className="w-3.5 h-3.5" />}
                     <span>{syncMsg}</span>
                   </div>
                 )}
@@ -1041,18 +1041,18 @@ export default function ConfiguracionView({
 
           {/* Right Side: Google Sheets Integration */}
           <div className="space-y-4 lg:pl-2">
-            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-              <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-600" />
+            <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <FileSpreadsheet className="w-4.5 h-4.5 text-emerald-400" />
               Sincronizar con Google Sheets (Excel)
             </h4>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-emerald-200/80 leading-relaxed">
               Envíe automáticamente un duplicado en tiempo real de cada cliente registrado y cuota cobrada directamente a su planilla de cálculo personal de Google Drive.
             </p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                <label className="block text-[9px] font-bold text-emerald-300/80 uppercase tracking-wide mb-1">
                   Google Apps Script Web App URL
                 </label>
                 <div className="flex gap-2">
@@ -1062,11 +1062,11 @@ export default function ConfiguracionView({
                       value={sheetUrl}
                       onChange={(e) => setSheetUrlState(e.target.value)}
                       placeholder="https://script.google.com/macros/s/.../exec"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono pr-8 focus:outline-hidden focus:border-blue-500 focus:bg-white"
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 text-white rounded-lg text-xs font-mono pr-8 focus:outline-hidden focus:border-emerald-400"
                     />
                     <span className="absolute right-3 top-3 flex h-2 w-2">
-                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${sheetUrl ? 'bg-emerald-400' : 'bg-slate-300'}`}></span>
-                      <span className={`relative inline-flex rounded-full h-2 w-2 ${sheetUrl ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${sheetUrl ? 'bg-emerald-400' : 'bg-slate-600'}`}></span>
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${sheetUrl ? 'bg-emerald-400' : 'bg-slate-500'}`}></span>
                     </span>
                   </div>
                   <button
@@ -1075,28 +1075,28 @@ export default function ConfiguracionView({
                       saveGoogleSheetUrl(sheetUrl);
                       alert('¡URL de Google Sheets guardada con éxito!');
                     }}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-md hover:shadow-none flex items-center gap-1 cursor-pointer"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-md hover:shadow-none flex items-center gap-1 cursor-pointer border border-emerald-500/30"
                   >
                     <Check className="w-4 h-4" />
                     Guardar URL
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-emerald-300/70 mt-1">
                   Pega la URL de la aplicación web de Google Sheets y haz clic en "Guardar URL" para habilitar la sincronización en tiempo real.
                 </p>
               </div>
 
               {/* Steps Guide Accordion */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                <span className="text-[10px] font-bold text-[#1E803B] uppercase tracking-widest flex items-center gap-1">
+              <div className="bg-slate-900/80 border border-emerald-800/80 rounded-xl p-4 space-y-3">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
                   <FileText className="w-4 h-4 shrink-0" />
                   GUÍA PASO A PASO PARA CONECTAR:
                 </span>
                 
-                <ol className="list-decimal list-inside text-[11px] text-slate-600 space-y-2 leading-relaxed">
-                  <li>Abre tu hoja de cálculo: <a href="https://docs.google.com/spreadsheets/d/1tI37AbnjOyB6BtluAIBOUAdIOTsCbvej3YJ6ykLb8YM/edit?pli=1" target="_blank" rel="noreferrer" className="text-blue-600 font-bold underline hover:text-blue-800">Ver Planilla</a>.</li>
+                <ol className="list-decimal list-inside text-[11px] text-emerald-200/90 space-y-2 leading-relaxed">
+                  <li>Abre tu hoja de cálculo: <a href="https://docs.google.com/spreadsheets/d/1tI37AbnjOyB6BtluAIBOUAdIOTsCbvej3YJ6ykLb8YM/edit?pli=1" target="_blank" rel="noreferrer" className="text-emerald-400 font-bold underline hover:text-emerald-300">Ver Planilla</a>.</li>
                   <li>Ve a <b>Extensiones</b> &gt; <b>Apps Script</b>.</li>
-                  <li>Crea 3 hojas en tu planilla llamadas exactamente: <b className="font-mono text-slate-800">Clientes</b>, <b className="font-mono text-slate-800">Préstamos</b> y <b className="font-mono text-slate-800">Pagos</b>.</li>
+                  <li>Crea 3 hojas en tu planilla llamadas exactamente: <b className="font-mono text-white">Clientes</b>, <b className="font-mono text-white">Préstamos</b> y <b className="font-mono text-white">Pagos</b>.</li>
                   <li>Borra todo el código que aparezca y pega el siguiente script:</li>
                 </ol>
 
@@ -1141,7 +1141,7 @@ export default function ConfiguracionView({
   }
 }`}
                     rows={6}
-                    className="w-full p-2 bg-slate-900 text-slate-200 rounded-lg text-[10px] font-mono focus:outline-hidden"
+                    className="w-full p-2 bg-slate-950 text-emerald-300 rounded-lg text-[10px] font-mono focus:outline-hidden border border-emerald-800/80"
                   />
                   <button
                     type="button"
@@ -1185,13 +1185,13 @@ export default function ConfiguracionView({
 }`);
                       alert('¡Código de Apps Script copiado al portapapeles!');
                     }}
-                    className="absolute right-2 top-2 bg-slate-700 hover:bg-slate-600 text-white font-bold px-2 py-1 rounded text-[9px] uppercase tracking-wide cursor-pointer transition-colors"
+                    className="absolute right-2 top-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[9px] uppercase tracking-wide cursor-pointer transition-colors"
                   >
                     Copiar Código
                   </button>
                 </div>
 
-                <ol start={5} className="list-decimal list-inside text-[11px] text-slate-600 space-y-2 leading-relaxed">
+                <ol start={5} className="list-decimal list-inside text-[11px] text-emerald-200/90 space-y-2 leading-relaxed">
                   <li>Presiona el ícono de <b>Guardar</b> (disco duro) en Apps Script.</li>
                   <li>Haz clic en <b>Implementar</b> (Deploy) &gt; <b>Nueva implementación</b>.</li>
                   <li>Selecciona tipo: <b>Aplicación web</b>.</li>
@@ -1206,12 +1206,12 @@ export default function ConfiguracionView({
       </div>
 
       {/* Database Maintenance Section */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-3">
-          <Trash2 className="w-4 h-4 text-rose-600" />
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-lg space-y-4 backdrop-blur-md">
+        <h3 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-800/80 pb-3">
+          <Trash2 className="w-4 h-4 text-rose-400" />
           Mantenimiento y Control de Base de Datos
         </h3>
-        <p className="text-xs text-slate-500 leading-relaxed">
+        <p className="text-xs text-emerald-200/80 leading-relaxed">
           Para su seguridad y comodidad, el sistema almacena de forma 100% local todos los registros en su computador. 
           Al iniciar, cargamos unos <b>datos de prueba (Carlos Mendoza, María Laura, etc.)</b> para que pudiera experimentar la interfaz. 
           Use los siguientes controles cuando esté listo para empezar a registrar su información real:
@@ -1225,7 +1225,7 @@ export default function ConfiguracionView({
                 alert('¡Base de datos limpiada con éxito! Ahora el sistema está en blanco y listo para su uso real.');
               }
             }}
-            className="px-5 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-2 cursor-pointer"
+            className="px-5 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-none flex items-center justify-center gap-2 cursor-pointer border border-rose-500/30"
           >
             <Trash2 className="w-4 h-4" />
             Limpiar Datos de Prueba (Iniciar en Blanco)
@@ -1238,9 +1238,9 @@ export default function ConfiguracionView({
                 alert('¡Datos de prueba restablecidos con éxito!');
               }
             }}
-            className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-emerald-200 border border-emerald-800/80 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <CheckCircle2 className="w-4 h-4 text-slate-500" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             Restablecer Datos de Demostración
           </button>
         </div>

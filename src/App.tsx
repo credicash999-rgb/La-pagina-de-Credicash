@@ -2023,8 +2023,8 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 text-slate-500 text-xs py-4 text-center mt-auto">
-        <p className="max-w-7xl mx-auto px-6">© 2026 Credi-Cash | Sistema Maestro. Diseñado bajo el principio de utilidad pura y amortizaciones de alta precisión.</p>
+      <footer className="bg-emerald-950/90 border-t border-emerald-800/80 text-emerald-300 text-xs py-4 text-center mt-auto shadow-inner">
+        <p className="max-w-7xl mx-auto px-6 font-medium">© 2026 Credi-Cash | Sistema Maestro. Diseñado bajo el principio de utilidad pura y amortizaciones de alta precisión.</p>
       </footer>
 
     </div>
