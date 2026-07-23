@@ -3,7 +3,7 @@ import { UsuarioRol, PermisosRol } from '../types';
 import CrediCashLogo from './CrediCashLogo';
 import { 
   Lock, Mail, Eye, EyeOff, ShieldCheck, 
-  TrendingUp, Globe2, Handshake, ShieldAlert, Key, ChevronRight, Check
+  TrendingUp, Globe2, Handshake, ShieldAlert, Key, ChevronRight, Check, Clock
 } from 'lucide-react';
 
 interface LoginViewProps {
