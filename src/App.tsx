@@ -211,6 +211,20 @@ const DEFAULT_USUARIOS: UsuarioRol[] = [
     email: 'carlos.operador@gmail.com',
     password: '123',
     rolId: 'OPERADOR'
+  },
+  {
+    id: 'USR-4',
+    nombre: 'Operador 1',
+    email: 'operador1@credicash.com',
+    password: '123',
+    rolId: 'OPERADOR'
+  },
+  {
+    id: 'USR-5',
+    nombre: 'Operador General',
+    email: 'operador@credicash.com',
+    password: '123',
+    rolId: 'OPERADOR'
   }
 ];
 
@@ -517,6 +531,28 @@ export default function App() {
       if (!exists) {
         const updated = [...prev, user];
         saveToLocalStorage(STORAGE_KEYS.USUARIOS, updated);
+        return updated;
+      }
+      return prev;
+    });
+
+    // Automatic Attendance Fichaje on Login
+    const todayStr = new Date().toISOString().split('T')[0];
+    const timeStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    setFichajes(prev => {
+      const alreadyFichado = prev.some(f => f.usuarioId === user.id && f.fecha === todayStr);
+      if (!alreadyFichado) {
+        const nuevoFichaje: FichajeAsistencia = {
+          id: `FICH-${Date.now()}`,
+          usuarioId: user.id,
+          usuarioNombre: user.nombre,
+          usuarioRol: user.rolId,
+          fecha: todayStr,
+          horaEntrada: timeStr,
+          estado: 'ACTIVA'
+        };
+        const updated = [nuevoFichaje, ...prev];
+        saveToLocalStorage(STORAGE_KEYS.FICHAJES, updated);
         return updated;
       }
       return prev;

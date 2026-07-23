@@ -3,7 +3,8 @@ import { PermisosRol, UsuarioRol, FichajeAsistencia } from '../types';
 import { 
   Shield, UserPlus, Users, ToggleLeft, ToggleRight, Check, Trash2, 
   Lock, KeyRound, Mail, Info, ShieldAlert, CheckCircle2, Edit2, X,
-  Clock, Calendar, LogIn, LogOut, CheckCircle, Activity, UserCheck
+  Clock, Calendar, LogIn, LogOut, CheckCircle, Activity, UserCheck,
+  UserX, AlertCircle, Filter
 } from 'lucide-react';
 
 interface UsuariosViewProps {
@@ -34,6 +35,68 @@ export default function UsuariosView({
   onAddRole,
 }: UsuariosViewProps) {
   const [activeTab, setActiveTab] = useState<'USUARIOS' | 'PRESENTISMO'>('USUARIOS');
+
+  // Attendance Date & Filter States
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [fechaFiltroAsistencia, setFechaFiltroAsistencia] = useState<string>(todayStr);
+  const [rolFiltroAsistencia, setRolFiltroAsistencia] = useState<string>('OPERADOR');
+  const [estadoFiltroAsistencia, setEstadoFiltroAsistencia] = useState<'TODOS' | 'PRESENTE' | 'AUSENTE'>('TODOS');
+
+  // Attendance Calculation Logic
+  const targetUsersForAttendance = usuarios.filter(u => {
+    if (rolFiltroAsistencia === 'TODOS') return true;
+    return u.rolId === rolFiltroAsistencia || u.rolId.includes(rolFiltroAsistencia);
+  });
+
+  const now = new Date();
+  const currentHour = now.getHours();
+  const isPast1pmToday = currentHour >= 13;
+  const isPastDate = fechaFiltroAsistencia < todayStr;
+
+  const attendanceRoster = targetUsersForAttendance.map(user => {
+    const userFichaje = fichajes.find(f => f.usuarioId === user.id && f.fecha === fechaFiltroAsistencia);
+    
+    let estadoAsistencia: 'PRESENTE_ACTIVO' | 'PRESENTE_FINALIZADO' | 'AUSENTE' | 'PENDIENTE' = 'PENDIENTE';
+    
+    if (userFichaje) {
+      if (userFichaje.estado === 'ACTIVA') {
+        estadoAsistencia = 'PRESENTE_ACTIVO';
+      } else {
+        estadoAsistencia = 'PRESENTE_FINALIZADO';
+      }
+    } else {
+      if (isPastDate || (fechaFiltroAsistencia === todayStr && isPast1pmToday)) {
+        estadoAsistencia = 'AUSENTE';
+      } else {
+        estadoAsistencia = 'PENDIENTE';
+      }
+    }
+
+    return {
+      user,
+      fichaje: userFichaje,
+      estadoAsistencia
+    };
+  }).filter(item => {
+    if (estadoFiltroAsistencia === 'TODOS') return true;
+    if (estadoFiltroAsistencia === 'PRESENTE') {
+      return item.estadoAsistencia === 'PRESENTE_ACTIVO' || item.estadoAsistencia === 'PRESENTE_FINALIZADO';
+    }
+    if (estadoFiltroAsistencia === 'AUSENTE') {
+      return item.estadoAsistencia === 'AUSENTE';
+    }
+    return true;
+  });
+
+  const countPresentes = targetUsersForAttendance.filter(u => {
+    const f = fichajes.find(x => x.usuarioId === u.id && x.fecha === fechaFiltroAsistencia);
+    return !!f;
+  }).length;
+
+  const countAusentes = targetUsersForAttendance.filter(u => {
+    const f = fichajes.find(x => x.usuarioId === u.id && x.fecha === fechaFiltroAsistencia);
+    return !f && (isPastDate || (fechaFiltroAsistencia === todayStr && isPast1pmToday));
+  }).length;
 
   // New User Form States
   const [nuevoNombre, setNuevoNombre] = useState('');
@@ -225,28 +288,61 @@ export default function UsuariosView({
       {activeTab === 'PRESENTISMO' ? (
         /* Module: Presentismo y Fichaje de Personal */
         <div className="space-y-6 animate-fadeIn">
+
+          {/* Operating Schedule Restriction Notice Box */}
+          <div className="p-4 bg-emerald-900/60 border border-emerald-700/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-emerald-100 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <h4 className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                  <span>Horario de Trabajo Regulado: 08:00 AM a 01:00 PM (13:00 hs)</span>
+                </h4>
+                <p className="text-[11px] text-emerald-200/80 leading-relaxed">
+                  Los usuarios con rol <b>OPERADOR</b> solo pueden abrir sesión dentro de esta franja horaria. Cada inicio de sesión queda registrado automáticamente como <b>PRESENTE</b>. Si en el día no abre sesión, el sistema lo registra como <b>AUSENTE</b>.
+                </p>
+              </div>
+            </div>
+            <div className="px-3 py-1.5 bg-slate-900 rounded-xl text-[10px] font-extrabold text-emerald-300 border border-emerald-800 whitespace-nowrap">
+              Regulación Activa
+            </div>
+          </div>
+
           {/* Summary Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-emerald-900/80 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-700/60">
                 <UserCheck className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/70 block">Personal Presente Hoy</span>
-                <span className="text-xl font-black text-white">
-                  {fichajes.filter(f => f.estado === 'ACTIVA').length} operador(es)
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/70 block">Presentes en la Fecha</span>
+                <span className="text-2xl font-black text-white">
+                  {countPresentes} <span className="text-xs font-semibold text-emerald-400">colaborador(es)</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-emerald-950/90 p-5 rounded-2xl border border-rose-900/80 shadow-md flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-rose-950/80 text-rose-300 flex items-center justify-center shrink-0 border border-rose-800/60">
+                <UserX className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300/70 block">Ausentes (Sin Sesión)</span>
+                <span className="text-2xl font-black text-rose-200">
+                  {countAusentes} <span className="text-xs font-semibold text-rose-400">operador(es)</span>
                 </span>
               </div>
             </div>
 
             <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-teal-900/80 text-teal-300 flex items-center justify-center shrink-0 border border-teal-700/60">
-                <Activity className="w-6 h-6" />
+                <Users className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/70 block">Sesiones este Mes</span>
-                <span className="text-xl font-black text-white">
-                  {fichajes.length} fichajes
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/70 block">Nómina Evaluada</span>
+                <span className="text-2xl font-black text-white">
+                  {targetUsersForAttendance.length} <span className="text-xs font-semibold text-emerald-400">usuarios</span>
                 </span>
               </div>
             </div>
@@ -256,23 +352,74 @@ export default function UsuariosView({
                 <Clock className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/70 block">Promedio de Jornada</span>
-                <span className="text-xl font-black text-white">
-                  7h 45m
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/70 block">Franja de Trabajo</span>
+                <span className="text-lg font-black text-amber-300">
+                  08:00 - 13:00 hs
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Attendance Log Table */}
+          {/* Date & Filter Toolbar */}
+          <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-400" />
+                <label className="text-xs font-bold text-white uppercase tracking-wider">Fecha:</label>
+                <input 
+                  type="date"
+                  value={fechaFiltroAsistencia}
+                  onChange={(e) => setFechaFiltroAsistencia(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-900 text-white font-mono font-bold text-xs border border-emerald-700 rounded-xl focus:outline-none focus:border-emerald-400"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-emerald-400" />
+                <label className="text-xs font-bold text-white uppercase tracking-wider">Rol:</label>
+                <select
+                  value={rolFiltroAsistencia}
+                  onChange={(e) => setRolFiltroAsistencia(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-900 text-white font-bold text-xs border border-emerald-700 rounded-xl focus:outline-none focus:border-emerald-400"
+                >
+                  <option value="OPERADOR">Solo Operadores</option>
+                  <option value="TODOS">Todos los Roles</option>
+                  <option value="COBRADOR">Solo Cobradores</option>
+                  <option value="ADMIN">Solo Administradores</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-white uppercase tracking-wider">Estado:</label>
+                <select
+                  value={estadoFiltroAsistencia}
+                  onChange={(e) => setEstadoFiltroAsistencia(e.target.value as any)}
+                  className="px-3 py-1.5 bg-slate-900 text-white font-bold text-xs border border-emerald-700 rounded-xl focus:outline-none focus:border-emerald-400"
+                >
+                  <option value="TODOS">Todos (Presentes y Ausentes)</option>
+                  <option value="PRESENTE">Solo Presentes</option>
+                  <option value="AUSENTE">Solo Ausentes</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setFechaFiltroAsistencia(todayStr)}
+              className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              Ver Hoy ({todayStr})
+            </button>
+          </div>
+
+          {/* Daily Attendance Control Table (Roster of Presentes vs Ausentes) */}
           <div className="bg-emerald-950/90 rounded-2xl border border-emerald-800/80 shadow-md overflow-hidden">
             <div className="p-5 border-b border-emerald-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-900/40">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-emerald-400" />
-                  Registro de Conexión e Inicio de Jornadas Laborales
+                  <UserCheck className="w-4.5 h-4.5 text-emerald-400" />
+                  Control de Presentismo de Operadores para la fecha: <span className="text-emerald-300 font-mono font-bold">{fechaFiltroAsistencia}</span>
                 </h3>
-                <p className="text-xs text-emerald-200/70">Histórico de inicios y cierres de sesión de los operadores y personal administrativo.</p>
+                <p className="text-xs text-emerald-200/70">Muestra si cada colaborador abrió su sesión de trabajo en el horario permitido de 08:00 AM a 01:00 PM.</p>
               </div>
             </div>
 
@@ -280,84 +427,120 @@ export default function UsuariosView({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-emerald-100 uppercase font-bold text-[10px] tracking-wider border-b-2 border-emerald-700">
-                    <th className="p-3.5 pl-5">Colaborador / Usuario</th>
-                    <th className="p-3.5">Rol / Sector</th>
-                    <th className="p-3.5">Fecha</th>
-                    <th className="p-3.5">Hora Entrada</th>
-                    <th className="p-3.5">Hora Salida</th>
-                    <th className="p-3.5">Horas Trabajadas</th>
-                    <th className="p-3.5 text-center">Estado</th>
+                    <th className="p-3.5 pl-5">Colaborador / Operador</th>
+                    <th className="p-3.5">Rol Institucional</th>
+                    <th className="p-3.5">Horario Laboral Asignado</th>
+                    <th className="p-3.5">Apertura de Sesión</th>
+                    <th className="p-3.5">Cierre de Sesión</th>
+                    <th className="p-3.5 text-center">Estado de Asistencia</th>
                     <th className="p-3.5 pr-5 text-right">Acción Admin</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-emerald-800/60 text-emerald-100">
-                  {fichajes.length === 0 ? (
+                  {attendanceRoster.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-emerald-300/60">
-                        No hay registros de asistencia guardados aún.
+                      <td colSpan={7} className="p-8 text-center text-emerald-300/60">
+                        No hay operadores registrados para los filtros seleccionados.
                       </td>
                     </tr>
                   ) : (
-                    fichajes.map(f => (
-                      <tr key={f.id} className="hover:bg-emerald-900/60 transition-colors">
-                        <td className="p-3.5 pl-5 font-bold text-white flex items-center gap-2">
-                          <div className="w-7 h-7 bg-emerald-900 text-emerald-300 border border-emerald-700 rounded-full flex items-center justify-center font-black text-[11px]">
-                            {f.usuarioNombre.charAt(0)}
+                    attendanceRoster.map(({ user, fichaje, estadoAsistencia }) => (
+                      <tr key={user.id} className="hover:bg-emerald-900/60 transition-colors">
+                        <td className="p-3.5 pl-5 font-bold text-white flex items-center gap-2.5">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs border ${
+                            estadoAsistencia.startsWith('PRESENTE') 
+                              ? 'bg-emerald-900 text-emerald-300 border-emerald-500' 
+                              : estadoAsistencia === 'AUSENTE'
+                              ? 'bg-rose-950 text-rose-300 border-rose-700'
+                              : 'bg-amber-950 text-amber-300 border-amber-700'
+                          }`}>
+                            {user.nombre.charAt(0)}
                           </div>
-                          <span>{f.usuarioNombre}</span>
+                          <div>
+                            <span className="block font-bold text-white">{user.nombre}</span>
+                            <span className="block text-[10px] text-emerald-300/70 font-mono">{user.email}</span>
+                          </div>
                         </td>
+
                         <td className="p-3.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900 text-emerald-200 border border-emerald-700">
-                            {f.usuarioRol || f.rolNombre || 'OPERADOR'}
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-emerald-300 border border-emerald-800">
+                            {user.rolId}
                           </span>
                         </td>
-                        <td className="p-3.5 font-mono text-emerald-200/80">{f.fecha}</td>
-                        <td className="p-3.5 font-bold text-emerald-300 flex items-center gap-1">
-                          <LogIn className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          {f.horaEntrada}
+
+                        <td className="p-3.5 font-bold text-amber-300 flex items-center gap-1 mt-2">
+                          <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          08:00 AM - 01:00 PM
                         </td>
-                        <td className="p-3.5 font-bold text-emerald-100">
-                          {f.horaSalida ? (
-                            <span className="flex items-center gap-1 text-emerald-200/80">
+
+                        <td className="p-3.5 font-bold text-emerald-200">
+                          {fichaje ? (
+                            <span className="flex items-center gap-1.5 text-emerald-300 font-mono">
+                              <LogIn className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              {fichaje.horaEntrada}
+                            </span>
+                          ) : (
+                            <span className="text-rose-400/80 italic text-[11px]">No abrió sesión</span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 font-bold text-emerald-200">
+                          {fichaje?.horaSalida ? (
+                            <span className="flex items-center gap-1.5 text-emerald-200/80 font-mono">
                               <LogOut className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              {f.horaSalida}
+                              {fichaje.horaSalida}
                             </span>
+                          ) : fichaje?.estado === 'ACTIVA' ? (
+                            <span className="text-emerald-400 font-bold animate-pulse">Sesión Abierta</span>
                           ) : (
-                            <span className="text-amber-400 italic">En curso...</span>
+                            <span className="text-slate-500">-</span>
                           )}
                         </td>
-                        <td className="p-3.5 font-mono font-bold text-white">
-                          {f.horasTrabajadas ? `${f.horasTrabajadas} hrs` : (f.duracionMinutos ? `${Math.round(f.duracionMinutos/60)} hrs` : '-')}
-                        </td>
+
                         <td className="p-3.5 text-center">
-                          {f.estado === 'ACTIVA' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-900 text-emerald-300 border border-emerald-700 animate-pulse">
-                              ● EN JORNADA
+                          {estadoAsistencia === 'PRESENTE_ACTIVO' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-900 text-emerald-300 border border-emerald-500 shadow-sm animate-pulse">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                              PRESENTE (EN JORNADA)
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-900 text-emerald-300 border border-emerald-800">
-                              ✔ Finalizada
+                          )}
+                          {estadoAsistencia === 'PRESENTE_FINALIZADO' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-teal-950 text-teal-300 border border-teal-700 shadow-sm">
+                              <CheckCircle className="w-3 h-3 text-teal-400" />
+                              PRESENTE (FINALIZADO)
+                            </span>
+                          )}
+                          {estadoAsistencia === 'AUSENTE' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-rose-950 text-rose-200 border border-rose-800 shadow-sm">
+                              <UserX className="w-3 h-3 text-rose-400" />
+                              AUSENTE (SIN INGRESO)
+                            </span>
+                          )}
+                          {estadoAsistencia === 'PENDIENTE' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-amber-950 text-amber-200 border border-amber-800 shadow-sm">
+                              <Clock className="w-3 h-3 text-amber-400" />
+                              PENDIENTE (EN FRANJA)
                             </span>
                           )}
                         </td>
+
                         <td className="p-3.5 pr-5 text-right">
-                          {f.estado === 'ACTIVA' && onUpdateFichaje && (
+                          {fichaje?.estado === 'ACTIVA' && onUpdateFichaje && (
                             <button
                               onClick={() => {
-                                const now = new Date();
-                                const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                                const timeStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
                                 const updated: FichajeAsistencia = {
-                                  ...f,
+                                  ...fichaje,
                                   horaSalida: timeStr,
-                                  horasTrabajadas: 8,
+                                  horasTrabajadas: 5,
                                   estado: 'FINALIZADA'
                                 };
                                 onUpdateFichaje(updated);
                               }}
                               className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-200 border border-rose-800 rounded font-bold text-[10px] cursor-pointer transition-colors"
-                              title="Marcar salida forzada"
+                              title="Cerrar sesión del operador"
                             >
-                              Cerrar Jornada
+                              Cerrar Sesión
                             </button>
                           )}
                         </td>
@@ -368,6 +551,45 @@ export default function UsuariosView({
               </table>
             </div>
           </div>
+
+          {/* Complete Historical Activity Log */}
+          <div className="bg-emerald-950/90 rounded-2xl border border-emerald-800/80 shadow-md overflow-hidden">
+            <div className="p-4 border-b border-emerald-800/80 bg-emerald-900/30 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-400" />
+                Historial Cronológico de Sesiones Registradas ({fichajes.length})
+              </h3>
+            </div>
+            <div className="overflow-x-auto max-h-72">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-900 text-emerald-200/80 uppercase font-bold text-[9px] tracking-wider border-b border-emerald-800">
+                    <th className="p-2.5 pl-4">Colaborador</th>
+                    <th className="p-2.5">Rol</th>
+                    <th className="p-2.5">Fecha</th>
+                    <th className="p-2.5">Entrada</th>
+                    <th className="p-2.5">Salida</th>
+                    <th className="p-2.5 text-center">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-emerald-900/60 text-emerald-100">
+                  {fichajes.map(f => (
+                    <tr key={f.id} className="hover:bg-emerald-900/40">
+                      <td className="p-2.5 pl-4 font-bold text-white">{f.usuarioNombre}</td>
+                      <td className="p-2.5 text-emerald-300">{f.usuarioRol}</td>
+                      <td className="p-2.5 font-mono">{f.fecha}</td>
+                      <td className="p-2.5 font-bold text-emerald-400">{f.horaEntrada}</td>
+                      <td className="p-2.5 text-emerald-200">{f.horaSalida || '-'}</td>
+                      <td className="p-2.5 text-center font-bold text-[10px]">
+                        {f.estado === 'ACTIVA' ? '● En jornada' : '✔ Finalizada'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
