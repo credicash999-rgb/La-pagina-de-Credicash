@@ -664,52 +664,54 @@ export default function ClientesView({
   return (
     <div id="clientes-section" className="space-y-6">
       
-      {/* Top Main View Selector */}
-      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-fit">
-        <button
-          onClick={() => setMainTab('directorio')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            mainTab === 'directorio'
-              ? 'bg-white text-blue-800 shadow-xs border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-          }`}
-        >
-          <Users className="w-4 h-4 text-blue-600" />
-          <span>1. Directorio y Expediente de Clientes</span>
-        </button>
+      {/* Top Main View Selector - Admin Only for Portfolio Assignment */}
+      {isAdmin && (
+        <div className="flex items-center gap-2 bg-emerald-950/90 p-1.5 rounded-2xl border border-emerald-800/80 w-fit">
+          <button
+            onClick={() => setMainTab('directorio')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              mainTab === 'directorio'
+                ? 'bg-emerald-600 text-white shadow-xs border border-emerald-500'
+                : 'text-emerald-200/80 hover:text-white hover:bg-emerald-800/50'
+            }`}
+          >
+            <Users className="w-4 h-4 text-emerald-300" />
+            <span>1. Directorio y Expediente de Clientes</span>
+          </button>
 
-        <button
-          onClick={() => setMainTab('asignacion_cartera')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            mainTab === 'asignacion_cartera'
-              ? 'bg-white text-purple-800 shadow-xs border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-          }`}
-        >
-          <UserPlus className="w-4 h-4 text-purple-600" />
-          <span>2. Asignación de Cartera por Operador ({clientes.filter(c => c.operadorAsignadoId).length}/{clientes.length})</span>
-        </button>
-      </div>
+          <button
+            onClick={() => setMainTab('asignacion_cartera')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              mainTab === 'asignacion_cartera'
+                ? 'bg-emerald-600 text-white shadow-xs border border-emerald-500'
+                : 'text-emerald-200/80 hover:text-white hover:bg-emerald-800/50'
+            }`}
+          >
+            <UserPlus className="w-4 h-4 text-emerald-300" />
+            <span>2. Asignación de Cartera por Operador ({clientes.filter(c => c.operadorAsignadoId).length}/{clientes.length})</span>
+          </button>
+        </div>
+      )}
 
-      {/* VIEW TAB 2: SECTOR DE ASIGNACIÓN DE CARTERA POR OPERADOR DE GESTIÓN DIARIA */}
-      {mainTab === 'asignacion_cartera' && (
+      {/* VIEW TAB 2: SECTOR DE ASIGNACIÓN DE CARTERA POR OPERADOR DE GESTIÓN DIARIA (ADMIN ONLY) */}
+      {mainTab === 'asignacion_cartera' && isAdmin && (
         <div className="space-y-6 animate-fade-in">
           {/* Header Stats & Quick Action */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+          <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-md space-y-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  <UserPlus className="w-5 h-5 text-purple-600" />
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-emerald-400" />
                   Sector de Asignación y Gestión de Cartera
                 </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Asigne o modifique los clientes asignados a cada Operador de Gestión Diaria y Cobranzas. Los operadores verán prioritariamente su cartera.
+                <p className="text-xs text-emerald-200/80 mt-1">
+                  Asigne o modifique los clientes asignados a cada Operador de Gestión Diaria y Cobranzas.
                 </p>
               </div>
 
               <button
                 onClick={handleEquitableDistribution}
-                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer flex items-center gap-2 shrink-0"
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer flex items-center gap-2 shrink-0"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span>Distribuir Clientes Sin Asignar Equitativamente</span>
@@ -718,7 +720,7 @@ export default function ClientesView({
 
             {/* Operator Cards Selector */}
             <div className="pt-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-2">
+              <label className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block mb-2">
                 Seleccione el Operador de Gestión Diaria:
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -735,17 +737,17 @@ export default function ClientesView({
                       }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                         isSelected
-                          ? 'bg-purple-50/80 border-purple-500 shadow-sm ring-2 ring-purple-500/20'
-                          : 'bg-slate-50 border-slate-200/80 hover:bg-slate-100/80'
+                          ? 'bg-emerald-900 border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
+                          : 'bg-emerald-900/50 border-emerald-800 hover:bg-emerald-900/80'
                       }`}
                     >
                       <div className="space-y-1">
-                        <span className="text-xs font-extrabold text-slate-900 block">{op.nombre}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase block">{op.rolId || 'OPERADOR'}</span>
+                        <span className="text-xs font-extrabold text-white block">{op.nombre}</span>
+                        <span className="text-[10px] font-bold text-emerald-300 uppercase block">{op.rolId || 'OPERADOR'}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-lg font-black text-purple-700 block">{assignedCount}</span>
-                        <span className="text-[9px] font-bold text-slate-400 block">Clientes</span>
+                        <span className="text-lg font-black text-emerald-200 block">{assignedCount}</span>
+                        <span className="text-[9px] font-bold text-emerald-400 block">Clientes</span>
                       </div>
                     </div>
                   );
@@ -758,20 +760,20 @@ export default function ClientesView({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* LEFT PANEL: Currently Assigned Clients to Selected Operator */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md space-y-4">
+              <div className="flex justify-between items-center border-b border-emerald-800 pb-3">
                 <div>
-                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-purple-600" />
-                    Cartera Actual de: <span className="text-purple-700">{currentOperator?.nombre}</span>
+                  <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <Users className="w-4 h-4 text-emerald-400" />
+                    Cartera Actual de: <span className="text-emerald-300">{currentOperator?.nombre}</span>
                   </h4>
-                  <span className="text-xs text-slate-500 font-medium">{assignedClientsList.length} Clientes asignados</span>
+                  <span className="text-xs text-emerald-200/80 font-medium">{assignedClientsList.length} Clientes asignados</span>
                 </div>
 
                 {selectedAssignedIds.length > 0 && (
                   <button
                     onClick={handleUnassignSelectedFromOperator}
-                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-extrabold border border-rose-200 transition-all cursor-pointer flex items-center gap-1"
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 shadow-xs"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Desasignar ({selectedAssignedIds.length})</span>
@@ -781,20 +783,20 @@ export default function ClientesView({
 
               {/* Search filter for assigned */}
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={assignedSearch}
                   onChange={(e) => setAssignedSearch(e.target.value)}
                   placeholder="Filtrar cartera asignada..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-purple-600"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-900 text-white placeholder-emerald-300/60 border border-emerald-700 rounded-xl text-xs font-bold focus:outline-none focus:border-emerald-400"
                 />
               </div>
 
               {/* List of assigned clients */}
               <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
                 {assignedClientsList.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                  <div className="p-8 text-center text-xs text-emerald-300/70 font-medium">
                     No hay clientes asignados a este operador.
                   </div>
                 ) : (
@@ -812,8 +814,8 @@ export default function ClientesView({
                         }}
                         className={`p-3 rounded-xl border text-xs transition-all cursor-pointer flex items-center justify-between ${
                           isChecked
-                            ? 'bg-purple-50/90 border-purple-400 font-bold'
-                            : 'bg-slate-50 border-slate-200/70 hover:bg-slate-100/80'
+                            ? 'bg-emerald-800 border-emerald-400 font-bold text-white'
+                            : 'bg-emerald-900/60 border-emerald-800 hover:bg-emerald-900 text-emerald-100'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -821,17 +823,17 @@ export default function ClientesView({
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => {}}
-                            className="rounded text-purple-600 h-4 w-4"
+                            className="rounded text-emerald-500 h-4 w-4 accent-emerald-500"
                           />
                           <div>
-                            <span className="font-extrabold text-slate-900 block">{cli.nombre} {cli.apellido}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">DNI: {cli.dni} • {cli.id}</span>
+                            <span className="font-extrabold text-white block">{cli.nombre} {cli.apellido}</span>
+                            <span className="text-[10px] text-emerald-300/80 font-mono">DNI: {cli.dni} • {cli.id}</span>
                           </div>
                         </div>
 
                         <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
-                          cli.estado === 'ACTIVO' ? 'bg-emerald-100 text-emerald-800' :
-                          cli.estado === 'EN_MORA' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
+                          cli.estado === 'ACTIVO' ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' :
+                          cli.estado === 'EN_MORA' ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-slate-900 text-slate-300'
                         }`}>
                           {cli.estado}
                         </span>
@@ -843,20 +845,20 @@ export default function ClientesView({
             </div>
 
             {/* RIGHT PANEL: Available Clients to Assign */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md space-y-4">
+              <div className="flex justify-between items-center border-b border-emerald-800 pb-3">
                 <div>
-                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                    <UserPlus className="w-4 h-4 text-emerald-600" />
+                  <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-emerald-400" />
                     Clientes Disponibles para Asignar
                   </h4>
-                  <span className="text-xs text-slate-500 font-medium">{availableClientsList.length} Clientes mostrados</span>
+                  <span className="text-xs text-emerald-200/80 font-medium">{availableClientsList.length} Clientes mostrados</span>
                 </div>
 
                 {selectedAvailableIds.length > 0 && (
                   <button
                     onClick={handleAssignSelectedToOperator}
-                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1 shadow-xs"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Asignar ({selectedAvailableIds.length}) a {currentOperator?.nombre.split(' ')[0]}</span>
@@ -867,20 +869,20 @@ export default function ClientesView({
               {/* Filters for available clients */}
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={availableSearch}
                     onChange={(e) => setAvailableSearch(e.target.value)}
                     placeholder="Buscar clientes por nombre, DNI..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-purple-600"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-900 text-white placeholder-emerald-300/60 border border-emerald-700 rounded-xl text-xs font-bold focus:outline-none focus:border-emerald-400"
                   />
                 </div>
 
                 <select
                   value={availableFilterMode}
                   onChange={(e) => setAvailableFilterMode(e.target.value as any)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-extrabold focus:outline-none focus:border-purple-600"
+                  className="px-3 py-2 bg-slate-900 text-white border border-emerald-700 rounded-xl text-xs font-extrabold focus:outline-none focus:border-emerald-400"
                 >
                   <option value="SIN_ASIGNAR">Solo Sin Asignar</option>
                   <option value="TODOS">Ver Todos los Clientes</option>
@@ -890,7 +892,7 @@ export default function ClientesView({
               {/* List of available clients */}
               <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
                 {availableClientsList.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                  <div className="p-8 text-center text-xs text-emerald-300/70 font-medium">
                     No se encontraron clientes disponibles con los filtros aplicados.
                   </div>
                 ) : (
@@ -908,8 +910,8 @@ export default function ClientesView({
                         }}
                         className={`p-3 rounded-xl border text-xs transition-all cursor-pointer flex items-center justify-between ${
                           isChecked
-                            ? 'bg-purple-50/90 border-purple-400 font-bold'
-                            : 'bg-slate-50 border-slate-200/70 hover:bg-slate-100/80'
+                            ? 'bg-emerald-800 border-emerald-400 font-bold text-white'
+                            : 'bg-emerald-900/60 border-emerald-800 hover:bg-emerald-900 text-emerald-100'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -917,18 +919,18 @@ export default function ClientesView({
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => {}}
-                            className="rounded text-purple-600 h-4 w-4"
+                            className="rounded text-emerald-500 h-4 w-4 accent-emerald-500"
                           />
                           <div>
-                            <span className="font-extrabold text-slate-900 block">{cli.nombre} {cli.apellido}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">
+                            <span className="font-extrabold text-white block">{cli.nombre} {cli.apellido}</span>
+                            <span className="text-[10px] text-emerald-300/80 font-mono">
                               DNI: {cli.dni} • {cli.operadorAsignadoNombre ? `Operador: ${cli.operadorAsignadoNombre}` : 'Sin Operador Asignado'}
                             </span>
                           </div>
                         </div>
 
                         <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
-                          cli.operadorAsignadoNombre ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800'
+                          cli.operadorAsignadoNombre ? 'bg-slate-900 text-slate-300 border border-slate-700' : 'bg-amber-950 text-amber-300 border border-amber-800'
                         }`}>
                           {cli.operadorAsignadoNombre ? 'Asignado' : 'Sin Asignar'}
                         </span>
@@ -945,16 +947,16 @@ export default function ClientesView({
 
       {mainTab === 'directorio' && (
       <>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-md">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
+          <h2 className="text-xl font-bold text-white tracking-tight flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
             <span className="flex items-center gap-2 font-extrabold">
-              <Users className="w-5 h-5 text-blue-600" />
+              <Users className="w-5 h-5 text-emerald-400" />
               Búsqueda de Cliente
             </span>
-            <span className="text-xs font-semibold text-slate-400"> (Últimos Créditos Activos)</span>
+            <span className="text-xs font-semibold text-emerald-300/70"> (Últimos Créditos Activos)</span>
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-emerald-200/80 mt-1">
             Consulte de forma ágil el expediente del cliente, su último crédito (activo o inactivo) y el historial completo de créditos simultáneos.
           </p>
         </div>
@@ -962,7 +964,7 @@ export default function ClientesView({
           <button
             id="btn-nuevo-cliente"
             onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition-all text-xs shadow-md hover:shadow-none cursor-pointer"
+            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 rounded-lg font-bold transition-all text-xs shadow-md cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             NUEVO CLIENTE
@@ -1476,36 +1478,36 @@ export default function ClientesView({
 
       {/* RENDER VIEW 1: SEARCH / BUSCADOR */}
       {!selectedClient && clientSubTab === 'buscador' ? (
-        <div className="flex flex-col items-center justify-center min-h-[480px] bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-col items-center justify-center min-h-[480px] bg-emerald-950/90 p-8 rounded-2xl border border-emerald-800/80 shadow-md space-y-6">
           <div className="w-full max-w-xl text-center space-y-4">
-            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs border border-emerald-100">
+            <div className="w-14 h-14 bg-emerald-900 text-emerald-300 rounded-2xl flex items-center justify-center mx-auto shadow-xs border border-emerald-700">
               <Search className="w-6 h-6" />
             </div>
             <div className="space-y-1.5">
-              <h3 className="text-base font-bold text-slate-800">Búsqueda Unificada de Legajos</h3>
-              <p className="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
+              <h3 className="text-base font-bold text-white">Búsqueda Unificada de Legajos</h3>
+              <p className="text-[11px] text-emerald-200/80 max-w-md mx-auto leading-relaxed">
                 Ingrese el DNI o nombre del cliente para auditar su legajo digital, consultar su último crédito activo/presente, analizar historial de mora o exportar reportes en PDF.
               </p>
             </div>
             
             <div className="relative pt-2">
-              <Search className="absolute left-4 top-5.5 h-4.5 w-4.5 text-slate-400" />
+              <Search className="absolute left-4 top-5.5 h-4.5 w-4.5 text-emerald-400" />
               <input
                 type="text"
                 placeholder="Ingrese DNI o Nombre para buscar"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-slate-50 hover:bg-slate-100/40 focus:bg-white border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:border-[#1E803B] focus:ring-4 focus:ring-emerald-50 transition-all text-center placeholder-slate-400 font-medium"
+                className="w-full pl-11 pr-4 py-3 bg-slate-900 text-white border border-emerald-700 rounded-xl text-sm focus:outline-hidden focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50 transition-all text-center placeholder-emerald-300/60 font-bold"
                 autoFocus
               />
             </div>
 
             {/* Display Search Results dynamically as they type */}
             {searchTerm.trim() !== '' && (
-              <div className="border border-slate-150 rounded-xl overflow-hidden bg-white shadow-lg divide-y divide-slate-100 text-left mt-4 max-h-[300px] overflow-y-auto">
+              <div className="border border-emerald-800 rounded-xl overflow-hidden bg-emerald-950/95 shadow-xl divide-y divide-emerald-800/60 text-left mt-4 max-h-[300px] overflow-y-auto">
                 {filteredClientes.length === 0 ? (
-                  <div className="p-5 text-center text-xs text-slate-400 font-medium flex flex-col items-center gap-1">
-                    <Info className="w-4 h-4 text-slate-300" />
+                  <div className="p-5 text-center text-xs text-emerald-300/70 font-medium flex flex-col items-center gap-1">
+                    <Info className="w-4 h-4 text-emerald-400" />
                     No se encontraron clientes registrados con ese nombre o DNI.
                   </div>
                 ) : (
@@ -1519,22 +1521,22 @@ export default function ClientesView({
                         onClick={() => {
                           setSelectedClient(c);
                         }}
-                        className="w-full p-3.5 hover:bg-slate-50/80 flex items-center justify-between text-xs text-slate-600 transition-colors cursor-pointer group"
+                        className="w-full p-3.5 hover:bg-emerald-900/80 flex items-center justify-between text-xs text-emerald-100 transition-colors cursor-pointer group"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 bg-slate-100 text-slate-700 rounded-lg flex items-center justify-center font-extrabold text-xs font-mono">
+                          <div className="w-9 h-9 bg-emerald-900 text-emerald-200 rounded-lg flex items-center justify-center font-extrabold text-xs font-mono border border-emerald-700">
                             {c.nombre[0]}{c.apellido[0]}
                           </div>
                           <div className="min-w-0 text-left">
-                            <div className="font-bold text-slate-800 text-sm group-hover:text-emerald-700 transition-colors flex items-center gap-2">
+                            <div className="font-bold text-white text-sm group-hover:text-emerald-300 transition-colors flex items-center gap-2">
                               {c.nombre} {c.apellido}
                               {(!c.documentosSimulados?.dniFrente || !c.documentosSimulados?.dniDorso || !c.documentosSimulados?.comprobanteDomicilio || c.documentosSimulados?.dniFrente.includes('unsplash.com') || c.documentosSimulados?.dniDorso.includes('unsplash.com') || c.documentosSimulados?.comprobanteDomicilio.includes('unsplash.com')) && (
-                                <span className="inline-flex px-1 rounded text-[8px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                                <span className="inline-flex px-1 rounded text-[8px] font-bold uppercase bg-amber-950 text-amber-300 border border-amber-800">
                                   Legajo Pte.
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">
+                            <div className="text-[10px] text-emerald-300/70 mt-0.5">
                               DNI: {c.dni} • ID: {c.id} • {clientOps.length} crédito(s)
                             </div>
                           </div>
@@ -1543,20 +1545,20 @@ export default function ClientesView({
                           <div className="text-right">
                             <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
                               c.estado === 'ACTIVO' 
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' 
                                 : c.estado === 'EN_MORA'
-                                ? 'bg-rose-50 text-rose-700 border border-rose-100'
-                                : 'bg-slate-50 text-slate-600 border border-slate-100'
+                                ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                : 'bg-slate-900 text-slate-300 border border-slate-700'
                             }`}>
                               {c.estado}
                             </span>
                             {activeOp && (
-                              <div className="text-[9px] text-[#1E803B] font-extrabold mt-1">
+                              <div className="text-[9px] text-emerald-300 font-extrabold mt-1">
                                 {activeOp.id} - ${activeOp.valorCuota.toLocaleString('es-AR')}/C
                               </div>
                             )}
                           </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
+                          <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:text-emerald-200 group-hover:translate-x-0.5 transition-all" />
                         </div>
                       </button>
                     );

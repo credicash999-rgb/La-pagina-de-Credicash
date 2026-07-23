@@ -998,20 +998,20 @@ export default function PagosView({
 
           {/* EXECUTIVE KPI SUMMARY CARDS (EXCEL DASHBOARD STYLE - OPERATIONAL NON-MONETARY) */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 relative z-10">
-            {/* KPI 1 - TASA DE EFECTIVIDAD */}
+            {/* KPI 1 - CARTERA DE CLIENTES ASIGNADOS */}
             <div className="bg-emerald-900/60 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-700/50 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-black uppercase text-emerald-300 tracking-wider">
-                <span>Efectividad Operativa</span>
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Cartera de Clientes</span>
+                <Users className="w-3.5 h-3.5 text-emerald-300" />
               </div>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-white">92.5%</span>
+                <span className="text-2xl font-black text-white">{filteredAndPrioritizedOps.length}</span>
                 <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">
-                  +13% Óptimo
+                  {filteredAndPrioritizedOps.length > 10 ? 'Alto Volumen' : 'Volumen Normal'}
                 </span>
               </div>
-              <div className="w-full bg-emerald-950/80 h-1.5 rounded-full overflow-hidden border border-emerald-800">
-                <div className="bg-emerald-400 h-full rounded-full" style={{ width: '92%' }} />
+              <div className="text-[10px] text-emerald-200/90 font-medium">
+                Clientes asignados en gestión diaria
               </div>
             </div>
 
@@ -1085,17 +1085,17 @@ export default function PagosView({
       {(viewTab === 'cobranza' || !isUserAdmin) && (
       <>
       {/* Tab Navigation header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            {mode === 'WHATSAPP' && <MessageCircle className="w-5.5 h-5.5 text-emerald-600" />}
-            {mode === 'TELEFONO' && <PhoneCall className="w-5.5 h-5.5 text-amber-600" />}
-            {mode === 'CALLE' && <MapPin className="w-5.5 h-5.5 text-rose-600" />}
+          <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            {mode === 'WHATSAPP' && <MessageCircle className="w-5.5 h-5.5 text-emerald-400" />}
+            {mode === 'TELEFONO' && <PhoneCall className="w-5.5 h-5.5 text-amber-400" />}
+            {mode === 'CALLE' && <MapPin className="w-5.5 h-5.5 text-rose-400" />}
             {mode === 'WHATSAPP' && 'Agenda de Cobranzas'}
             {mode === 'TELEFONO' && 'Consola del Operador - Cobranza Telefónica'}
             {mode === 'CALLE' && 'Consola de Campo - Cobrador en Calle'}
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-emerald-200/80 mt-1">
             {mode === 'WHATSAPP' && 'Optimizado para operadores de WhatsApp. Registre pagos, compromisos y gestiones de forma ágil y segura.'}
             {mode === 'TELEFONO' && 'Gestión de mora media. Realice llamadas, efectúe alertas críticas y registre promesas de pago.'}
             {mode === 'CALLE' && 'Gestión de mora crítica y visitas presenciales. Acceda a hojas de ruta, domicilios de cobro e indicaciones de mapa.'}
@@ -1103,13 +1103,13 @@ export default function PagosView({
         </div>
         
         {/* Sub-tabs buttons */}
-        <div className="flex bg-slate-100 p-1 rounded-xl self-stretch sm:self-auto">
+        <div className="flex bg-emerald-900/80 p-1 rounded-xl self-stretch sm:self-auto border border-emerald-700/60">
           <button
             onClick={() => { setActiveSubTab('gestion'); setSelectedOp(null); }}
             className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               activeSubTab === 'gestion'
-                ? 'bg-white text-slate-800 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-emerald-200 hover:text-white hover:bg-emerald-800/50'
             }`}
           >
             📋 Clientes por Gestionar
@@ -1118,8 +1118,8 @@ export default function PagosView({
             onClick={() => { setActiveSubTab('buscador'); setSelectedOp(null); }}
             className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               activeSubTab === 'buscador'
-                ? 'bg-white text-slate-800 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-emerald-200 hover:text-white hover:bg-emerald-800/50'
             }`}
           >
             🔍 Buscador Historial
@@ -1131,14 +1131,14 @@ export default function PagosView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Main interactive list (Left / Center) */}
-        <div className="lg:col-span-7 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div className="lg:col-span-7 bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md space-y-4">
           
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-emerald-800/60 pb-4">
             <div>
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">
+              <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-widest block mb-0.5">
                 {activeSubTab === 'gestion' ? (mode === 'WHATSAPP' ? 'Prioridad de Contacto y Cobranza' : 'Prioridad de Llamadas y Visitas') : 'Búsqueda Universal'}
               </span>
-              <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-1.5">
                 {activeSubTab === 'gestion' ? (
                   <>🎯 Orden de Cobranza y Clientes del Día ({filteredAndPrioritizedOps.length} Clientes)</>
                 ) : (
@@ -1149,21 +1149,21 @@ export default function PagosView({
 
             {/* Filter toggle for assigned only */}
             {activeSubTab === 'gestion' && activeUser?.rolId !== 'ADMIN' && (
-              <label className="inline-flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/60 hover:bg-slate-100 transition-colors">
+              <label className="inline-flex items-center gap-2 cursor-pointer bg-emerald-900/60 px-3 py-1.5 rounded-lg border border-emerald-700/60 hover:bg-emerald-800/80 transition-colors">
                 <input
                   type="checkbox"
                   checked={filterOnlyAssigned}
                   onChange={(e) => setFilterOnlyAssigned(e.target.checked)}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
+                  className="rounded text-emerald-500 focus:ring-emerald-400 h-3.5 w-3.5 accent-emerald-500"
                 />
-                <span className="text-[11px] font-bold text-slate-600">Ver solo mis asignados</span>
+                <span className="text-[11px] font-bold text-emerald-100">Ver solo mis asignados</span>
               </label>
             )}
           </div>
 
           {/* Quick Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-emerald-400" />
             <input
               type="text"
               placeholder={
@@ -1173,16 +1173,16 @@ export default function PagosView({
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-1 focus:ring-emerald-600 transition-all font-medium"
+              className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-900/90 text-white placeholder-emerald-300/60 border border-emerald-700 rounded-xl focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-bold"
             />
           </div>
 
           {/* Acciones de Gestión Autorizadas - Moved to the left below search bar */}
           {selectedOp && (
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3 shadow-xs">
-              <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 flex items-center gap-1.5">
-                <ClipboardList className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Acciones de Gestión Autorizadas para: <strong className="text-slate-800 font-extrabold">{selectedOp.nombreCliente}</strong></span>
+            <div className="bg-emerald-900/60 p-4 rounded-xl border border-emerald-700/60 space-y-3 shadow-xs">
+              <h4 className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-widest border-b border-emerald-800 pb-2 flex items-center gap-1.5">
+                <ClipboardList className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Acciones de Gestión Autorizadas para: <strong className="text-white font-extrabold">{selectedOp.nombreCliente}</strong></span>
               </h4>
 
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -1195,8 +1195,8 @@ export default function PagosView({
                   }}
                   className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center ${
                     activeAction === 'pago'
-                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                      : 'bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border-emerald-100'
+                      ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-black shadow-xs'
+                      : 'bg-emerald-950/80 hover:bg-emerald-800/80 text-emerald-100 border-emerald-700'
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -1212,8 +1212,8 @@ export default function PagosView({
                   }}
                   className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center ${
                     activeAction === 'pago_parcial'
-                      ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
-                      : 'bg-blue-50 hover:bg-blue-100/80 text-blue-800 border-blue-100'
+                      ? 'bg-blue-500 text-white border-blue-400 font-black shadow-xs'
+                      : 'bg-emerald-950/80 hover:bg-emerald-800/80 text-blue-200 border-emerald-700'
                   }`}
                 >
                   <TrendingUp className="w-4 h-4 shrink-0" />
@@ -1230,8 +1230,8 @@ export default function PagosView({
                   }}
                   className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center ${
                     activeAction === 'pago_adelantado'
-                      ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
-                      : 'bg-teal-50 hover:bg-teal-100/80 text-teal-800 border-teal-100'
+                      ? 'bg-teal-500 text-slate-950 border-teal-400 font-black shadow-xs'
+                      : 'bg-emerald-950/80 hover:bg-emerald-800/80 text-teal-200 border-emerald-700'
                   }`}
                 >
                   <Calendar className="w-4 h-4 shrink-0" />
@@ -1246,8 +1246,8 @@ export default function PagosView({
                   }}
                   className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center ${
                     activeAction === 'no_pago'
-                      ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
-                      : 'bg-rose-50 hover:bg-rose-100/80 text-rose-800 border-rose-100'
+                      ? 'bg-rose-600 text-white border-rose-500 font-black shadow-xs'
+                      : 'bg-emerald-950/80 hover:bg-emerald-800/80 text-rose-200 border-emerald-700'
                   }`}
                 >
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -1263,8 +1263,8 @@ export default function PagosView({
                   }}
                   className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center ${
                     activeAction === 'promesa'
-                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
-                      : 'bg-indigo-50 hover:bg-indigo-100/80 text-indigo-800 border-indigo-100'
+                      ? 'bg-indigo-500 text-white border-indigo-400 font-black shadow-xs'
+                      : 'bg-emerald-950/80 hover:bg-emerald-800/80 text-indigo-200 border-emerald-700'
                   }`}
                 >
                   <Handshake className="w-4 h-4 shrink-0" />
@@ -1279,8 +1279,8 @@ export default function PagosView({
                   }}
                   className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center col-span-2 sm:col-span-5 ${
                     activeAction === 'visita'
-                      ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
-                      : 'bg-amber-50 hover:bg-amber-100/80 text-amber-800 border-amber-100'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-xs'
+                      : 'bg-emerald-950/80 hover:bg-emerald-800/80 text-amber-200 border-emerald-700'
                   }`}
                 >
                   <ClipboardList className="w-4 h-4 shrink-0 animate-pulse" />
@@ -1290,9 +1290,9 @@ export default function PagosView({
 
               {/* Form area that loads on button click */}
               {activeAction && (
-                <div className="bg-white p-3.5 rounded-lg border border-slate-200/80 space-y-3 shadow-xs">
-                  <div className="flex justify-between items-center border-b border-slate-200/80 pb-1.5">
-                    <span className="text-[10px] font-black uppercase text-slate-700 flex items-center gap-1">
+                <div className="bg-emerald-950 p-4 rounded-lg border border-emerald-700 space-y-3 shadow-md">
+                  <div className="flex justify-between items-center border-b border-emerald-800 pb-2">
+                    <span className="text-[11px] font-black uppercase text-emerald-300 flex items-center gap-1">
                       {activeAction === 'pago' && '📝 REGISTRAR PAGO'}
                       {activeAction === 'pago_parcial' && '📝 REGISTRAR PAGO PARCIAL'}
                       {activeAction === 'pago_adelantado' && '📅 REGISTRAR PAGO ADELANTADO'}
@@ -1303,7 +1303,7 @@ export default function PagosView({
                     <button 
                       type="button" 
                       onClick={() => setActiveAction(null)}
-                      className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      className="p-0.5 text-emerald-400 hover:text-white cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1317,13 +1317,13 @@ export default function PagosView({
                     {(activeAction === 'pago' || activeAction === 'pago_parcial' || activeAction === 'pago_adelantado') && (
                       <div className="space-y-2.5">
                         {activeAction === 'pago_adelantado' && (
-                          <div className="bg-teal-50/70 p-3.5 rounded-xl border border-teal-200/80 space-y-2.5 shadow-xs">
+                          <div className="bg-emerald-900/80 p-3.5 rounded-xl border border-teal-500/50 space-y-2.5 shadow-xs">
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5 text-teal-600" />
+                              <span className="text-[10px] font-black text-teal-200 uppercase tracking-wider flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-teal-400" />
                                 Modalidad de Pago por Adelantado:
                               </span>
-                              <span className="text-[9px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-full border border-teal-300">
+                              <span className="text-[9px] bg-teal-900 text-teal-200 font-extrabold px-2 py-0.5 rounded-full border border-teal-500">
                                 Seleccione Modalidad
                               </span>
                             </div>
@@ -1333,8 +1333,8 @@ export default function PagosView({
                                 onClick={() => setPrepaymentMode('CONSECUTIVO_INMEDIATO')}
                                 className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
                                   prepaymentMode === 'CONSECUTIVO_INMEDIATO'
-                                    ? 'bg-white border-teal-600 shadow-xs ring-2 ring-teal-500/20'
-                                    : 'bg-white/60 border-teal-200/80 hover:bg-white'
+                                    ? 'bg-emerald-950 border-teal-400 shadow-xs ring-2 ring-teal-500/30'
+                                    : 'bg-emerald-950/60 border-emerald-800 hover:bg-emerald-950'
                                 }`}
                               >
                                 <input
@@ -1342,20 +1342,20 @@ export default function PagosView({
                                   name="prepaymentMode"
                                   checked={prepaymentMode === 'CONSECUTIVO_INMEDIATO'}
                                   onChange={() => setPrepaymentMode('CONSECUTIVO_INMEDIATO')}
-                                  className="mt-0.5 rounded-full text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer shrink-0"
+                                  className="mt-0.5 rounded-full text-teal-400 focus:ring-teal-400 h-4 w-4 cursor-pointer shrink-0"
                                 />
                                 <div className="space-y-1 text-xs">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <strong className="text-slate-900 font-extrabold text-xs">
+                                    <strong className="text-white font-extrabold text-xs">
                                       Opción B: Adelantar cuotas consecutivas inmediatas (Cuota del día + siguientes)
                                     </strong>
-                                    <span className="text-[9px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md uppercase border border-emerald-300">
+                                    <span className="text-[9px] font-black bg-emerald-800 text-emerald-200 px-2 py-0.5 rounded-md uppercase border border-emerald-600">
                                       ⭐ Recomendada / Al Día
                                     </span>
                                   </div>
-                                  <p className="text-[10px] text-slate-600 leading-relaxed font-medium">
+                                  <p className="text-[10px] text-emerald-200/80 leading-relaxed font-medium">
                                     Se abona la cuota del día de hoy (o vencida) + las próximas cuotas a vencer en orden consecutivo (1, 2, 3...). 
-                                    <strong className="text-emerald-700"> El cliente no figura con mora hoy</strong> y queda al día por los días abonados.
+                                    <strong className="text-emerald-300"> El cliente no figura con mora hoy</strong> y queda al día por los días abonados.
                                   </p>
                                 </div>
                               </label>
@@ -1364,8 +1364,8 @@ export default function PagosView({
                                 onClick={() => setPrepaymentMode('FINAL_ATRAS')}
                                 className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
                                   prepaymentMode === 'FINAL_ATRAS'
-                                    ? 'bg-white border-teal-600 shadow-xs ring-2 ring-teal-500/20'
-                                    : 'bg-white/60 border-teal-200/80 hover:bg-white'
+                                    ? 'bg-emerald-950 border-teal-400 shadow-xs ring-2 ring-teal-500/30'
+                                    : 'bg-emerald-950/60 border-emerald-800 hover:bg-emerald-950'
                                 }`}
                               >
                                 <input
@@ -1373,20 +1373,20 @@ export default function PagosView({
                                   name="prepaymentMode"
                                   checked={prepaymentMode === 'FINAL_ATRAS'}
                                   onChange={() => setPrepaymentMode('FINAL_ATRAS')}
-                                  className="mt-0.5 rounded-full text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer shrink-0"
+                                  className="mt-0.5 rounded-full text-teal-400 focus:ring-teal-400 h-4 w-4 cursor-pointer shrink-0"
                                 />
                                 <div className="space-y-1 text-xs">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <strong className="text-slate-900 font-extrabold text-xs">
+                                    <strong className="text-white font-extrabold text-xs">
                                       Opción A: Descontar desde el final hacia atrás
                                     </strong>
-                                    <span className="text-[9px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase border border-slate-200 font-bold">
+                                    <span className="text-[9px] text-emerald-300 bg-emerald-900 px-2 py-0.5 rounded-md uppercase border border-emerald-700 font-bold">
                                       Amortiza Final
                                     </span>
                                   </div>
-                                  <p className="text-[10px] text-slate-600 leading-relaxed font-medium">
+                                  <p className="text-[10px] text-emerald-200/80 leading-relaxed font-medium">
                                     Se abonan las últimas cuotas del contrato (ej. cuota 20 hacia atrás), reduciendo la duración final del crédito. 
-                                    <em className="text-amber-700 font-semibold"> La cuota vencida de hoy no se cancela salvo que cubra todo el saldo.</em>
+                                    <em className="text-amber-300 font-semibold"> La cuota vencida de hoy no se cancela salvo que cubra todo el saldo.</em>
                                   </p>
                                 </div>
                               </label>
@@ -1396,23 +1396,23 @@ export default function PagosView({
 
                         <div className="grid grid-cols-2 gap-2.5">
                           <div>
-                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Monto Cobrado ($)</label>
+                            <label className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider block mb-0.5">Monto Cobrado ($)</label>
                             <input
                               type="number"
                               required
                               value={importeCobrado}
                               onChange={(e) => setImporteCobrado(e.target.value)}
                               placeholder="Ej: 15000"
-                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                              className="w-full px-2.5 py-1.5 bg-slate-900 text-white placeholder-emerald-300/50 border border-emerald-700 rounded-lg text-xs font-bold focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                             />
                           </div>
 
                           <div>
-                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Medio de Pago</label>
+                            <label className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider block mb-0.5">Medio de Pago</label>
                             <select
                               value={medioPago}
                               onChange={(e) => setMedioPago(e.target.value as any)}
-                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                              className="w-full px-2.5 py-1.5 bg-slate-900 text-white border border-emerald-700 rounded-lg text-xs font-bold focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                             >
                               <option value="EFECTIVO">EFECTIVO</option>
                               <option value="TRANSFERENCIA">TRANSFERENCIA</option>
@@ -1422,13 +1422,13 @@ export default function PagosView({
                         </div>
 
                         <div>
-                          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Fecha de Cobro</label>
+                          <label className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider block mb-0.5">Fecha de Cobro</label>
                           <input
                             type="date"
                             required
                             value={fechaPago}
                             onChange={(e) => setFechaPago(e.target.value)}
-                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                            className="w-full px-2.5 py-1.5 bg-slate-900 text-white border border-emerald-700 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                           />
                         </div>
                       </div>
@@ -1436,20 +1436,20 @@ export default function PagosView({
 
                     {activeAction === 'promesa' && (
                       <div>
-                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Fecha Programada de Pago</label>
+                        <label className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider block mb-0.5">Fecha Programada de Pago</label>
                         <input
                           type="date"
                           required
                           value={promesaFecha}
                           onChange={(e) => setPromesaFecha(e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                          className="w-full px-2.5 py-1.5 bg-slate-900 text-white border border-emerald-700 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                         />
                       </div>
                     )}
 
                     {/* Standard general observations input */}
                     <div>
-                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+                      <label className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider block mb-0.5">
                         {activeAction === 'pago' || activeAction === 'pago_parcial' ? 'Comentarios / Observaciones' : 'Detalle o Justificación'}
                       </label>
                       <textarea
@@ -1457,14 +1457,14 @@ export default function PagosView({
                         value={observacionesInput}
                         onChange={(e) => setObservacionesInput(e.target.value)}
                         placeholder="Ej: El cliente abonó en efectivo. Sin observaciones."
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                        className="w-full px-2.5 py-1.5 bg-slate-900 text-white placeholder-emerald-300/50 border border-emerald-700 rounded-lg text-xs font-medium focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={!canAddPago}
-                      className="w-full py-2 bg-emerald-600 hover:bg-[#155A2A] text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
+                      className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1 shadow-md"
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>Confirmar Operación</span>
