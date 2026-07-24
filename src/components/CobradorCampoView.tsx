@@ -34,6 +34,7 @@ interface CobradorCampoViewProps {
   onRegistrarContactoRecuperado: (idCliente: string, cobradorId: string) => void;
   onRegistrarGestionTelefonica?: (idCliente: string, tipo: 'LLAMADA' | 'MENSAJE', observaciones: string) => void;
   onSolicitarReintegroDesayuno?: (solicitud: SolicitudReintegroDesayuno) => void;
+  onUpdateCliente?: (cliente: Cliente) => void;
 }
 
 export default function CobradorCampoView({
@@ -53,7 +54,8 @@ export default function CobradorCampoView({
   onReprogramarVisita,
   onRegistrarContactoRecuperado,
   onRegistrarGestionTelefonica,
-  onSolicitarReintegroDesayuno
+  onSolicitarReintegroDesayuno,
+  onUpdateCliente
 }: CobradorCampoViewProps) {
   // Navigation tabs (4 clean field collector tabs)
   const [activeTab, setActiveTab] = useState<'gestion_diaria' | 'gestion_telefonica' | 'mi_recorrido' | 'reintegro_desayuno'>('gestion_diaria');
@@ -140,7 +142,12 @@ export default function CobradorCampoView({
   const isCobrador = activeUser?.rolId === 'COBRADOR';
   const myAssignedClients = clientes.filter(c => {
     if (!isCobrador) return true; // Show all for demo/admin testing
-    return c.operadorAsignadoId === activeUser?.id || c.captador === activeUser?.nombre || c.analista === activeUser?.nombre;
+    return (
+      c.cobradorAsignadoId === activeUser?.id ||
+      c.operadorAsignadoId === activeUser?.id ||
+      c.captador === activeUser?.nombre ||
+      c.analista === activeUser?.nombre
+    );
   });
 
   // Get active loans for assigned clients
@@ -307,19 +314,43 @@ export default function CobradorCampoView({
 
   // Handle Submit Payment Registration
   const handleConfirmarPago = async () => {
-    if (!selectedCliente || !selectedOperacion) return;
+    if (!selectedCliente) return;
+
     const monto = parseFloat(montoPago);
     if (isNaN(monto) || monto <= 0) {
       alert('Por favor ingrese un monto válido cobrado.');
       return;
     }
 
+    if (!fotoComprobante) {
+      alert('⚠️ La foto del comprobante es OBLIGATORIA para registrar el cobro en campo.');
+      return;
+    }
+
     const gps = await obtenerGPSActual();
     const horaStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
+    const opToUse: Operacion = selectedOperacion || {
+      id: `OP-REFIN-${Date.now().toString().slice(-6)}`,
+      idCliente: selectedCliente.id,
+      montoPrestamo: selectedCliente.montoDeudaInactivo || 15000,
+      montoTotalDevolver: selectedCliente.montoDeudaInactivo || 15000,
+      cuotasTotales: 10,
+      cuotasPagadas: 0,
+      cuotasPendientes: 10,
+      valorCuota: selectedCliente.montoPagoInicialRefinanciacion || 3000,
+      frecuencia: 'DIARIO',
+      fechaInicio: todayStr,
+      estado: 'ACTIVA',
+      diasMora: 0,
+      capitalRecuperado: 0,
+      totalPendiente: selectedCliente.montoDeudaInactivo || 15000,
+      metodoPagoPref: 'EFECTIVO'
+    };
+
     const newPago: Pago = {
       id: `PAG-${Date.now().toString().slice(-6)}`,
-      idOperacion: selectedOperacion.id,
+      idOperacion: opToUse.id,
       idCliente: selectedCliente.id,
       nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido}`,
       fechaPago: todayStr,
@@ -327,12 +358,12 @@ export default function CobradorCampoView({
       importe: monto,
       cobrador: activeUser?.nombre || 'Cobrador de Campo',
       metodoPago: medioPago,
-      modalidad: 'PAGO_REGULAR',
-      cuotasAfectadas: `Cuota ${selectedOperacion.cuotasPagadas + 1}`,
+      modalidad: selectedCliente.estado === 'INACTIVO' ? 'REFINANCIACION' : 'PAGO_REGULAR',
+      cuotasAfectadas: `Cuota ${opToUse.cuotasPagadas + 1}`,
       observaciones: `${observacionesPago || 'Cobrado en campo'} (GPS: ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)})`
     };
 
-    const opCuotas = cuotas.filter(c => c.idOperacion === selectedOperacion.id);
+    const opCuotas = cuotas.filter(c => c.idOperacion === opToUse.id);
     const updatedCuotas = opCuotas.map(c => {
       if (c.estado === 'PENDIENTE' || c.estado === 'VENCIDA' || c.estado === 'PAGO_PARCIAL') {
         if (monto >= c.valorTotalCuota) {
@@ -350,11 +381,11 @@ export default function CobradorCampoView({
     });
 
     const updatedOperacion: Operacion = {
-      ...selectedOperacion,
-      capitalRecuperado: selectedOperacion.capitalRecuperado + monto,
-      totalPendiente: Math.max(0, selectedOperacion.totalPendiente - monto),
-      cuotasPagadas: selectedOperacion.cuotasPagadas + 1,
-      cuotasPendientes: Math.max(0, selectedOperacion.cuotasPendientes - 1),
+      ...opToUse,
+      capitalRecuperado: opToUse.capitalRecuperado + monto,
+      totalPendiente: Math.max(0, opToUse.totalPendiente - monto),
+      cuotasPagadas: opToUse.cuotasPagadas + 1,
+      cuotasPendientes: Math.max(0, opToUse.cuotasPendientes - 1),
       ultimoPago: todayStr
     };
 
@@ -362,12 +393,20 @@ export default function CobradorCampoView({
       id: `TRX-${Date.now().toString().slice(-6)}`,
       fecha: todayStr,
       tipo: 'INGRESO',
-      concepto: `Cobro en Campo - Cliente ${selectedCliente.nombre} ${selectedCliente.apellido} (Crédito ${selectedOperacion.id})`,
+      concepto: `Cobro en Campo (${selectedCliente.estado === 'INACTIVO' ? 'Pago Inicial Refinanciación' : 'Cuota'}) - Cliente ${selectedCliente.nombre} ${selectedCliente.apellido}`,
       monto: monto,
       referenciaId: newPago.id
     };
 
     onAddPago(newPago, updatedCuotas, updatedOperacion, tesoreriaTrx);
+
+    if (selectedCliente.estado === 'INACTIVO' && onUpdateCliente) {
+      onUpdateCliente({
+        ...selectedCliente,
+        estado: 'ACTIVO',
+        esClienteInactivoRefinanciacion: false
+      });
+    }
 
     const nuevaVisita: VisitaDomicilio = {
       id: `VIS-${Date.now()}`,
@@ -383,13 +422,13 @@ export default function CobradorCampoView({
       gpsDireccion: gps.direccion,
       montoCobrado: monto,
       medioPago: medioPago,
-      fotoComprobante: fotoComprobante || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=300&auto=format&fit=crop&q=60',
+      fotoComprobante: fotoComprobante,
       observaciones: observacionesPago
     };
 
     onRegistrarVisita(nuevaVisita);
 
-    showToast(`✅ PAGO REGISTRADO: $${monto.toLocaleString('es-AR')} (${medioPago}). ¡Comisión sumada al instante!`);
+    showToast(`✅ PAGO REGISTRADO: $${monto.toLocaleString('es-AR')} (${medioPago}). Comprobante guardado con GPS.`);
     setSelectedCliente(null);
     setSelectedOperacion(null);
     setActionType(null);

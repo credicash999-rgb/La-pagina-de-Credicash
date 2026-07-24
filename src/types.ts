@@ -16,6 +16,11 @@ export interface Cliente {
   analista: string;
   operadorAsignadoId?: string;
   operadorAsignadoNombre?: string;
+  cobradorAsignadoId?: string;
+  cobradorAsignadoNombre?: string;
+  montoDeudaInactivo?: number;
+  montoPagoInicialRefinanciacion?: number;
+  esClienteInactivoRefinanciacion?: boolean;
   estado: 'ACTIVO' | 'INACTIVO' | 'EN_MORA' | 'SOLICITANTE' | 'PROSPECTO' | 'SUSPENDIDO' | 'CONGELADO';
   fechaRegistro: string;
 
@@ -124,7 +129,7 @@ export interface Pago {
   importe: number;
   cobrador: string;
   metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO';
-  modalidad?: 'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B' | 'NO_PAGO' | 'PROMESA' | 'OBSERVACION';
+  modalidad?: 'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B' | 'NO_PAGO' | 'PROMESA' | 'OBSERVACION' | 'REFINANCIACION';
   cuotasAfectadas?: string;
   observaciones: string;
 }
@@ -273,6 +278,7 @@ export interface ComisionCobrador {
 export interface ConfiguracionComisiones {
   porcentajeComisionCobranza: number;
   fijoComisionCobranza: number;
+  montoMinimoCobroComision?: number;
   montoContactoRecuperado: number;
   montoClienteInactivoRecuperado: number;
   montoComisionLlamada: number;

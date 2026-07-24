@@ -2315,6 +2315,7 @@ export default function App() {
               onRegistrarVisita={handleRegistrarVisita}
               onReprogramarVisita={handleReprogramarVisita}
               onRegistrarContactoRecuperado={handleRegistrarContactoRecuperado}
+              onUpdateCliente={handleUpdateCliente}
             />
           )}
 

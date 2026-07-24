@@ -87,6 +87,10 @@ export default function ClientesView({
   const [analista, setAnalista] = useState('');
   const [operadorAsignadoId, setOperadorAsignadoId] = useState('');
   const [operadorAsignadoNombre, setOperadorAsignadoNombre] = useState('');
+  const [cobradorAsignadoId, setCobradorAsignadoId] = useState('');
+  const [cobradorAsignadoNombre, setCobradorAsignadoNombre] = useState('');
+  const [montoDeudaInactivo, setMontoDeudaInactivo] = useState<number>(15000);
+  const [montoPagoInicialRefinanciacion, setMontoPagoInicialRefinanciacion] = useState<number>(3000);
   const [estado, setEstado] = useState<Cliente['estado']>('SOLICITANTE');
 
   // Extended form states
@@ -182,6 +186,10 @@ export default function ClientesView({
     setAnalista('');
     setOperadorAsignadoId('');
     setOperadorAsignadoNombre('');
+    setCobradorAsignadoId('');
+    setCobradorAsignadoNombre('');
+    setMontoDeudaInactivo(15000);
+    setMontoPagoInicialRefinanciacion(3000);
     setEstado('SOLICITANTE');
 
     // Reset extended fields
@@ -225,6 +233,10 @@ export default function ClientesView({
     setAnalista(c.analista);
     setOperadorAsignadoId(c.operadorAsignadoId || '');
     setOperadorAsignadoNombre(c.operadorAsignadoNombre || '');
+    setCobradorAsignadoId(c.cobradorAsignadoId || '');
+    setCobradorAsignadoNombre(c.cobradorAsignadoNombre || '');
+    setMontoDeudaInactivo(c.montoDeudaInactivo || 15000);
+    setMontoPagoInicialRefinanciacion(c.montoPagoInicialRefinanciacion || 3000);
     setEstado(c.estado);
 
     // Load extended fields
@@ -282,6 +294,11 @@ export default function ClientesView({
         analista,
         operadorAsignadoId,
         operadorAsignadoNombre,
+        cobradorAsignadoId,
+        cobradorAsignadoNombre,
+        montoDeudaInactivo: estado === 'INACTIVO' ? montoDeudaInactivo : undefined,
+        montoPagoInicialRefinanciacion: estado === 'INACTIVO' ? montoPagoInicialRefinanciacion : undefined,
+        esClienteInactivoRefinanciacion: estado === 'INACTIVO',
         estado,
         fechaNacimiento,
         sexo,
@@ -334,6 +351,11 @@ export default function ClientesView({
         analista,
         operadorAsignadoId,
         operadorAsignadoNombre,
+        cobradorAsignadoId,
+        cobradorAsignadoNombre,
+        montoDeudaInactivo: estado === 'INACTIVO' ? montoDeudaInactivo : undefined,
+        montoPagoInicialRefinanciacion: estado === 'INACTIVO' ? montoPagoInicialRefinanciacion : undefined,
+        esClienteInactivoRefinanciacion: estado === 'INACTIVO',
         estado,
         fechaRegistro: new Date().toISOString().split('T')[0],
         fechaNacimiento,
@@ -1321,19 +1343,39 @@ export default function ClientesView({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Cobrador en Calle Asignado</label>
+                  <select
+                    value={cobradorAsignadoId}
+                    onChange={(e) => {
+                      const selectedCobId = e.target.value;
+                      setCobradorAsignadoId(selectedCobId);
+                      const cobUser = usuarios.find(u => u.id === selectedCobId);
+                      setCobradorAsignadoNombre(cobUser ? cobUser.nombre : (selectedCobId ? 'Cobrador Asignado' : 'Sin asignar'));
+                    }}
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                  >
+                    <option value="">-- Sin cobrador en calle (Cualquiera) --</option>
+                    {usuarios.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.nombre} ({u.rolId}) - {u.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-[11px] font-bold text-emerald-200/80 uppercase tracking-wider mb-1.5">Estado Crediticio General</label>
                   <select
                     value={estado}
                     onChange={(e) => setEstado(e.target.value as Cliente['estado'])}
-                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm text-white focus:outline-hidden focus:border-emerald-400"
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm font-bold text-white focus:outline-hidden focus:border-emerald-400"
                   >
                     <option value="SOLICITANTE">SOLICITANTE (En Evaluación)</option>
                     <option value="ACTIVO">ACTIVO (Sin deudas vencidas)</option>
                     <option value="EN_MORA">EN MORA</option>
                     <option value="CONGELADO">CONGELADO (En Standby / Pausado)</option>
-                    <option value="INACTIVO">INACTIVO</option>
+                    <option value="INACTIVO">INACTIVO (Deuda Pendiente / Refinanciar)</option>
                   </select>
                 </div>
                 <div>
@@ -1351,6 +1393,52 @@ export default function ClientesView({
                   </select>
                 </div>
               </div>
+
+              {/* Special Box for INACTIVO Refinancing Setup */}
+              {estado === 'INACTIVO' && (
+                <div className="bg-amber-950/40 border-2 border-amber-500/70 p-4 rounded-2xl space-y-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase text-amber-300 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                      Ficha de Cliente Inactivo & Refinanciación de Crédito
+                    </span>
+                    <span className="text-[10px] bg-amber-900 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-700">
+                      Irá a Hoja de Ruta del Cobrador
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 font-medium">
+                    Al guardar este cliente como <b>INACTIVO</b>, aparecerá automáticamente en la Hoja de Ruta Diaria del cobrador asignado. El cobrador podrá solicitar el pago inicial configurado para activar la refinanciación del crédito.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-amber-200 uppercase tracking-wider mb-1">
+                        Monto Deuda Pendiente Actual ($)
+                      </label>
+                      <input
+                        type="number"
+                        value={montoDeudaInactivo}
+                        onChange={(e) => setMontoDeudaInactivo(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-amber-600 rounded-lg text-sm font-black text-amber-300 focus:outline-hidden focus:border-amber-400"
+                        placeholder="Ej: 25000"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-amber-200 uppercase tracking-wider mb-1">
+                        Pago Inicial Requerido para Refinanciar ($)
+                      </label>
+                      <input
+                        type="number"
+                        value={montoPagoInicialRefinanciacion}
+                        onChange={(e) => setMontoPagoInicialRefinanciacion(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-amber-600 rounded-lg text-sm font-black text-emerald-400 focus:outline-hidden focus:border-emerald-400"
+                        placeholder="Ej: 5000"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Sección 7: Legajo Digital */}
