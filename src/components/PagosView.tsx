@@ -250,7 +250,11 @@ export default function PagosView({
     let list = operaciones.filter(op => op.estado === 'ACTIVA');
 
     // 2. Filter by collection stage/mode
-    list = list.filter(op => getInstanciaCobro(op) === mode);
+    if (mode === 'WHATSAPP') {
+      list = list.filter(op => getInstanciaCobro(op) === 'WHATSAPP' || hasCuotaDueToday(op) || op.proximoVencimiento === getTodayStr());
+    } else {
+      list = list.filter(op => getInstanciaCobro(op) === mode);
+    }
 
     // 2.5 Filter out active operations whose next due date is more than 3 days away AND don't have overdue cuotas
     // Also, if they have paid today's installment and have no overdue cuotas, they are "al día" for today and disappear from the agenda list.
@@ -1909,6 +1913,76 @@ export default function PagosView({
                   </div>
                 </div>
 
+                {/* HISTORIAL DE PAGOS DE ESTA OPERACIÓN (CON ACCIONES DE ADMINISTRADOR) */}
+                <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-1.5">
+                    <span className="text-[9px] uppercase tracking-widest text-emerald-300 font-black flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                      Historial de Pagos Registrados ({pagos.filter(p => p.idOperacion === selectedOp.id).length})
+                    </span>
+                    {isUserAdmin && (
+                      <span className="text-[8px] bg-emerald-500 text-slate-950 px-1.5 py-0.5 rounded font-black uppercase">
+                        Acciones Admin
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                    {pagos.filter(p => p.idOperacion === selectedOp.id).length === 0 ? (
+                      <div className="text-[10px] text-emerald-200/60 italic py-2 text-center">
+                        No hay pagos registrados para este crédito aún.
+                      </div>
+                    ) : (
+                      pagos
+                        .filter(p => p.idOperacion === selectedOp.id)
+                        .sort((a, b) => b.fechaPago.localeCompare(a.fechaPago))
+                        .map((pago) => (
+                          <div key={pago.id} className="bg-slate-900/80 p-2 rounded-lg border border-emerald-800/80 text-[10px] space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-mono font-bold text-emerald-300">Pago #{pago.id} • {pago.fechaPago}</span>
+                              <strong className="text-emerald-400 font-black text-xs">${pago.importe.toLocaleString('es-ES')}</strong>
+                            </div>
+                            <div className="flex justify-between items-center text-[9px] text-emerald-200/80">
+                              <span>Medio: <strong className="text-white">{pago.metodoPago}</strong></span>
+                              <span>Cobró: <strong className="text-white">{pago.cobrador || 'Operador'}</strong></span>
+                            </div>
+                            {isUserAdmin && (
+                              <div className="flex items-center gap-1.5 pt-1 border-t border-emerald-900/80 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingPago(pago);
+                                    setEditModalidad((pago.modalidad as any) || 'PAGO_ADELANTADO_OPCION_B');
+                                    setEditMetodoPago(pago.metodoPago);
+                                    setEditFechaPago(pago.fechaPago);
+                                    setEditImporte(pago.importe.toString());
+                                    setEditObservaciones(pago.observaciones || '');
+                                  }}
+                                  className="px-2 py-0.5 bg-blue-900 hover:bg-blue-800 text-blue-200 rounded text-[9px] font-bold border border-blue-700 flex items-center gap-1 cursor-pointer"
+                                >
+                                  <RefreshCw className="w-2.5 h-2.5" />
+                                  <span>Modificar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`¿Anular/Eliminar el pago #${pago.id} de $${pago.importe.toLocaleString('es-ES')}? Se revertirán los saldos de la cuota y la tesorería.`)) {
+                                      if (onDeletePago) onDeletePago(pago.id);
+                                    }
+                                  }}
+                                  className="px-2 py-0.5 bg-rose-900 hover:bg-rose-800 text-rose-200 rounded text-[9px] font-bold border border-rose-700 flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5 text-rose-300" />
+                                  <span>Anular / Eliminar</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+
                 {/* Direct contact quick buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
                   <button
@@ -2188,20 +2262,35 @@ export default function PagosView({
                           </td>
                           <td className="py-3 px-4 text-center">
                             {isUserAdmin ? (
-                              <button
-                                onClick={() => {
-                                  setEditingPago(pago);
-                                  setEditModalidad((pago.modalidad as any) || 'PAGO_ADELANTADO_OPCION_B');
-                                  setEditMetodoPago(pago.metodoPago);
-                                  setEditFechaPago(pago.fechaPago);
-                                  setEditImporte(pago.importe.toString());
-                                  setEditObservaciones(pago.observaciones || '');
-                                }}
-                                className="px-2.5 py-1.5 bg-blue-900/80 hover:bg-blue-800 text-blue-200 rounded-lg text-[11px] font-extrabold border border-blue-700 transition-all cursor-pointer flex items-center gap-1 mx-auto"
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                <span>Corregir / Pasar a Opción B</span>
-                              </button>
+                              <div className="flex items-center gap-1.5 justify-center">
+                                <button
+                                  onClick={() => {
+                                    setEditingPago(pago);
+                                    setEditModalidad((pago.modalidad as any) || 'PAGO_ADELANTADO_OPCION_B');
+                                    setEditMetodoPago(pago.metodoPago);
+                                    setEditFechaPago(pago.fechaPago);
+                                    setEditImporte(pago.importe.toString());
+                                    setEditObservaciones(pago.observaciones || '');
+                                  }}
+                                  className="px-2.5 py-1.5 bg-blue-900/80 hover:bg-blue-800 text-blue-200 rounded-lg text-[11px] font-extrabold border border-blue-700 transition-all cursor-pointer flex items-center gap-1"
+                                  title="Modificar / Reorganizar este pago"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  <span>Modificar</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`¿Está seguro de eliminar / anular el pago #${pago.id} de $${pago.importe.toLocaleString('es-ES')} registrado el ${pago.fechaPago}? Esta acción recalculará las cuotas y saldos de la operación.`)) {
+                                      if (onDeletePago) onDeletePago(pago.id);
+                                    }
+                                  }}
+                                  className="px-2.5 py-1.5 bg-rose-900/80 hover:bg-rose-800 text-rose-200 rounded-lg text-[11px] font-extrabold border border-rose-700 transition-all cursor-pointer flex items-center gap-1"
+                                  title="Eliminar o anular este pago"
+                                >
+                                  <Trash2 className="w-3 h-3 text-rose-300" />
+                                  <span>Eliminar</span>
+                                </button>
+                              </div>
                             ) : (
                               <button
                                 onClick={() => {

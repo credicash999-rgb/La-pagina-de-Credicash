@@ -21,7 +21,7 @@ export interface Cliente {
   montoDeudaInactivo?: number;
   montoPagoInicialRefinanciacion?: number;
   esClienteInactivoRefinanciacion?: boolean;
-  estado: 'ACTIVO' | 'INACTIVO' | 'EN_MORA' | 'SOLICITANTE' | 'PROSPECTO' | 'SUSPENDIDO' | 'CONGELADO';
+  estado: 'ACTIVO' | 'FINALIZADO' | 'EVASIVO' | 'INACTIVO' | 'EN_MORA' | 'SOLICITANTE' | 'PROSPECTO' | 'SUSPENDIDO' | 'CONGELADO';
   fechaRegistro: string;
 
   // Nuevos campos solicitados por el usuario

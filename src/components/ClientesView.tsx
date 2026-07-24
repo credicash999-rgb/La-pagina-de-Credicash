@@ -1371,11 +1371,13 @@ export default function ClientesView({
                     onChange={(e) => setEstado(e.target.value as Cliente['estado'])}
                     className="w-full px-3 py-2 bg-slate-900 border border-emerald-700/80 rounded-lg text-sm font-bold text-white focus:outline-hidden focus:border-emerald-400"
                   >
-                    <option value="SOLICITANTE">SOLICITANTE (En Evaluación)</option>
-                    <option value="ACTIVO">ACTIVO (Sin deudas vencidas)</option>
-                    <option value="EN_MORA">EN MORA</option>
-                    <option value="CONGELADO">CONGELADO (En Standby / Pausado)</option>
-                    <option value="INACTIVO">INACTIVO (Deuda Pendiente / Refinanciar)</option>
+                    <option value="ACTIVO">🟢 ACTIVO (Cliente Vigente)</option>
+                    <option value="FINALIZADO">🏁 FINALIZADO (Crédito Cancelado / Pagado)</option>
+                    <option value="EVASIVO">⚠️ EVASIVO (Evasivo / Riesgo / Requerido)</option>
+                    <option value="INACTIVO">🔴 INACTIVO (Deuda Pendiente / Refinanciar)</option>
+                    <option value="EN_MORA">⚡ EN MORA</option>
+                    <option value="SOLICITANTE">📋 SOLICITANTE (En Evaluación)</option>
+                    <option value="CONGELADO">⏸️ CONGELADO (Pausado)</option>
                   </select>
                 </div>
                 <div>

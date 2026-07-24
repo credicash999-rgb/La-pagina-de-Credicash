@@ -177,13 +177,37 @@ export default function CobradorCampoView({
     );
   });
 
-  // Fallback: if specific matches are empty for a collector, show all clients for testing/demo
-  const myAssignedClients = (isCobrador && rawAssigned.length === 0) ? clientes : rawAssigned;
+  // Check visited today
+  const todayStr = new Date().toISOString().split('T')[0];
 
-  // Get active loans for assigned clients
-  const myAssignedOperations = operaciones.filter(o => 
-    myAssignedClients.some(c => c.id === o.idCliente) && o.estado === 'ACTIVA'
-  );
+  // Helper: check if an operation has unpaid cuotas due today or overdue
+  const hasCuotaDueTodayOrOverdue = (opId: string) => {
+    return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA' && c.fechaVencimiento <= todayStr);
+  };
+
+  // Get active loans for assigned clients that MUST be collected today or are EVASIVO
+  const myAssignedOperations = operaciones.filter(o => {
+    if (o.estado !== 'ACTIVA') return false;
+    const isAssigned = rawAssigned.some(c => c.id === o.idCliente);
+    if (!isAssigned) return false;
+
+    const cli = clientes.find(c => c.id === o.idCliente);
+    if (!cli) return false;
+
+    const isEvasivo = cli.estado === 'EVASIVO';
+    const isDueTodayOrOverdue = hasCuotaDueTodayOrOverdue(o.id) || o.diasMora > 0;
+    const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === o.idCliente && r.fechaReprogramada === todayStr && !r.completada);
+
+    return isEvasivo || isDueTodayOrOverdue || isRescheduledToday;
+  });
+
+  // Filter clients to show only those who have operations to collect today OR are marked EVASIVO
+  const myAssignedClients = rawAssigned.filter(c => {
+    if (c.estado === 'EVASIVO') return true;
+    const clientOps = myAssignedOperations.filter(o => o.idCliente === c.id);
+    const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === c.id && r.fechaReprogramada === todayStr && !r.completada);
+    return clientOps.length > 0 || isRescheduledToday;
+  });
 
   // Group operations by client
   const clientOperationsMap = new Map<string, Operacion[]>();
@@ -195,6 +219,14 @@ export default function CobradorCampoView({
 
   // Determine client status for Field Collector agenda
   const getClienteEstadoField = (cliente: Cliente, ops: Operacion[]) => {
+    if (cliente.estado === 'EVASIVO') {
+      return {
+        key: 'EVASIVO',
+        label: '⚠️ CLIENTE EVASIVO (Visitar e Indagar Domicilio)',
+        badgeClass: 'bg-purple-900/60 text-purple-200 border-purple-500/80 font-black'
+      };
+    }
+
     if (cliente.estado === 'INACTIVO') {
       return {
         key: 'INACTIVO',
@@ -214,13 +246,12 @@ export default function CobradorCampoView({
 
     return {
       key: 'COBRAR_CUOTA',
-      label: 'Cobrar Cuota',
+      label: 'Cobrar Cuota del Día',
       badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
     };
   };
 
   // Check visited today
-  const todayStr = new Date().toISOString().split('T')[0];
   const isVisitedToday = (idCliente: string) => {
     return visitasHistory.some(v => v.idCliente === idCliente && v.fecha === todayStr);
   };
@@ -441,7 +472,7 @@ export default function CobradorCampoView({
       capitalRecuperado: opToUse.capitalRecuperado + monto,
       totalPendiente: Math.max(0, opToUse.totalPendiente - monto),
       cuotasPagadas: pagadasNow,
-      cuotasPendientes: Math.max(0, opToUse.cuotasTotales - pagadasNow),
+      cuotasPendientes: Math.max(0, opToUse.cantidadCuotas - pagadasNow),
       ultimoPago: todayStr
     };
 
