@@ -226,3 +226,101 @@ export interface FichajeAsistencia {
   observaciones?: string;
 }
 
+export interface VisitaDomicilio {
+  id: string;
+  idCliente: string;
+  nombreCliente: string;
+  cobradorId: string;
+  cobradorNombre: string;
+  fecha: string;
+  hora: string;
+  tipoAccion: 'ESTOY_EN_DOMICILIO' | 'PAGO_REGISTRADO' | 'NO_ENCONTRADO' | 'REPROGRAMADO' | 'CONTACTO_RECUPERADO';
+  gpsLat?: number;
+  gpsLng?: number;
+  gpsDireccion?: string;
+  montoCobrado?: number;
+  medioPago?: string;
+  fotoComprobante?: string;
+  observaciones?: string;
+  horaReprogramada?: string;
+}
+
+export interface VisitaReprogramada {
+  id: string;
+  idCliente: string;
+  nombreCliente: string;
+  horaReprogramada: string;
+  fechaReprogramada: string;
+  motivo?: string;
+  completada: boolean;
+}
+
+export interface ComisionCobrador {
+  id: string;
+  pagoId?: string;
+  idCliente: string;
+  nombreCliente: string;
+  cobradorId: string;
+  cobradorNombre: string;
+  montoCobrado: number;
+  montoComision: number;
+  tipoComision: 'COBRANZA' | 'CONTACTO_RECUPERADO' | 'CLIENTE_INACTIVO';
+  estado: 'PENDIENTE' | 'VERIFICADO' | 'LIQUIDADO';
+  fecha: string;
+  fechaLiquidacionEstimada?: string;
+}
+
+export interface ConfiguracionComisiones {
+  porcentajeComisionCobranza: number;
+  fijoComisionCobranza: number;
+  montoContactoRecuperado: number;
+  montoClienteInactivoRecuperado: number;
+  diaCierreSemanal: string;
+  fechaProximaLiquidacionSemanal: string;
+  fechaProximaLiquidacionMensual: string;
+  basicoMensual: number;
+  adicionalMovilidadSemanal: number;
+  otrosConceptosAdd: number;
+  descuentoBeneficiosFinanciacion: number;
+}
+
+export interface LiquidacionSemanal {
+  id: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  rolNombre: string;
+  periodoSemana: string;
+  fechaGeneracion: string;
+  comisionesVerificadas: number;
+  adicionalMovilidad: number;
+  otrosAdicionales: number;
+  totalNetoSemanal: number;
+  estado: 'PENDIENTE' | 'APROBADA' | 'PAGADA';
+  fechaPago?: string;
+  observaciones?: string;
+}
+
+export interface LiquidacionMensual {
+  id: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  rolNombre: string;
+  periodoMes: string;
+  fechaGeneracion: string;
+  sueldoBasico: number;
+  comisionesPendientesLiquidar: number;
+  adicionales: number;
+  descuentos: number;
+  descuentoFinanciacionBeneficios: number;
+  totalNetoMensual: number;
+  estado: 'PENDIENTE' | 'APROBADA' | 'PAGADA';
+  fechaPago?: string;
+  observaciones?: string;
+}
+
+export interface ConfiguracionRecorrido {
+  puntoSalida: string;
+  puntoRegreso: string;
+}
+
+

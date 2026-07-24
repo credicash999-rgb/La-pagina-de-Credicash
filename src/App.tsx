@@ -6,7 +6,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cliente, Operacion, Cuota, Pago, Feriado, 
-  Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal, FichajeAsistencia 
+  Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal, FichajeAsistencia,
+  ConfiguracionComisiones, ConfiguracionRecorrido, ComisionCobrador, VisitaDomicilio, VisitaReprogramada,
+  LiquidacionSemanal, LiquidacionMensual
 } from './types';
 
 import { calcularDiasAtrasoSinDomingos } from './utils/cuotasGenerator';
@@ -32,6 +34,8 @@ import ConfiguracionView from './components/ConfiguracionView';
 import UsuariosView from './components/UsuariosView';
 import LoginView from './components/LoginView';
 import CrediCashLogo from './components/CrediCashLogo';
+import CobradorCampoView from './components/CobradorCampoView';
+import LiquidacionesView from './components/LiquidacionesView';
 
 // Icons
 import { 
@@ -53,7 +57,49 @@ const STORAGE_KEYS = {
   ACTIVE_USER_ID: 'credicash_active_user_id',
   LIQUIDACIONES: 'credicash_liquidaciones',
   FICHAJES: 'credicash_fichajes',
+  CONFIG_COMISIONES: 'credicash_config_comisiones',
+  CONFIG_RECORRIDO: 'credicash_config_recorrido',
+  COMISIONES: 'credicash_comisiones',
+  VISITAS_HISTORY: 'credicash_visitas_history',
+  VISITAS_REPROGRAMADAS: 'credicash_visitas_reprogramadas',
+  LIQUIDACIONES_SEMANALES: 'credicash_liquidaciones_semanales',
+  LIQUIDACIONES_MENSUALES: 'credicash_liquidaciones_mensuales'
 };
+
+const SEED_CONFIG_COMISIONES: ConfiguracionComisiones = {
+  porcentajeComisionCobranza: 5,
+  fijoComisionCobranza: 500,
+  montoContactoRecuperado: 2500,
+  montoClienteInactivoRecuperado: 5000,
+  diaCierreSemanal: 'VIERNES',
+  fechaProximaLiquidacionSemanal: 'Viernes 28/07',
+  fechaProximaLiquidacionMensual: 'Viernes 31/07',
+  basicoMensual: 450000,
+  adicionalMovilidadSemanal: 25000,
+  otrosConceptosAdd: 0,
+  descuentoBeneficiosFinanciacion: 0
+};
+
+const SEED_CONFIG_RECORRIDO: ConfiguracionRecorrido = {
+  puntoSalida: 'Oficina Central CrediCash, Av. Corrientes 1482',
+  puntoRegreso: 'Base Cobranza Sur, Av. Hipólito Yrigoyen 4500'
+};
+
+const SEED_COMISIONES: ComisionCobrador[] = [
+  {
+    id: 'COM-001',
+    cobradorId: 'USR-2',
+    cobradorNombre: 'Rodrigo Gómez',
+    idCliente: 'CLI-001',
+    nombreCliente: 'Carlos Mendoza',
+    montoCobrado: 7500,
+    montoComision: 875,
+    tipoComision: 'COBRANZA',
+    fecha: '2026-07-01',
+    estado: 'VERIFICADO',
+    pagoId: 'PAG-001'
+  }
+];
 
 // Seed Data
 const SEED_CLIENTES: Cliente[] = [
@@ -502,6 +548,15 @@ export default function App() {
   const [usuarios, setUsuarios] = useState<UsuarioRol[]>([]);
   const [roles, setRoles] = useState<PermisosRol[]>([]);
   const [fichajes, setFichajes] = useState<FichajeAsistencia[]>([]);
+
+  // Cobrador de Campo & Liquidaciones State
+  const [configComisiones, setConfigComisiones] = useState<ConfiguracionComisiones>(SEED_CONFIG_COMISIONES);
+  const [configRecorrido, setConfigRecorrido] = useState<ConfiguracionRecorrido>(SEED_CONFIG_RECORRIDO);
+  const [comisiones, setComisiones] = useState<ComisionCobrador[]>([]);
+  const [visitasHistory, setVisitasHistory] = useState<VisitaDomicilio[]>([]);
+  const [visitasReprogramadas, setVisitasReprogramadas] = useState<VisitaReprogramada[]>([]);
+  const [liquidacionesSemanales, setLiquidacionesSemanales] = useState<LiquidacionSemanal[]>([]);
+  const [liquidacionesMensuales, setLiquidacionesMensuales] = useState<LiquidacionMensual[]>([]);
   const [activeUser, setActiveUser] = useState<UsuarioRol>({
     id: 'USR-1',
     nombre: 'Administrador Principal',
@@ -619,6 +674,14 @@ export default function App() {
         estado: 'FINALIZADA'
       }
     ]);
+
+    const loadedConfigComisiones = getOrSeed(STORAGE_KEYS.CONFIG_COMISIONES, SEED_CONFIG_COMISIONES);
+    const loadedConfigRecorrido = getOrSeed(STORAGE_KEYS.CONFIG_RECORRIDO, SEED_CONFIG_RECORRIDO);
+    const loadedComisiones = getOrSeed(STORAGE_KEYS.COMISIONES, SEED_COMISIONES);
+    const loadedVisitasHistory = getOrSeed<VisitaDomicilio[]>(STORAGE_KEYS.VISITAS_HISTORY, []);
+    const loadedVisitasReprogramadas = getOrSeed<VisitaReprogramada[]>(STORAGE_KEYS.VISITAS_REPROGRAMADAS, []);
+    const loadedLiquidacionesSemanales = getOrSeed<LiquidacionSemanal[]>(STORAGE_KEYS.LIQUIDACIONES_SEMANALES, []);
+    const loadedLiquidacionesMensuales = getOrSeed<LiquidacionMensual[]>(STORAGE_KEYS.LIQUIDACIONES_MENSUALES, []);
     
     // Force latest hardcoded role configurations for system defaults, allowing custom roles to merge
     const loadedRoles = loadedRolesRaw.map(r => {
@@ -783,6 +846,13 @@ export default function App() {
     setUsuarios(loadedUsuarios);
     setRoles(loadedRoles);
     setFichajes(loadedFichajes);
+    setConfigComisiones(loadedConfigComisiones);
+    setConfigRecorrido(loadedConfigRecorrido);
+    setComisiones(loadedComisiones);
+    setVisitasHistory(loadedVisitasHistory);
+    setVisitasReprogramadas(loadedVisitasReprogramadas);
+    setLiquidacionesSemanales(loadedLiquidacionesSemanales);
+    setLiquidacionesMensuales(loadedLiquidacionesMensuales);
 
     // Active user setup
     const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
@@ -918,6 +988,25 @@ export default function App() {
     const trxList = [...transacciones, tesoreriaTrx];
     setTransacciones(trxList);
     saveToLocalStorage(STORAGE_KEYS.TRANSACCIONES, trxList);
+
+    // 4b. Generate commission entry for collector
+    const comVal = Math.round((nuevoPago.importe * (configComisiones?.porcentajeComisionCobranza || 5)) / 100);
+    const nuevaComision: ComisionCobrador = {
+      id: `COM-${Date.now()}`,
+      cobradorId: activeUser?.id || 'COB-01',
+      cobradorNombre: activeUser?.nombre || 'Cobrador',
+      idCliente: nuevoPago.idCliente,
+      nombreCliente: nuevoPago.nombreCliente,
+      montoCobrado: nuevoPago.importe,
+      montoComision: Math.max(comVal, configComisiones?.fijoComisionCobranza || 0),
+      tipoComision: 'COBRANZA',
+      fecha: nuevoPago.fechaPago,
+      estado: 'PENDIENTE',
+      pagoId: nuevoPago.id
+    };
+    const updatedComsList = [nuevaComision, ...comisiones];
+    setComisiones(updatedComsList);
+    saveToLocalStorage(STORAGE_KEYS.COMISIONES, updatedComsList);
 
     // 5. Update client state if operation is finalized or active
     // If no operations are in mora, make client active.
@@ -1312,6 +1401,96 @@ export default function App() {
       };
       handleAddFichaje(nuevo);
       alert(`Jornada iniciada para ${activeUser.nombre} a las ${nowTimeStr}.`);
+    }
+  };
+
+  const handleRegistrarVisita = (visita: VisitaDomicilio) => {
+    const updated = [visita, ...visitasHistory];
+    setVisitasHistory(updated);
+    saveToLocalStorage(STORAGE_KEYS.VISITAS_HISTORY, updated);
+  };
+
+  const handleReprogramarVisita = (reprogramacion: VisitaReprogramada) => {
+    const updated = [reprogramacion, ...visitasReprogramadas];
+    setVisitasReprogramadas(updated);
+    saveToLocalStorage(STORAGE_KEYS.VISITAS_REPROGRAMADAS, updated);
+  };
+
+  const handleRegistrarContactoRecuperado = (idCliente: string, cobradorId: string) => {
+    const clienteObj = clientes.find(c => c.id === idCliente);
+    const nuevaCom: ComisionCobrador = {
+      id: `COM-${Date.now()}`,
+      cobradorId: cobradorId,
+      cobradorNombre: activeUser?.nombre || 'Cobrador',
+      idCliente: idCliente,
+      nombreCliente: clienteObj ? `${clienteObj.nombre} ${clienteObj.apellido}` : 'Cliente',
+      montoCobrado: 0,
+      montoComision: configComisiones.montoContactoRecuperado || 2500,
+      tipoComision: 'CONTACTO_RECUPERADO',
+      fecha: new Date().toISOString().split('T')[0],
+      estado: 'PENDIENTE'
+    };
+    const updated = [nuevaCom, ...comisiones];
+    setComisiones(updated);
+    saveToLocalStorage(STORAGE_KEYS.COMISIONES, updated);
+  };
+
+  const handleUpdateConfigComisiones = (newConfig: ConfiguracionComisiones) => {
+    setConfigComisiones(newConfig);
+    saveToLocalStorage(STORAGE_KEYS.CONFIG_COMISIONES, newConfig);
+  };
+
+  const handleAddLiquidacionSemanal = (liq: LiquidacionSemanal) => {
+    const updated = [liq, ...liquidacionesSemanales];
+    setLiquidacionesSemanales(updated);
+    saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES_SEMANALES, updated);
+  };
+
+  const handleAddLiquidacionMensual = (liq: LiquidacionMensual) => {
+    const updated = [liq, ...liquidacionesMensuales];
+    setLiquidacionesMensuales(updated);
+    saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES_MENSUALES, updated);
+  };
+
+  const handleUpdateEstadoSemanal = (id: string, nuevoEstado: 'PENDIENTE' | 'APROBADA' | 'PAGADA') => {
+    const updated = liquidacionesSemanales.map(l => l.id === id ? { ...l, estado: nuevoEstado } : l);
+    setLiquidacionesSemanales(updated);
+    saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES_SEMANALES, updated);
+
+    if (nuevoEstado === 'PAGADA') {
+      const liq = liquidacionesSemanales.find(l => l.id === id);
+      if (liq) {
+        const trx: TransaccionTesoreria = {
+          id: `TRX-${Date.now().toString().slice(-6)}`,
+          fecha: new Date().toISOString().split('T')[0],
+          tipo: 'EGRESO',
+          concepto: `Pago Liquidación Semanal Comisiones - ${liq.usuarioNombre} (${liq.periodoSemana})`,
+          monto: liq.totalNetoSemanal,
+          referenciaId: liq.id
+        };
+        handleAddTransaccion(trx);
+      }
+    }
+  };
+
+  const handleUpdateEstadoMensual = (id: string, nuevoEstado: 'PENDIENTE' | 'APROBADA' | 'PAGADA') => {
+    const updated = liquidacionesMensuales.map(l => l.id === id ? { ...l, estado: nuevoEstado } : l);
+    setLiquidacionesMensuales(updated);
+    saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES_MENSUALES, updated);
+
+    if (nuevoEstado === 'PAGADA') {
+      const liq = liquidacionesMensuales.find(l => l.id === id);
+      if (liq) {
+        const trx: TransaccionTesoreria = {
+          id: `TRX-${Date.now().toString().slice(-6)}`,
+          fecha: new Date().toISOString().split('T')[0],
+          tipo: 'EGRESO',
+          concepto: `Pago Liquidación Mensual Sueldo - ${liq.usuarioNombre} (${liq.periodoMes})`,
+          monto: liq.totalNetoMensual,
+          referenciaId: liq.id
+        };
+        handleAddTransaccion(trx);
+      }
     }
   };
 
@@ -1718,6 +1897,18 @@ export default function App() {
                 )}
 
                 <button
+                  onClick={() => setActiveTab('liquidaciones')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                    activeTab === 'liquidaciones'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <DollarSign className="w-4 h-4 shrink-0 text-emerald-400" />
+                  Liquidaciones & Comisiones
+                </button>
+
+                <button
                   onClick={() => setActiveTab('usuarios')}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                     activeTab === 'usuarios'
@@ -1901,6 +2092,18 @@ export default function App() {
                     Configuración & Feriados
                   </button>
                 )}
+
+                <button
+                  onClick={() => setActiveTab('liquidaciones')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                    activeTab === 'liquidaciones'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-400 shadow-sm ring-2 ring-emerald-400/30'
+                      : 'text-emerald-100/90 hover:bg-emerald-900/80 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <DollarSign className="w-4 h-4 shrink-0 text-emerald-300" />
+                  Liquidaciones & Comisiones
+                </button>
               </>
             )}
           </div>
@@ -1997,18 +2200,38 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'pagos-calle' && activeUserRole.verPagos && (
-            <PagosView
+          {(activeTab === 'pagos-calle' || activeTab === 'cobrador-campo') && (
+            <CobradorCampoView
               operaciones={filteredOperaciones}
               cuotas={filteredCuotas}
               pagos={filteredPagos}
               clientes={clientes}
               activeUser={activeUser}
-              configuracion={configuracion}
+              configComisiones={configComisiones}
+              configRecorrido={configRecorrido}
+              comisiones={comisiones}
+              visitasHistory={visitasHistory}
+              visitasReprogramadas={visitasReprogramadas}
               onAddPago={handleAddPago}
-              onReorganizePago={handleReorganizePagoAllocation}
-              canAddPago={activeUserRole.registrarPagos}
-              mode="CALLE"
+              onRegistrarVisita={handleRegistrarVisita}
+              onReprogramarVisita={handleReprogramarVisita}
+              onRegistrarContactoRecuperado={handleRegistrarContactoRecuperado}
+            />
+          )}
+
+          {activeTab === 'liquidaciones' && (
+            <LiquidacionesView
+              usuarios={usuarios}
+              activeUser={activeUser}
+              configComisiones={configComisiones}
+              comisiones={comisiones}
+              liquidacionesSemanales={liquidacionesSemanales}
+              liquidacionesMensuales={liquidacionesMensuales}
+              onUpdateConfigComisiones={handleUpdateConfigComisiones}
+              onAddLiquidacionSemanal={handleAddLiquidacionSemanal}
+              onAddLiquidacionMensual={handleAddLiquidacionMensual}
+              onUpdateEstadoSemanal={handleUpdateEstadoSemanal}
+              onUpdateEstadoMensual={handleUpdateEstadoMensual}
             />
           )}
 
