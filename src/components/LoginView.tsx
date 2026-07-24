@@ -229,11 +229,21 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
               <p className="text-xs text-slate-400 font-semibold mt-1">Bienvenido a CrediCash</p>
             </div>
 
-            {/* Operating Schedule Notice Badge */}
-            <div className="px-3 py-1.5 bg-slate-800 text-emerald-400 border border-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-inner">
-              <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Horario Operadores: <b>08:00 AM - 01:00 PM</b></span>
-            </div>
+            {/* Operating Schedule Notice Badge (ONLY shown if user email corresponds to an Operator) */}
+            {(() => {
+              const cleanE = email.toLowerCase().trim();
+              const matchedUser = usuarios.find(u => u.email.toLowerCase() === cleanE || u.id.toLowerCase() === cleanE);
+              const isOperatorTyped = cleanE.includes('operador') || cleanE === 'carlos' || cleanE === 'operador1' || matchedUser?.rolId === 'OPERADOR';
+
+              if (!isOperatorTyped) return null;
+
+              return (
+                <div className="px-3 py-1.5 bg-slate-800 text-emerald-400 border border-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-inner">
+                  <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Horario Operadores: <b>08:00 AM - 01:00 PM</b></span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Error Message banner */}

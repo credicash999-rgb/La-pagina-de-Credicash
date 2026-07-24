@@ -586,6 +586,12 @@ export default function App() {
     setRealUserRolId(user.rolId);
     setIsLoggedIn(true);
 
+    if (user.rolId === 'COBRADOR') {
+      setActiveTab('pagos-calle');
+    } else if (user.rolId === 'OPERADOR') {
+      setActiveTab('pagos-whatsapp');
+    }
+
     // Dynamic registration of login user to prevent stale local storage login lockout
     setUsuarios(prev => {
       const exists = prev.some(u => u.email.toLowerCase() === user.email.toLowerCase());
@@ -1615,6 +1621,9 @@ export default function App() {
     if (!r) return;
 
     const isCurrentTabAllowed = 
+      (activeUser.rolId === 'COBRADOR' && (activeTab === 'pagos-calle' || activeTab === 'liquidaciones')) ||
+      (activeUser.rolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'clientes' || activeTab === 'operaciones')) ||
+      (activeUser.rolId === 'ADMIN') ||
       (activeTab === 'dashboard' && r.verDashboard) ||
       (activeTab === 'clientes' && r.verClientes) ||
       (activeTab === 'nuevo-cliente' && r.crearClientes) ||
@@ -1623,12 +1632,14 @@ export default function App() {
       (activeTab === 'pagos-whatsapp' && r.verPagos) ||
       (activeTab === 'pagos-telefono' && r.verPagos && activeUser.rolId !== 'OPERADOR') ||
       (activeTab === 'pagos-calle' && r.verPagos && activeUser.rolId !== 'OPERADOR') ||
+      (activeTab === 'liquidaciones') ||
       (activeTab === 'tesoreria' && r.verTesoreria) ||
       (activeTab === 'configuracion' && r.verConfiguracion) ||
       (activeTab === 'usuarios' && activeUser.rolId === 'ADMIN');
 
     if (!isCurrentTabAllowed) {
-      if (activeUser.rolId === 'OPERADOR') setActiveTab('pagos-whatsapp');
+      if (activeUser.rolId === 'COBRADOR') setActiveTab('pagos-calle');
+      else if (activeUser.rolId === 'OPERADOR') setActiveTab('pagos-whatsapp');
       else if (r.verDashboard) setActiveTab('dashboard');
       else if (r.verClientes) setActiveTab('clientes');
       else if (r.verPagos) setActiveTab('pagos-whatsapp');
@@ -1701,7 +1712,7 @@ export default function App() {
       case 'pagos': return 'Consola del Operador de Pagos';
       case 'pagos-whatsapp': return 'Gestión Diaria';
       case 'pagos-telefono': return 'Gestión Cobranza Telefónica';
-      case 'pagos-calle': return 'Gestión Cobranza de Campo';
+      case 'pagos-calle': return 'Visualización de Recorrido';
       case 'tesoreria': return 'Caja y Tesorería';
       case 'configuracion': return 'Configuración';
       case 'usuarios': return 'Seguridad y Accesos';
@@ -1981,7 +1992,34 @@ export default function App() {
                   Seguridad y Accesos
                 </button>
               </>
-             ) : activeUser?.rolId === 'OPERADOR' ? (
+             ) : activeUser?.rolId === 'COBRADOR' ? (
+              // FIELD COLLECTOR (COBRADOR EN CALLE): Strictly 2 tabs allowed: Visualización de Recorrido & Liquidaciones y Comisiones
+              <>
+                <button
+                  onClick={() => setActiveTab('pagos-calle')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                    activeTab === 'pagos-calle'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <MapPin className="w-4 h-4 shrink-0 text-teal-400" />
+                  Visualización de Recorrido
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('liquidaciones')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                    activeTab === 'liquidaciones'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <DollarSign className="w-4 h-4 shrink-0 text-emerald-400" />
+                  Liquidaciones & Comisiones
+                </button>
+              </>
+            ) : activeUser?.rolId === 'OPERADOR' ? (
               // OPERATOR WHATSAPP strictly allowed tabs: pagos-whatsapp, clientes (Búsqueda de Cliente), operaciones (Otorgar Créditos)
               <>
                 <button

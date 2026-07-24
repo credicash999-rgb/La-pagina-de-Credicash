@@ -514,7 +514,7 @@ export default function CobradorCampoView({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           
           {/* Financial Metrics in Dollars ($) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
             
             {/* Real-time Earnings Today in Money ($) */}
             <div className="bg-slate-950/90 p-3 rounded-2xl border-2 border-emerald-500/50 flex flex-col justify-between">
@@ -526,18 +526,6 @@ export default function CobradorCampoView({
                 ${comisionesGanadasHoy.toLocaleString('es-AR')}
               </span>
               <span className="text-[9px] text-emerald-400/90 font-bold mt-0.5">Cobros + Llamadas + WhatsApp</span>
-            </div>
-
-            {/* Total Recaudado Hoy ($) */}
-            <div className="bg-slate-950/90 p-3 rounded-2xl border border-teal-500/40 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-teal-400 mb-0.5">
-                <span className="text-[10px] font-black uppercase tracking-wider">Recaudado Hoy ($)</span>
-                <TrendingUp className="w-4 h-4 text-teal-400" />
-              </div>
-              <span className="text-xl md:text-2xl font-black text-teal-200">
-                ${totalCobradoHoy.toLocaleString('es-AR')}
-              </span>
-              <span className="text-[9px] text-slate-400 mt-0.5">Efectivo + Transferencias</span>
             </div>
 
             {/* Acumulado Total en Comisiones ($) */}
@@ -574,7 +562,9 @@ export default function CobradorCampoView({
                 <TrendingUp className="w-4 h-4 text-emerald-400" />
                 Meta Diaria de Cobro
               </span>
-              <span className="text-xs font-black text-emerald-400">{efectividadPorcentaje}%</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-emerald-400">{efectividadPorcentaje}%</span>
+              </div>
             </div>
 
             <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700 p-0.5">
@@ -584,10 +574,10 @@ export default function CobradorCampoView({
               ></div>
             </div>
 
-            <div className="flex justify-between text-[10px] text-slate-400 font-bold pt-0.5">
-              <span>Asignados: <b className="text-white">{myAssignedClients.length}</b></span>
+            <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold pt-0.5">
+              <span>Cartera Día: <b className="text-white">{myAssignedClients.length}</b></span>
               <span>Gestionados: <b className="text-emerald-300">{clientesGestionados.length}</b></span>
-              <span>Pendientes: <b className="text-amber-300">{clientesPendientes.length + clientesVisitasPendientesReprogramadas.length}</b></span>
+              <span className="text-emerald-400 font-black">Comisión del Día Alcanzada: ${comisionesGanadasHoy.toLocaleString('es-AR')}</span>
             </div>
           </div>
 
@@ -631,7 +621,7 @@ export default function CobradorCampoView({
           }`}
         >
           <Compass className="w-4 h-4 shrink-0 text-teal-300" />
-          <span className="truncate">3. Recorrido del Día</span>
+          <span className="truncate">3. Visualización de Recorrido</span>
         </button>
 
         <button
@@ -652,6 +642,27 @@ export default function CobradorCampoView({
       {/* ========================================================================= */}
       {activeTab === 'gestion_diaria' && (
         <div className="space-y-6">
+
+          {/* Daily Commissions Earned Counter Banner */}
+          <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-2 border-emerald-500/80 rounded-2xl p-4 shadow-xl flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black shrink-0">
+                <DollarSign className="w-6 h-6 stroke-[3]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider block">
+                  Comisiones del Día Alcanzadas
+                </span>
+                <span className="text-xl md:text-2xl font-black text-emerald-300">
+                  ${comisionesGanadasHoy.toLocaleString('es-AR')} ARS
+                </span>
+              </div>
+            </div>
+            <div className="text-right hidden sm:block">
+              <span className="text-[10px] font-bold text-slate-400 block">Cartera de Clientes del Día</span>
+              <span className="text-xs font-black text-emerald-400">{myAssignedClients.length} Clientes Asignados</span>
+            </div>
+          </div>
           
           {/* VISITAS REPROGRAMADAS / PENDIENTES DE HOY */}
           {clientesVisitasPendientesReprogramadas.length > 0 && (

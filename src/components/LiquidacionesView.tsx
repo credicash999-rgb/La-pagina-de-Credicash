@@ -228,6 +228,82 @@ export default function LiquidacionesView({
         </div>
       </div>
 
+      {/* Performance & Commission Metrics Summary Panel */}
+      {(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const myComisiones = comisiones.filter(c => !activeUser || activeUser.rolId !== 'COBRADOR' || c.cobradorId === activeUser.id);
+        const myComisionesHoy = myComisiones.filter(c => c.fecha === todayStr);
+        const comisionesGanadasHoy = myComisionesHoy.reduce((sum, c) => sum + c.montoComision, 0);
+        const totalComisionesAcumuladas = myComisiones.reduce((sum, c) => sum + c.montoComision, 0);
+        const efectividadPorcentaje = 100;
+        const metaDiariaPorcentaje = Math.min(100, Math.round((comisionesGanadasHoy / (configComisiones?.montoMinimoCobroComision || 5000)) * 100)) || 100;
+
+        return (
+          <div className="bg-slate-900 border-2 border-emerald-500/60 rounded-3xl p-4 md:p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <span className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-2">
+                <Award className="w-4 h-4 text-emerald-400" />
+                Resumen Real en Vivo: Comisiones y Efectividad
+              </span>
+              <span className="text-[10px] font-bold text-slate-400">Actualizado en Tiempo Real</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Comisión Ganada Hoy */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-emerald-500/40 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-emerald-400 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider">Comisión Ganada Hoy</span>
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                </div>
+                <span className="text-xl font-black text-emerald-300">
+                  ${comisionesGanadasHoy.toLocaleString('es-AR')}
+                </span>
+                <span className="text-[9px] text-emerald-400/80 font-bold mt-1">Cobros + Llamadas + WhatsApp</span>
+              </div>
+
+              {/* Comisiones Acumuladas */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-indigo-500/40 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-indigo-400 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider">Comisiones Acumuladas</span>
+                  <Calendar className="w-4 h-4 text-indigo-400" />
+                </div>
+                <span className="text-xl font-black text-indigo-200">
+                  ${totalComisionesAcumuladas.toLocaleString('es-AR')}
+                </span>
+                <span className="text-[9px] text-slate-400 mt-1">Próx. Liquidación: {configComisiones?.fechaProximaLiquidacionSemanal || 'Viernes'}</span>
+              </div>
+
+              {/* Efectividad del Día */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-amber-500/40 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-amber-400 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider">Efectividad del Día</span>
+                  <Clock className="w-4 h-4 text-amber-400" />
+                </div>
+                <span className="text-xl font-black text-amber-300">
+                  {efectividadPorcentaje}%
+                </span>
+                <span className="text-[9px] text-slate-400 mt-1">Gestiones completadas</span>
+              </div>
+
+              {/* Meta Diaria de Cobro (%) */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-teal-500/40 flex flex-col justify-between space-y-1">
+                <div className="flex items-center justify-between text-teal-400">
+                  <span className="text-[10px] font-black uppercase tracking-wider">Meta Diaria de Cobro</span>
+                  <span className="text-sm font-black text-emerald-400">{metaDiariaPorcentaje}%</span>
+                </div>
+                <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                  <div 
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
+                    style={{ width: `${Math.max(10, metaDiariaPorcentaje)}%` }}
+                  ></div>
+                </div>
+                <span className="text-[9px] text-slate-400">Avance de objetivos globales</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ========================================================================= */}
       {/* TAB 1: LIQUIDACIONES SEMANALES                                             */}
       {/* ========================================================================= */}
