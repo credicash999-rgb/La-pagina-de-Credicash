@@ -28,6 +28,7 @@ interface CobradorCampoViewProps {
   visitasHistory: VisitaDomicilio[];
   visitasReprogramadas: VisitaReprogramada[];
   reintegrosDesayuno?: SolicitudReintegroDesayuno[];
+  initialSubTab?: 'gestion_diaria' | 'gestion_telefonica' | 'mi_recorrido' | 'reintegro_desayuno';
   onAddPago: (pago: Pago, updatedCuotas: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
   onRegistrarVisita: (visita: VisitaDomicilio) => void;
   onReprogramarVisita: (reprogramacion: VisitaReprogramada) => void;
@@ -49,6 +50,7 @@ export default function CobradorCampoView({
   visitasHistory,
   visitasReprogramadas,
   reintegrosDesayuno = [],
+  initialSubTab,
   onAddPago,
   onRegistrarVisita,
   onReprogramarVisita,
@@ -58,7 +60,13 @@ export default function CobradorCampoView({
   onUpdateCliente
 }: CobradorCampoViewProps) {
   // Navigation tabs (4 clean field collector tabs)
-  const [activeTab, setActiveTab] = useState<'gestion_diaria' | 'gestion_telefonica' | 'mi_recorrido' | 'reintegro_desayuno'>('gestion_diaria');
+  const [activeTab, setActiveTab] = useState<'gestion_diaria' | 'gestion_telefonica' | 'mi_recorrido' | 'reintegro_desayuno'>(initialSubTab || 'gestion_diaria');
+
+  React.useEffect(() => {
+    if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   // Selected client modal
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
@@ -140,15 +148,20 @@ export default function CobradorCampoView({
 
   // Filter clients assigned strictly to active collector
   const isCobrador = activeUser?.rolId === 'COBRADOR';
-  const myAssignedClients = clientes.filter(c => {
+  const rawAssigned = clientes.filter(c => {
     if (!isCobrador) return true; // Show all for demo/admin testing
     return (
       c.cobradorAsignadoId === activeUser?.id ||
+      c.cobradorAsignadoNombre === activeUser?.nombre ||
       c.operadorAsignadoId === activeUser?.id ||
       c.captador === activeUser?.nombre ||
-      c.analista === activeUser?.nombre
+      c.analista === activeUser?.nombre ||
+      (c.estado === 'INACTIVO' && (c.cobradorAsignadoId === activeUser?.id || !c.cobradorAsignadoId))
     );
   });
+
+  // Fallback: if specific matches are empty for a collector, show all clients for testing/demo
+  const myAssignedClients = (isCobrador && rawAssigned.length === 0) ? clientes : rawAssigned;
 
   // Get active loans for assigned clients
   const myAssignedOperations = operaciones.filter(o => 

@@ -41,7 +41,7 @@ import LiquidacionesView from './components/LiquidacionesView';
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
-  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock
+  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -563,6 +563,7 @@ export default function App() {
   const [liquidacionesSemanales, setLiquidacionesSemanales] = useState<LiquidacionSemanal[]>([]);
   const [liquidacionesMensuales, setLiquidacionesMensuales] = useState<LiquidacionMensual[]>([]);
   const [reintegrosDesayuno, setReintegrosDesayuno] = useState<SolicitudReintegroDesayuno[]>([]);
+  const [cobradorSubTab, setCobradorSubTab] = useState<'gestion_diaria' | 'mi_recorrido' | 'reintegro_desayuno'>('gestion_diaria');
   const [activeUser, setActiveUser] = useState<UsuarioRol>({
     id: 'USR-1',
     nombre: 'Administrador Principal',
@@ -1993,18 +1994,36 @@ export default function App() {
                 </button>
               </>
              ) : activeUser?.rolId === 'COBRADOR' ? (
-              // FIELD COLLECTOR (COBRADOR EN CALLE): Strictly 2 tabs allowed: Visualización de Recorrido & Liquidaciones y Comisiones
+              // FIELD COLLECTOR (COBRADOR EN CALLE): 3 tabs: Gestión Diaria del Día, Visualización de Recorrido & Liquidaciones y Comisiones
               <>
                 <button
-                  onClick={() => setActiveTab('pagos-calle')}
+                  onClick={() => {
+                    setActiveTab('pagos-calle');
+                    setCobradorSubTab('gestion_diaria');
+                  }}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                    activeTab === 'pagos-calle'
+                    activeTab === 'pagos-calle' && cobradorSubTab === 'gestion_diaria'
+                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <ListOrdered className="w-4 h-4 shrink-0 text-emerald-400" />
+                  1. Gestión Diaria
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab('pagos-calle');
+                    setCobradorSubTab('mi_recorrido');
+                  }}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                    activeTab === 'pagos-calle' && cobradorSubTab === 'mi_recorrido'
                       ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                   }`}
                 >
                   <MapPin className="w-4 h-4 shrink-0 text-teal-400" />
-                  Visualización de Recorrido
+                  2. Visualización de Recorrido
                 </button>
 
                 <button
@@ -2016,7 +2035,7 @@ export default function App() {
                   }`}
                 >
                   <DollarSign className="w-4 h-4 shrink-0 text-emerald-400" />
-                  Liquidaciones & Comisiones
+                  3. Liquidaciones & Comisiones
                 </button>
               </>
             ) : activeUser?.rolId === 'OPERADOR' ? (
@@ -2311,6 +2330,7 @@ export default function App() {
               comisiones={comisiones}
               visitasHistory={visitasHistory}
               visitasReprogramadas={visitasReprogramadas}
+              initialSubTab={cobradorSubTab}
               onAddPago={handleAddPago}
               onRegistrarVisita={handleRegistrarVisita}
               onReprogramarVisita={handleReprogramarVisita}
