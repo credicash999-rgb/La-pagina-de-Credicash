@@ -207,3 +207,54 @@ export function generarPlanCuotas(
 
   return cuotas;
 }
+
+/**
+ * Ordena las cuotas impagas para imputar un pago según la prioridad de negocio:
+ * 1. Cuota de HOY (fechaVencimiento === fechaReferencia)
+ * 2. Cuotas VENCIDAS (fechaVencimiento < fechaReferencia), en orden DESCENDENTE de fecha (ayer antes que antes de ayer)
+ * 3. Cuotas FUTURAS (fechaVencimiento > fechaReferencia), en orden ASCENDENTE de fecha
+ */
+export function sortCuotasByPaymentPriority(cuotas: Cuota[], referenceDateStr: string, modalidad?: string): Cuota[] {
+  const currentList = [...cuotas];
+
+  if (modalidad === 'PAGO_ADELANTADO_OPCION_A') {
+    // Opción A: Descontar desde el final hacia atrás (últimas cuotas del plan)
+    return currentList
+      .filter(c => c.estado !== 'PAGADA')
+      .sort((a, b) => b.numeroCuota - a.numeroCuota);
+  }
+
+  // Regular / Opción B / Parcial:
+  return currentList.sort((a, b) => {
+    // 1. Unpaid first
+    const aPaid = a.estado === 'PAGADA' ? 1 : 0;
+    const bPaid = b.estado === 'PAGADA' ? 1 : 0;
+    if (aPaid !== bPaid) return aPaid - bPaid;
+
+    if (a.estado === 'PAGADA') return 0;
+
+    // 2. Today's cuota (fechaVencimiento === referenceDateStr) gets TOP priority
+    const aIsToday = a.fechaVencimiento === referenceDateStr ? 1 : 0;
+    const bIsToday = b.fechaVencimiento === referenceDateStr ? 1 : 0;
+    if (aIsToday !== bIsToday) return bIsToday - aIsToday;
+
+    // 3. Overdue cuotas (fechaVencimiento < referenceDateStr) get second priority,
+    // sorted DESCENDING by date (yesterday before 2 days ago)
+    const aIsOverdue = a.fechaVencimiento < referenceDateStr ? 1 : 0;
+    const bIsOverdue = b.fechaVencimiento < referenceDateStr ? 1 : 0;
+    if (aIsOverdue !== bIsOverdue) return bIsOverdue - aIsOverdue;
+
+    if (aIsOverdue && bIsOverdue) {
+      return b.fechaVencimiento.localeCompare(a.fechaVencimiento);
+    }
+
+    // 4. Future cuotas (fechaVencimiento > referenceDateStr): sorted ASCENDING (closest future first)
+    if (a.fechaVencimiento !== b.fechaVencimiento) {
+      return a.fechaVencimiento.localeCompare(b.fechaVencimiento);
+    }
+
+    // 5. Fallback tie-breaker by cuota number
+    return a.numeroCuota - b.numeroCuota;
+  });
+}
+

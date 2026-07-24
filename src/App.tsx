@@ -11,7 +11,7 @@ import {
   LiquidacionSemanal, LiquidacionMensual, SolicitudReintegroDesayuno
 } from './types';
 
-import { calcularDiasAtrasoSinDomingos } from './utils/cuotasGenerator';
+import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority } from './utils/cuotasGenerator';
 
 import { 
   getSavedFirebaseConfig, 
@@ -1107,15 +1107,7 @@ export default function App() {
       lastPaymentDate = p.fechaPago;
 
       const currentCuotasList = Array.from(resetCuotasMap.values());
-      let processOrder: Cuota[] = [];
-
-      if (p.modalidad === 'PAGO_ADELANTADO_OPCION_A') {
-        // Option A: Unpaid cuotas descending (from the end backwards)
-        processOrder = currentCuotasList.filter(c => c.estado !== 'PAGADA').sort((a, b) => b.numeroCuota - a.numeroCuota);
-      } else {
-        // Option B / Regular / Partial: Unpaid cuotas ascending (earliest due first)
-        processOrder = currentCuotasList.filter(c => c.estado !== 'PAGADA').sort((a, b) => a.numeroCuota - b.numeroCuota);
-      }
+      const processOrder = sortCuotasByPaymentPriority(currentCuotasList, p.fechaPago, p.modalidad);
 
       const affectedCuotaNumbers: number[] = [];
 
@@ -1224,6 +1216,161 @@ export default function App() {
       updatedCuotasForOp.forEach(c => uploadDocToFirestore('cuotas', c.id, c));
     }
   };
+
+  // Delete / Annul a payment completely and recalculate loan state
+  const handleDeletePago = (pagoId: string) => {
+    const targetPago = pagos.find(p => p.id === pagoId);
+    if (!targetPago) return;
+
+    if (!confirm(`⚠️ ¿Está seguro de ELIMINAR/ANULAR el pago #${pagoId} por $${targetPago.importe.toLocaleString('es-ES')}? Se recalcularán las cuotas y saldos de la operación #${targetPago.idOperacion}.`)) {
+      return;
+    }
+
+    const opId = targetPago.idOperacion;
+    const targetOp = operaciones.find(o => o.id === opId);
+
+    // 1. Remove target payment from pagos list
+    const updatedPagosList = pagos.filter(p => p.id !== pagoId);
+
+    // 2. Remove corresponding treasury transaction & commission entry
+    const updatedTrxList = transacciones.filter(t => t.id !== `TRX-${pagoId}` && !t.concepto.includes(pagoId));
+    const updatedComsList = comisiones.filter(c => c.pagoId !== pagoId);
+
+    if (targetOp) {
+      // 3. Get remaining payments for this operation
+      const opPayments = updatedPagosList.filter(p => p.idOperacion === opId);
+
+      // 4. Reset cuotas to baseline
+      const opCuotasOriginal = cuotas.filter(c => c.idOperacion === opId);
+      const resetCuotasMap = new Map<string, Cuota>();
+      opCuotasOriginal.forEach(c => {
+        resetCuotasMap.set(c.id, {
+          ...c,
+          importePagado: 0,
+          saldoPendiente: c.valorTotalCuota,
+          estado: 'PENDIENTE',
+          fechaPago: '',
+          cobrador: ''
+        });
+      });
+
+      let totalCapitalPaid = 0;
+      let totalInteresPaid = 0;
+      let totalAmountPaid = 0;
+      let lastPaymentDate = '';
+
+      // 5. Re-apply remaining payments
+      const sortedOpPayments = [...opPayments].sort((a, b) => new Date(a.fechaPago).getTime() - new Date(b.fechaPago).getTime());
+
+      sortedOpPayments.forEach(p => {
+        let rem = p.importe;
+        totalAmountPaid += p.importe;
+        lastPaymentDate = p.fechaPago;
+
+        const currentCuotasList = Array.from(resetCuotasMap.values());
+        const processOrder = sortCuotasByPaymentPriority(currentCuotasList, p.fechaPago, p.modalidad);
+
+        const affectedCuotaNumbers: number[] = [];
+
+        processOrder.forEach(cuo => {
+          if (rem <= 0) return;
+          const currentCuo = resetCuotasMap.get(cuo.id)!;
+          const cuoSaldo = currentCuo.saldoPendiente;
+
+          affectedCuotaNumbers.push(currentCuo.numeroCuota);
+
+          if (rem >= cuoSaldo) {
+            const paidThis = cuoSaldo;
+            rem = parseFloat((rem - paidThis).toFixed(2));
+
+            const ratioCap = currentCuo.capitalCuota / currentCuo.valorTotalCuota;
+            const ratioInt = currentCuo.interesCuota / currentCuo.valorTotalCuota;
+
+            totalCapitalPaid += parseFloat((paidThis * ratioCap).toFixed(2));
+            totalInteresPaid += parseFloat((paidThis * ratioInt).toFixed(2));
+
+            currentCuo.importePagado = parseFloat((currentCuo.importePagado + paidThis).toFixed(2));
+            currentCuo.saldoPendiente = 0;
+            currentCuo.estado = 'PAGADA';
+            currentCuo.fechaPago = p.fechaPago;
+            currentCuo.cobrador = p.cobrador;
+          } else {
+            const paidThis = rem;
+            rem = 0;
+
+            const ratioCap = currentCuo.capitalCuota / currentCuo.valorTotalCuota;
+            const ratioInt = currentCuo.interesCuota / currentCuo.valorTotalCuota;
+
+            totalCapitalPaid += parseFloat((paidThis * ratioCap).toFixed(2));
+            totalInteresPaid += parseFloat((paidThis * ratioInt).toFixed(2));
+
+            currentCuo.importePagado = parseFloat((currentCuo.importePagado + paidThis).toFixed(2));
+            currentCuo.saldoPendiente = parseFloat((currentCuo.saldoPendiente - paidThis).toFixed(2));
+            currentCuo.estado = 'PAGO_PARCIAL';
+            currentCuo.fechaPago = p.fechaPago;
+            currentCuo.cobrador = p.cobrador;
+          }
+          resetCuotasMap.set(currentCuo.id, currentCuo);
+        });
+
+        p.cuotasAfectadas = affectedCuotaNumbers.length > 0 ? `Cuotas N° ${affectedCuotaNumbers.sort((a,b)=>a-b).join(', ')}` : 'Sin cuotas';
+      });
+
+      // 6. Build final updated cuotas list & operation object
+      const updatedCuotasForOp = Array.from(resetCuotasMap.values());
+      const updatedCuotasMap = new Map<string, Cuota>(updatedCuotasForOp.map(c => [c.id, c]));
+      const mergedCuotas = cuotas.map(c => updatedCuotasMap.get(c.id) || c);
+
+      const updatedOp = { ...targetOp };
+      updatedOp.capitalRecuperado = parseFloat(totalCapitalPaid.toFixed(2));
+      updatedOp.interesCobrado = parseFloat(totalInteresPaid.toFixed(2));
+      updatedOp.capitalPendiente = Math.max(0, parseFloat((targetOp.capitalEntregado - totalCapitalPaid).toFixed(2)));
+      updatedOp.totalPendiente = Math.max(0, parseFloat((targetOp.totalFinanciado - totalAmountPaid).toFixed(2)));
+
+      const totalCuotasCount = updatedCuotasForOp.length;
+      const pagadasCount = updatedCuotasForOp.filter(c => c.estado === 'PAGADA').length;
+      updatedOp.cuotasPagadas = pagadasCount;
+      updatedOp.cuotasPendientes = totalCuotasCount - pagadasCount;
+      updatedOp.ultimoPago = lastPaymentDate;
+
+      const nextPendingCuo = updatedCuotasForOp
+        .filter(c => c.estado !== 'PAGADA')
+        .sort((a, b) => a.numeroCuota - b.numeroCuota)[0];
+
+      if (nextPendingCuo) {
+        updatedOp.proximoVencimiento = nextPendingCuo.fechaVencimiento;
+        const dueTime = new Date(nextPendingCuo.fechaVencimiento).getTime();
+        const todayTime = new Date().getTime();
+        const diffDays = Math.ceil((todayTime - dueTime) / (1000 * 60 * 60 * 24));
+        updatedOp.diasMora = diffDays > 0 ? diffDays : 0;
+        updatedOp.estado = 'ACTIVA';
+      } else {
+        updatedOp.proximoVencimiento = 'PAGADO TOTAL';
+        updatedOp.estado = 'FINALIZADA';
+        updatedOp.fechaFinalizacion = lastPaymentDate || new Date().toISOString().split('T')[0];
+        updatedOp.diasMora = 0;
+      }
+
+      setCuotas(mergedCuotas);
+      saveToLocalStorage(STORAGE_KEYS.CUOTAS, mergedCuotas);
+      handleUpdateOperacion(updatedOp);
+
+      if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+        deleteDocFromFirestore('pagos', pagoId);
+        updatedCuotasForOp.forEach(c => uploadDocToFirestore('cuotas', c.id, c));
+      }
+    }
+
+    setPagos(updatedPagosList);
+    saveToLocalStorage(STORAGE_KEYS.PAGOS, updatedPagosList);
+
+    setTransacciones(updatedTrxList);
+    saveToLocalStorage(STORAGE_KEYS.TRANSACCIONES, updatedTrxList);
+
+    setComisiones(updatedComsList);
+    saveToLocalStorage(STORAGE_KEYS.COMISIONES, updatedComsList);
+  };
+
 
   const handleUpdateConfiguracion = (newConfig: Configuracion) => {
     setConfiguracion(newConfig);
@@ -1712,9 +1859,10 @@ export default function App() {
       case 'operaciones': return 'Nuevo Crédito';
       case 'pagos': return 'Consola del Operador de Pagos';
       case 'pagos-whatsapp': return 'Gestión Diaria';
-      case 'pagos-telefono': return 'Gestión Cobranza Telefónica';
-      case 'pagos-calle': return 'Visualización de Recorrido';
+      case 'pagos-telefono': return 'Gestión Telefónica';
+      case 'pagos-calle': return 'Gestión Domiciliaria';
       case 'tesoreria': return 'Caja y Tesorería';
+
       case 'configuracion': return 'Configuración';
       case 'usuarios': return 'Seguridad y Accesos';
       default: return 'Panel';
@@ -1844,14 +1992,14 @@ export default function App() {
                 {activeUserRole.verDashboard && (
                   <button
                     onClick={() => setActiveTab('dashboard')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-black transition-all text-left cursor-pointer mb-1 shadow-xs ${
                       activeTab === 'dashboard'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                        : 'bg-slate-900/90 hover:bg-slate-800 text-emerald-300 border border-slate-700/80 hover:border-emerald-600'
                     }`}
                   >
-                    <LayoutDashboard className="w-4 h-4 shrink-0 text-emerald-400" />
-                    Consola Dashboard
+                    <LayoutDashboard className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
+                    <span>Consola Dashboard</span>
                   </button>
                 )}
 
@@ -1900,46 +2048,55 @@ export default function App() {
                   </button>
                 )}
 
+                {/* Consola de Cobranza - Highlighted Block */}
                 {activeUserRole.verPagos && (
-                  <div className="space-y-1 pl-2 border-l-2 border-slate-700 mt-1 mb-2">
-                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block px-2 py-1">Consolas de Cobranza</span>
+                  <div className="my-2 p-2.5 bg-gradient-to-b from-slate-950 to-emerald-950/60 rounded-xl border-2 border-emerald-600/60 shadow-md space-y-1">
+                    <div className="flex items-center justify-between px-2 py-1 border-b border-emerald-800/80 mb-1.5">
+                      <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                        Consola de Cobranza
+                      </span>
+                      <span className="text-[8px] font-black bg-emerald-500 text-slate-950 px-1.5 py-0.5 rounded uppercase">3 Módulos</span>
+                    </div>
+
                     <button
                       onClick={() => setActiveTab('pagos-whatsapp')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-extrabold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-whatsapp'
-                          ? 'bg-emerald-500 text-slate-950 font-black border border-emerald-300 shadow-sm'
+                          ? 'bg-emerald-500 text-slate-950 font-black border border-emerald-300 shadow-xs'
                           : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
                       <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
-                      Gestión Diaria
+                      <span>Gestión Diaria</span>
                     </button>
 
                     <button
                       onClick={() => setActiveTab('pagos-telefono')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-extrabold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-telefono'
-                          ? 'bg-amber-500 text-slate-950 font-black border border-amber-300 shadow-sm'
+                          ? 'bg-amber-500 text-slate-950 font-black border border-amber-300 shadow-xs'
                           : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
                       <PhoneCall className="w-4 h-4 shrink-0 text-amber-400" />
-                      Gestión Cobranza Telefónica
+                      <span>Gestión Telefónica</span>
                     </button>
 
                     <button
                       onClick={() => setActiveTab('pagos-calle')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-extrabold transition-all text-left cursor-pointer ${
                         activeTab === 'pagos-calle'
-                          ? 'bg-teal-500 text-slate-950 font-black border border-teal-300 shadow-sm'
+                          ? 'bg-teal-500 text-slate-950 font-black border border-teal-300 shadow-xs'
                           : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
                       }`}
                     >
                       <MapPin className="w-4 h-4 shrink-0 text-teal-400" />
-                      Gestión Cobranza de Campo
+                      <span>Gestión Domiciliaria</span>
                     </button>
                   </div>
                 )}
+
 
                 {activeUserRole.verTesoreria && (
                   <button
@@ -2294,10 +2451,12 @@ export default function App() {
               cuotas={filteredCuotas}
               pagos={filteredPagos}
               clientes={clientes}
+              usuarios={usuarios}
               activeUser={activeUser}
               configuracion={configuracion}
               onAddPago={handleAddPago}
               onReorganizePago={handleReorganizePagoAllocation}
+              onDeletePago={handleDeletePago}
               canAddPago={activeUserRole.registrarPagos}
               mode="WHATSAPP"
             />
@@ -2309,10 +2468,12 @@ export default function App() {
               cuotas={filteredCuotas}
               pagos={filteredPagos}
               clientes={clientes}
+              usuarios={usuarios}
               activeUser={activeUser}
               configuracion={configuracion}
               onAddPago={handleAddPago}
               onReorganizePago={handleReorganizePagoAllocation}
+              onDeletePago={handleDeletePago}
               canAddPago={activeUserRole.registrarPagos}
               mode="TELEFONO"
             />
@@ -2324,6 +2485,7 @@ export default function App() {
               cuotas={filteredCuotas}
               pagos={filteredPagos}
               clientes={clientes}
+              usuarios={usuarios}
               activeUser={activeUser}
               configComisiones={configComisiones}
               configRecorrido={configRecorrido}

@@ -9,6 +9,7 @@ import {
   ComisionCobrador, VisitaDomicilio, VisitaReprogramada, 
   ConfiguracionComisiones, ConfiguracionRecorrido, TransaccionTesoreria, SolicitudReintegroDesayuno 
 } from '../types';
+import { sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
 import { 
   MapPin, DollarSign, Calendar, Clock, CheckCircle2, 
   Phone, MessageCircle, Navigation, TrendingUp, 
@@ -21,6 +22,7 @@ interface CobradorCampoViewProps {
   cuotas: Cuota[];
   pagos: Pago[];
   clientes: Cliente[];
+  usuarios?: UsuarioRol[];
   activeUser: UsuarioRol | null;
   configComisiones: ConfiguracionComisiones;
   configRecorrido: ConfiguracionRecorrido;
@@ -43,6 +45,7 @@ export default function CobradorCampoView({
   cuotas,
   pagos,
   clientes,
+  usuarios = [],
   activeUser,
   configComisiones,
   configRecorrido,
@@ -59,6 +62,9 @@ export default function CobradorCampoView({
   onSolicitarReintegroDesayuno,
   onUpdateCliente
 }: CobradorCampoViewProps) {
+  const isUserAdmin = activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN';
+  const [selectedSupervisorUserId, setSelectedSupervisorUserId] = useState<string>('TODOS');
+
   // Navigation tabs (4 clean field collector tabs)
   const [activeTab, setActiveTab] = useState<'gestion_diaria' | 'gestion_telefonica' | 'mi_recorrido' | 'reintegro_desayuno'>(initialSubTab || 'gestion_diaria');
 
@@ -146,9 +152,20 @@ export default function CobradorCampoView({
     });
   };
 
-  // Filter clients assigned strictly to active collector
+  // Filter clients assigned strictly to active collector or selected supervisor employee
   const isCobrador = activeUser?.rolId === 'COBRADOR';
   const rawAssigned = clientes.filter(c => {
+    if (isUserAdmin && selectedSupervisorUserId !== 'TODOS') {
+      const selectedUser = usuarios.find(u => u.id === selectedSupervisorUserId);
+      if (selectedUser) {
+        return (
+          c.cobradorAsignadoId === selectedUser.id ||
+          c.cobradorAsignadoNombre === selectedUser.nombre ||
+          c.operadorAsignadoId === selectedUser.id ||
+          c.captador === selectedUser.nombre
+        );
+      }
+    }
     if (!isCobrador) return true; // Show all for demo/admin testing
     return (
       c.cobradorAsignadoId === activeUser?.id ||
@@ -377,28 +394,54 @@ export default function CobradorCampoView({
     };
 
     const opCuotas = cuotas.filter(c => c.idOperacion === opToUse.id);
-    const updatedCuotas = opCuotas.map(c => {
-      if (c.estado === 'PENDIENTE' || c.estado === 'VENCIDA' || c.estado === 'PAGO_PARCIAL') {
-        if (monto >= c.valorTotalCuota) {
-          return {
-            ...c,
-            estado: 'PAGADA' as const,
-            fechaPago: todayStr,
-            importePagado: c.valorTotalCuota,
-            saldoPendiente: 0,
-            cobrador: activeUser?.nombre || 'Cobrador Campo'
-          };
-        }
+    const cuotasToProcess = sortCuotasByPaymentPriority(opCuotas, todayStr, newPago.modalidad);
+
+    let remPago = monto;
+    const affectedCuotaNums: number[] = [];
+    const cuotaUpdatesMap = new Map<string, Cuota>();
+
+    cuotasToProcess.forEach(c => {
+      if (c.estado === 'PAGADA' || remPago <= 0) {
+        if (!cuotaUpdatesMap.has(c.id)) cuotaUpdatesMap.set(c.id, c);
+        return;
       }
-      return c;
+
+      const cCopy = { ...c };
+      affectedCuotaNums.push(cCopy.numeroCuota);
+
+      if (remPago >= cCopy.saldoPendiente) {
+        const paidThis = cCopy.saldoPendiente;
+        remPago = parseFloat((remPago - paidThis).toFixed(2));
+        cCopy.importePagado = cCopy.valorTotalCuota;
+        cCopy.saldoPendiente = 0;
+        cCopy.estado = 'PAGADA';
+        cCopy.fechaPago = todayStr;
+        cCopy.cobrador = activeUser?.nombre || 'Cobrador Campo';
+      } else {
+        const paidThis = remPago;
+        remPago = 0;
+        cCopy.importePagado = parseFloat((cCopy.importePagado + paidThis).toFixed(2));
+        cCopy.saldoPendiente = parseFloat((cCopy.saldoPendiente - paidThis).toFixed(2));
+        cCopy.estado = 'PAGO_PARCIAL';
+        cCopy.fechaPago = todayStr;
+        cCopy.cobrador = activeUser?.nombre || 'Cobrador Campo';
+      }
+      cuotaUpdatesMap.set(cCopy.id, cCopy);
     });
+
+    const updatedCuotas = opCuotas.map(c => cuotaUpdatesMap.get(c.id) || c);
+    newPago.cuotasAfectadas = affectedCuotaNums.length > 0 
+      ? `Cuotas N° ${affectedCuotaNums.sort((a,b)=>a-b).join(', ')}` 
+      : `Cuota ${opToUse.cuotasPagadas + 1}`;
+
+    const pagadasNow = updatedCuotas.filter(c => c.estado === 'PAGADA').length;
 
     const updatedOperacion: Operacion = {
       ...opToUse,
       capitalRecuperado: opToUse.capitalRecuperado + monto,
       totalPendiente: Math.max(0, opToUse.totalPendiente - monto),
-      cuotasPagadas: opToUse.cuotasPagadas + 1,
-      cuotasPendientes: Math.max(0, opToUse.cuotasPendientes - 1),
+      cuotasPagadas: pagadasNow,
+      cuotasPendientes: Math.max(0, opToUse.cuotasTotales - pagadasNow),
       ultimoPago: todayStr
     };
 
@@ -554,6 +597,47 @@ export default function CobradorCampoView({
         <div className="fixed top-20 right-4 z-50 bg-emerald-600 text-slate-950 font-black px-5 py-3 rounded-2xl shadow-2xl border-2 border-emerald-300 flex items-center gap-3 animate-bounce">
           <CheckCircle2 className="w-6 h-6 shrink-0 text-slate-950" />
           <span className="text-sm">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Admin Field Supervision Selector */}
+      {isUserAdmin && (
+        <div className="bg-gradient-to-r from-slate-950 via-teal-950 to-slate-950 p-4 rounded-2xl border-2 border-teal-500/80 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-teal-600/30 text-teal-400 rounded-xl border border-teal-500/50">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-black uppercase text-teal-300 tracking-wider flex items-center gap-2">
+                <span>SUPERVISIÓN DOMICILIARIA (CAMPO) POR EMPLEADO</span>
+                <span className="bg-teal-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded-md">
+                  Panel Admin
+                </span>
+              </h4>
+              <p className="text-[11px] text-teal-200/80 font-medium">
+                Seleccione un cobrador de calle para auditar su hoja de ruta, recorrido GPS e historial de visitas.
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full md:w-auto flex items-center gap-2 shrink-0">
+            <label className="text-[11px] font-extrabold text-white shrink-0 flex items-center gap-1">
+              <Compass className="w-3.5 h-3.5 text-teal-400" />
+              Cobrador:
+            </label>
+            <select
+              value={selectedSupervisorUserId}
+              onChange={(e) => setSelectedSupervisorUserId(e.target.value)}
+              className="w-full md:w-72 px-3 py-2 bg-slate-900 text-white border-2 border-teal-500 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer shadow-sm"
+            >
+              <option value="TODOS">👥 TODOS LOS COBRADORES (Vista Consolidada)</option>
+              {usuarios.map(u => (
+                <option key={u.id} value={u.id}>
+                  👤 {u.nombre} ({u.rolId === 'COBRADOR' ? 'Cobrador Calle' : u.rolId === 'OPERADOR' ? 'Operador Telefónico' : u.rolId})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 

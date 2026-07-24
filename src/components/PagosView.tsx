@@ -5,12 +5,12 @@
 
 import React, { useState } from 'react';
 import { Operacion, Cuota, Pago, TransaccionTesoreria, Cliente, UsuarioRol, Configuracion } from '../types';
-import { calcularDiasAtrasoSinDomingos } from '../utils/cuotasGenerator';
+import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
 import { 
   DollarSign, Search, Calendar, Check, AlertCircle, FileText, 
   ChevronRight, ArrowRight, User, Users, Phone, Send, X, ClipboardList,
   AlertTriangle, CheckCircle2, RefreshCw, Smartphone, TrendingUp, HelpCircle,
-  Handshake, PhoneCall, MapPin, MessageCircle, ShieldCheck
+  Handshake, PhoneCall, MapPin, MessageCircle, ShieldCheck, Trash2, Filter
 } from 'lucide-react';
 
 interface PagosViewProps {
@@ -18,6 +18,7 @@ interface PagosViewProps {
   cuotas: Cuota[];
   pagos: Pago[];
   clientes: Cliente[];
+  usuarios?: UsuarioRol[];
   activeUser: UsuarioRol | null;
   configuracion?: Configuracion;
   onAddPago: (pago: Pago, updatedCuotas: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
@@ -29,6 +30,7 @@ interface PagosViewProps {
     newImporte?: number,
     newObservaciones?: string
   ) => void;
+  onDeletePago?: (pagoId: string) => void;
   canAddPago?: boolean;
   mode?: 'WHATSAPP' | 'TELEFONO' | 'CALLE';
 }
@@ -38,10 +40,12 @@ export default function PagosView({
   cuotas,
   pagos,
   clientes,
+  usuarios = [],
   activeUser,
   configuracion,
   onAddPago,
   onReorganizePago,
+  onDeletePago,
   canAddPago = true,
   mode = 'WHATSAPP',
 }: PagosViewProps) {
@@ -91,6 +95,9 @@ export default function PagosView({
 
   // Check if current user is Admin or SuperAdmin
   const isUserAdmin = activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN';
+
+  // Supervisor filter for Admin: filter operations/payments by specific employee or 'TODOS'
+  const [selectedSupervisorUserId, setSelectedSupervisorUserId] = useState<string>('TODOS');
 
   // Report Error modal state for operators
   const [showReportErrorModal, setShowReportErrorModal] = useState<boolean>(false);
@@ -279,6 +286,25 @@ export default function PagosView({
       list = list.filter(op => op.cobrador === userName);
     }
 
+    // 3.5 Supervision Filter for Admin: filter by selected supervisor user ID
+    if (isUserAdmin && selectedSupervisorUserId !== 'TODOS') {
+      const selectedUser = usuarios.find(u => u.id === selectedSupervisorUserId);
+      if (selectedUser) {
+        list = list.filter(op => {
+          const cli = getClienteDetails(op.idCliente);
+          return (
+            op.cobrador === selectedUser.nombre ||
+            (cli && (
+              cli.cobradorAsignadoId === selectedUser.id ||
+              cli.cobradorAsignadoNombre === selectedUser.nombre ||
+              cli.operadorAsignadoId === selectedUser.id ||
+              cli.captador === selectedUser.nombre
+            ))
+          );
+        });
+      }
+    }
+
     // 4. Filter by search term (Client name, DNI, operation ID)
     if (searchTerm.trim() !== '') {
       const query = searchTerm.toLowerCase().trim();
@@ -452,26 +478,7 @@ export default function PagosView({
     const updatedCuotas: Cuota[] = [];
     
     const allOpCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
-
-    // Sort cuotas to allocate payment based on prepayment configuration
-    let cuotasToProcess = [...allOpCuotas];
-    if (modality === 'PAGO_ADELANTADO_OPCION_A') {
-      // Option A: pay unpaid installments starting from the highest number (end backward)
-      cuotasToProcess.sort((a, b) => {
-        const aPaid = a.estado === 'PAGADA' ? 1 : 0;
-        const bPaid = b.estado === 'PAGADA' ? 1 : 0;
-        if (aPaid !== bPaid) return aPaid - bPaid; // Unpaid first
-        return b.numeroCuota - a.numeroCuota; // Descending order
-      });
-    } else {
-      // Option B or regular: pay unpaid installments in chronological order (ascending: earliest unpaid first)
-      cuotasToProcess.sort((a, b) => {
-        const aPaid = a.estado === 'PAGADA' ? 1 : 0;
-        const bPaid = b.estado === 'PAGADA' ? 1 : 0;
-        if (aPaid !== bPaid) return aPaid - bPaid; // Unpaid first
-        return a.numeroCuota - b.numeroCuota; // Ascending order
-      });
-    }
+    const cuotasToProcess = sortCuotasByPaymentPriority(allOpCuotas, getTodayStr(), modality);
 
     let totalCapitalPaid = 0;
     let totalInteresPaid = 0;
@@ -933,6 +940,47 @@ export default function PagosView({
   return (
     <div id="recaudador-section" className="space-y-6">
       
+      {/* Employee Supervision Selector for Admin */}
+      {isUserAdmin && (
+        <div className="bg-gradient-to-r from-slate-950 via-emerald-950 to-slate-950 p-4 rounded-2xl border-2 border-emerald-500/80 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-600/30 text-emerald-400 rounded-xl border border-emerald-500/50">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-black uppercase text-emerald-300 tracking-wider flex items-center gap-2">
+                <span>SUPERVISIÓN GENERAL POR EMPLEADO</span>
+                <span className="bg-emerald-500 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded-md">
+                  Panel Admin
+                </span>
+              </h4>
+              <p className="text-[11px] text-emerald-200/80 font-medium">
+                Seleccione un operador o cobrador específico para supervisar su cartera asignada, o elija "Todos".
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full md:w-auto flex items-center gap-2 shrink-0">
+            <label className="text-[11px] font-extrabold text-white shrink-0 flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5 text-emerald-400" />
+              Empleado:
+            </label>
+            <select
+              value={selectedSupervisorUserId}
+              onChange={(e) => setSelectedSupervisorUserId(e.target.value)}
+              className="w-full md:w-72 px-3 py-2 bg-slate-900 text-white border-2 border-emerald-500 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer shadow-sm"
+            >
+              <option value="TODOS">👥 TODOS LOS EMPLEADOS (Vista Consolidada)</option>
+              {usuarios.map(u => (
+                <option key={u.id} value={u.id}>
+                  👤 {u.nombre} ({u.rolId === 'COBRADOR' ? 'Cobrador Calle' : u.rolId === 'OPERADOR' ? 'Operador Telefónico' : u.rolId})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* Top View Selector: Cobranza vs Registro Histórico de Pagos (ADMINS ONLY) */}
       {isUserAdmin ? (
         <div className="flex items-center justify-between gap-4 bg-emerald-950/90 p-2 rounded-2xl border border-emerald-800/80 shadow-md">
