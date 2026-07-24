@@ -574,6 +574,33 @@ export default function LiquidacionesView({
               </div>
             </div>
 
+            {/* Box 5: Reintegro de Desayuno */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <span className="text-xs font-black uppercase text-amber-400 block border-b border-slate-800 pb-2">
+                5. Reintegro de Desayuno / Viáticos en Calle
+              </span>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-300 block mb-1">Porcentaje Cobertura Desayuno (%)</label>
+                <input
+                  type="number"
+                  value={editingConfig.porcentajeReintegroDesayuno || 50}
+                  onChange={e => setEditingConfig({ ...editingConfig, porcentajeReintegroDesayuno: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-300 block mb-1">Límite Semanal Reintegro Desayuno ($)</label>
+                <input
+                  type="number"
+                  value={editingConfig.limiteSemanalReintegroDesayuno || 15000}
+                  onChange={e => setEditingConfig({ ...editingConfig, limiteSemanalReintegroDesayuno: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-black"
+                />
+              </div>
+            </div>
+
           </div>
         </div>
       )}

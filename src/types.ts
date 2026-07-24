@@ -264,7 +264,7 @@ export interface ComisionCobrador {
   cobradorNombre: string;
   montoCobrado: number;
   montoComision: number;
-  tipoComision: 'COBRANZA' | 'CONTACTO_RECUPERADO' | 'CLIENTE_INACTIVO';
+  tipoComision: 'COBRANZA' | 'CONTACTO_RECUPERADO' | 'CLIENTE_INACTIVO' | 'GESTION_LLAMADA' | 'GESTION_MENSAJE';
   estado: 'PENDIENTE' | 'VERIFICADO' | 'LIQUIDADO';
   fecha: string;
   fechaLiquidacionEstimada?: string;
@@ -275,6 +275,10 @@ export interface ConfiguracionComisiones {
   fijoComisionCobranza: number;
   montoContactoRecuperado: number;
   montoClienteInactivoRecuperado: number;
+  montoComisionLlamada: number;
+  montoComisionMensaje: number;
+  porcentajeReintegroDesayuno: number;
+  limiteSemanalReintegroDesayuno: number;
   diaCierreSemanal: string;
   fechaProximaLiquidacionSemanal: string;
   fechaProximaLiquidacionMensual: string;
@@ -282,6 +286,21 @@ export interface ConfiguracionComisiones {
   adicionalMovilidadSemanal: number;
   otrosConceptosAdd: number;
   descuentoBeneficiosFinanciacion: number;
+}
+
+export interface SolicitudReintegroDesayuno {
+  id: string;
+  cobradorId: string;
+  cobradorNombre: string;
+  fecha: string;
+  hora: string;
+  montoGasto: number;
+  porcentajeCobertura: number;
+  montoReintegrar: number;
+  lugarNombre?: string;
+  fotoTicketUrl?: string;
+  estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
+  observaciones?: string;
 }
 
 export interface LiquidacionSemanal {

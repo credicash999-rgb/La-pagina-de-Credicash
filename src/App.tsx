@@ -8,7 +8,7 @@ import {
   Cliente, Operacion, Cuota, Pago, Feriado, 
   Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal, FichajeAsistencia,
   ConfiguracionComisiones, ConfiguracionRecorrido, ComisionCobrador, VisitaDomicilio, VisitaReprogramada,
-  LiquidacionSemanal, LiquidacionMensual
+  LiquidacionSemanal, LiquidacionMensual, SolicitudReintegroDesayuno
 } from './types';
 
 import { calcularDiasAtrasoSinDomingos } from './utils/cuotasGenerator';
@@ -63,7 +63,8 @@ const STORAGE_KEYS = {
   VISITAS_HISTORY: 'credicash_visitas_history',
   VISITAS_REPROGRAMADAS: 'credicash_visitas_reprogramadas',
   LIQUIDACIONES_SEMANALES: 'credicash_liquidaciones_semanales',
-  LIQUIDACIONES_MENSUALES: 'credicash_liquidaciones_mensuales'
+  LIQUIDACIONES_MENSUALES: 'credicash_liquidaciones_mensuales',
+  REINTEGROS_DESAYUNO: 'credicash_reintegros_desayuno'
 };
 
 const SEED_CONFIG_COMISIONES: ConfiguracionComisiones = {
@@ -71,6 +72,10 @@ const SEED_CONFIG_COMISIONES: ConfiguracionComisiones = {
   fijoComisionCobranza: 500,
   montoContactoRecuperado: 2500,
   montoClienteInactivoRecuperado: 5000,
+  montoComisionLlamada: 300,
+  montoComisionMensaje: 150,
+  porcentajeReintegroDesayuno: 50,
+  limiteSemanalReintegroDesayuno: 15000,
   diaCierreSemanal: 'VIERNES',
   fechaProximaLiquidacionSemanal: 'Viernes 28/07',
   fechaProximaLiquidacionMensual: 'Viernes 31/07',
@@ -557,6 +562,7 @@ export default function App() {
   const [visitasReprogramadas, setVisitasReprogramadas] = useState<VisitaReprogramada[]>([]);
   const [liquidacionesSemanales, setLiquidacionesSemanales] = useState<LiquidacionSemanal[]>([]);
   const [liquidacionesMensuales, setLiquidacionesMensuales] = useState<LiquidacionMensual[]>([]);
+  const [reintegrosDesayuno, setReintegrosDesayuno] = useState<SolicitudReintegroDesayuno[]>([]);
   const [activeUser, setActiveUser] = useState<UsuarioRol>({
     id: 'USR-1',
     nombre: 'Administrador Principal',
@@ -682,6 +688,7 @@ export default function App() {
     const loadedVisitasReprogramadas = getOrSeed<VisitaReprogramada[]>(STORAGE_KEYS.VISITAS_REPROGRAMADAS, []);
     const loadedLiquidacionesSemanales = getOrSeed<LiquidacionSemanal[]>(STORAGE_KEYS.LIQUIDACIONES_SEMANALES, []);
     const loadedLiquidacionesMensuales = getOrSeed<LiquidacionMensual[]>(STORAGE_KEYS.LIQUIDACIONES_MENSUALES, []);
+    const loadedReintegrosDesayuno = getOrSeed<SolicitudReintegroDesayuno[]>(STORAGE_KEYS.REINTEGROS_DESAYUNO, []);
     
     // Force latest hardcoded role configurations for system defaults, allowing custom roles to merge
     const loadedRoles = loadedRolesRaw.map(r => {
@@ -853,6 +860,7 @@ export default function App() {
     setVisitasReprogramadas(loadedVisitasReprogramadas);
     setLiquidacionesSemanales(loadedLiquidacionesSemanales);
     setLiquidacionesMensuales(loadedLiquidacionesMensuales);
+    setReintegrosDesayuno(loadedReintegrosDesayuno);
 
     // Active user setup
     const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
@@ -1433,6 +1441,59 @@ export default function App() {
     const updated = [nuevaCom, ...comisiones];
     setComisiones(updated);
     saveToLocalStorage(STORAGE_KEYS.COMISIONES, updated);
+  };
+
+  const handleRegistrarGestionTelefonica = (
+    idCliente: string, 
+    tipo: 'LLAMADA' | 'MENSAJE', 
+    observaciones: string
+  ) => {
+    const clienteObj = clientes.find(c => c.id === idCliente);
+    const montoCom = tipo === 'LLAMADA' 
+      ? (configComisiones.montoComisionLlamada || 300) 
+      : (configComisiones.montoComisionMensaje || 150);
+
+    const nuevaCom: ComisionCobrador = {
+      id: `COM-${Date.now()}`,
+      cobradorId: activeUser?.id || 'COB-01',
+      cobradorNombre: activeUser?.nombre || 'Cobrador',
+      idCliente: idCliente,
+      nombreCliente: clienteObj ? `${clienteObj.nombre} ${clienteObj.apellido}` : 'Cliente',
+      montoCobrado: 0,
+      montoComision: montoCom,
+      tipoComision: tipo === 'LLAMADA' ? 'GESTION_LLAMADA' : 'GESTION_MENSAJE',
+      fecha: new Date().toISOString().split('T')[0],
+      estado: 'PENDIENTE'
+    };
+    const updatedComs = [nuevaCom, ...comisiones];
+    setComisiones(updatedComs);
+    saveToLocalStorage(STORAGE_KEYS.COMISIONES, updatedComs);
+
+    // Also log as visit/management in history
+    const nuevaVisita: VisitaDomicilio = {
+      id: `VIS-${Date.now()}`,
+      idCliente,
+      nombreCliente: clienteObj ? `${clienteObj.nombre} ${clienteObj.apellido}` : 'Cliente',
+      cobradorId: activeUser?.id || 'COB-01',
+      cobradorNombre: activeUser?.nombre || 'Cobrador',
+      fecha: new Date().toISOString().split('T')[0],
+      hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+      tipoAccion: 'ESTOY_EN_DOMICILIO',
+      observaciones: `Gestión Telefónica (${tipo}): ${observaciones}`
+    };
+    handleRegistrarVisita(nuevaVisita);
+  };
+
+  const handleSolicitarReintegroDesayuno = (solicitud: SolicitudReintegroDesayuno) => {
+    const updated = [solicitud, ...reintegrosDesayuno];
+    setReintegrosDesayuno(updated);
+    saveToLocalStorage(STORAGE_KEYS.REINTEGROS_DESAYUNO, updated);
+  };
+
+  const handleUpdateEstadoReintegroDesayuno = (id: string, nuevoEstado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO') => {
+    const updated = reintegrosDesayuno.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r);
+    setReintegrosDesayuno(updated);
+    saveToLocalStorage(STORAGE_KEYS.REINTEGROS_DESAYUNO, updated);
   };
 
   const handleUpdateConfigComisiones = (newConfig: ConfiguracionComisiones) => {
