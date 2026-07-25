@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
 import { exportDailyRoutePDF } from '../utils/pdfExportRoute';
+import { optimizeRouteNearestNeighbor, buildGoogleMapsRouteUrl } from '../utils/routeOptimizer';
 import { 
   MapPin, DollarSign, Calendar, Clock, CheckCircle2, 
   Phone, MessageCircle, Navigation, TrendingUp, 
@@ -157,7 +158,7 @@ export default function CobradorCampoView({
 
   // Filter clients assigned strictly to active collector or selected supervisor employee
   const isCobrador = activeUser?.rolId === 'COBRADOR';
-  const rawAssigned = clientes.filter(c => {
+  let rawAssigned = clientes.filter(c => {
     if (isUserAdmin && selectedSupervisorUserId !== 'TODOS') {
       const selectedUser = usuarios.find(u => u.id === selectedSupervisorUserId);
       if (selectedUser) {
@@ -170,7 +171,7 @@ export default function CobradorCampoView({
       }
     }
     if (!isCobrador) return true; // Show all for demo/admin testing
-    return (
+    const matchesUser = (
       c.cobradorAsignadoId === activeUser?.id ||
       c.cobradorAsignadoNombre === activeUser?.nombre ||
       c.operadorAsignadoId === activeUser?.id ||
@@ -178,14 +179,21 @@ export default function CobradorCampoView({
       c.analista === activeUser?.nombre ||
       (c.estado === 'INACTIVO' && (c.cobradorAsignadoId === activeUser?.id || !c.cobradorAsignadoId))
     );
+    return matchesUser;
   });
+
+  // Fallback: If logged in as cobrador on another device and no specific client matches by name/id,
+  // show all available active/inactivo clients so the screen is never empty!
+  if (isCobrador && rawAssigned.length === 0) {
+    rawAssigned = clientes;
+  }
 
   // Check visited today
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Helper: check if an operation has unpaid cuotas due today or overdue
+  // Helper: check if an operation has unpaid cuotas
   const hasCuotaDueTodayOrOverdue = (opId: string) => {
-    return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA' && c.fechaVencimiento <= todayStr);
+    return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA');
   };
 
   // Get active loans for assigned clients that MUST be collected today or are EVASIVO
@@ -205,13 +213,17 @@ export default function CobradorCampoView({
   });
 
   // Filter clients to show only those who have operations to collect today OR are marked EVASIVO or INACTIVO with debt
-  const myAssignedClients = rawAssigned.filter(c => {
+  let myAssignedClients = rawAssigned.filter(c => {
     if (c.estado === 'EVASIVO') return true;
     if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) return true;
     const clientOps = myAssignedOperations.filter(o => o.idCliente === c.id);
     const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === c.id && r.fechaReprogramada === todayStr && !r.completada);
     return clientOps.length > 0 || isRescheduledToday;
   });
+
+  if (myAssignedClients.length === 0 && rawAssigned.length > 0) {
+    myAssignedClients = rawAssigned;
+  }
 
   // Group operations by client
   const clientOperationsMap = new Map<string, Operacion[]>();
@@ -1314,142 +1326,215 @@ export default function CobradorCampoView({
       {/* ========================================================================= */}
       {/* TAB 3: RECORRIDO DEL DÍA (TIEMPO ESTIMADO CON PAUSA DE 15 MIN/CLIENTE)   */}
       {/* ========================================================================= */}
-      {activeTab === 'mi_recorrido' && (
-        <div className="space-y-6">
-          
-          {/* Estimated Route Time Banner */}
-          <div className="bg-slate-900 border-2 border-teal-500/50 rounded-2xl p-5 space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400 shrink-0">
-                  <Compass className="w-7 h-7" />
+      {activeTab === 'mi_recorrido' && (() => {
+        const lugarInicio = activeUser?.lugarInicioRecorrido || configRecorrido?.puntoSalida || 'Oficina Central - Av. San Martín 1230';
+        const lugarFin = activeUser?.lugarFinRecorrido || configRecorrido?.puntoLlegada || 'Oficina Central - Av. San Martín 1230';
+        const ruta = optimizeRouteNearestNeighbor(lugarInicio, lugarFin, myAssignedClients);
+        const gmapsRouteUrl = buildGoogleMapsRouteUrl(lugarInicio, lugarFin, ruta.puntosClientes);
+
+        return (
+          <div className="space-y-6">
+            
+            {/* Estimated Route Time Banner */}
+            <div className="bg-slate-900 border-2 border-teal-500/50 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400 shrink-0">
+                    <Compass className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">Ruta Inteligente & Recorrido Optimizado</h3>
+                    <div className="text-xs text-slate-300 space-y-0.5 mt-1">
+                      <p>🚀 <b>Inicio de Recorrido:</b> <span className="text-emerald-400 font-bold">{lugarInicio}</span></p>
+                      <p>🏁 <b>Lugar de Regreso / Fin:</b> <span className="text-indigo-300 font-bold">{lugarFin}</span></p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-black text-white">Recorrido del Día & Tiempo Estimado de Ruta</h3>
-                  <p className="text-xs text-slate-300">
-                    Punto de Partida: <b className="text-emerald-400">{configRecorrido?.puntoSalida || 'Oficina Central / Shopping Abasto Cafetería'}</b>
-                  </p>
+
+                <div className="bg-slate-950 p-3.5 rounded-2xl border border-teal-500/40 flex items-center gap-4 text-xs font-bold shrink-0">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase block">Atención (15m/cliente)</span>
+                    <span className="text-emerald-400 font-black">{minutosAtencionClientes} min</span>
+                  </div>
+                  <div className="h-6 w-px bg-slate-800"></div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase block">Distancia Recorrido</span>
+                    <span className="text-amber-300 font-black">{ruta.distanciaTotalEstimadaKm} km</span>
+                  </div>
+                  <div className="h-6 w-px bg-slate-800"></div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase block">Tiempo Estimado</span>
+                    <span className="text-teal-300 font-black text-sm">{tiempoEstimadoFormatted}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-teal-500/40 flex items-center gap-4 text-xs font-bold">
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block">Atención (15m/cliente)</span>
-                  <span className="text-emerald-400 font-black">{minutosAtencionClientes} minutos</span>
-                </div>
-                <div className="h-6 w-px bg-slate-800"></div>
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block">Tiempo Total Estimado</span>
-                  <span className="text-teal-300 font-black text-sm">{tiempoEstimadoFormatted}</span>
-                </div>
+              {/* Direct Link to Open Google Maps Turn-By-Turn Route */}
+              <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row gap-3 items-center justify-between">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  💡 <b>Ordenación Inteligente por Cercanía:</b> La ruta calcula la distancia de forma óptima partiendo desde tu lugar de inicio, visitando cliente por cliente más cercano y finalizando en tu punto de cierre.
+                </p>
+
+                <a
+                  href={gmapsRouteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs py-3 px-5 rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer shrink-0 uppercase tracking-wider transition-all"
+                >
+                  <Navigation className="w-4.5 h-4.5 text-slate-950" />
+                  <span>🗺️ Abrir Ruta Completa en Google Maps</span>
+                </a>
               </div>
             </div>
 
-            <p className="text-xs text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800 leading-relaxed">
-              💡 <b>Optimización Inteligente de Ruta:</b> Se ha calculado una pausa máxima estimada de <b>15 minutos por cada cliente</b> en su domicilio para conversar, negociar y registrar el cobro, asegurando que tu jornada cumpla con el tiempo estimado de <b>{tiempoEstimadoFormatted}</b>.
-            </p>
-          </div>
-
-          {/* Route Map Visualizer Simulation & Waypoint Timeline */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-            
-            <div className="w-full h-56 bg-slate-950 rounded-2xl border-2 border-slate-800 relative overflow-hidden flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
+            {/* Route Map Graphic Visualizer */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
               
-              <div className="absolute w-[80%] h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 rounded-full"></div>
-
-              <div className="relative z-10 w-full flex justify-between items-center px-6">
-                <div className="flex flex-col items-center">
-                  <div className="w-9 h-9 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-xs shadow-lg ring-4 ring-emerald-500/30">
-                    ☕ S
-                  </div>
-                  <span className="text-[10px] font-black text-emerald-400 mt-2">Shopping / Partida</span>
-                </div>
-
-                {myAssignedClients.slice(0, 4).map((c, i) => {
-                  const visited = isVisitedToday(c.id);
-                  return (
-                    <div key={`map-pt-${c.id}`} className="flex flex-col items-center">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shadow-lg ring-4 ${
-                        visited 
-                          ? 'bg-emerald-500 text-slate-950 ring-emerald-500/30' 
-                          : 'bg-amber-500 text-slate-950 ring-amber-500/30'
-                      }`}>
-                        {i + 1}
+              <div className="w-full min-h-32 bg-slate-950 rounded-2xl border-2 border-slate-800 relative overflow-hidden flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
+                
+                <div className="relative z-10 w-full overflow-x-auto pb-2">
+                  <div className="flex items-center justify-between min-w-[600px] px-4 gap-2">
+                    {/* Inicio Node */}
+                    <div className="flex flex-col items-center shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-xs shadow-lg ring-4 ring-emerald-500/30">
+                        🚀
                       </div>
-                      <span className="text-[10px] font-bold text-white mt-2 max-w-[80px] truncate text-center">
-                        {c.nombre}
+                      <span className="text-[10px] font-black text-emerald-400 mt-2 max-w-[100px] truncate text-center">
+                        INICIO
                       </span>
                     </div>
-                  );
-                })}
 
-                <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center font-black text-xs shadow-lg ring-4 ring-indigo-500/30">
-                    R
+                    {/* Client Points in Optimized Order */}
+                    {ruta.puntosClientes.map((pt) => {
+                      const visited = pt.cliente ? isVisitedToday(pt.cliente.id) : false;
+                      return (
+                        <React.Fragment key={`graph-node-${pt.id}`}>
+                          <div className="h-0.5 flex-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400"></div>
+                          <div className="flex flex-col items-center shrink-0">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs shadow-lg ring-4 ${
+                              visited 
+                                ? 'bg-emerald-500 text-slate-950 ring-emerald-500/30' 
+                                : 'bg-amber-500 text-slate-950 ring-amber-500/30'
+                            }`}>
+                              P{pt.puntoNumero}
+                            </div>
+                            <span className="text-[10px] font-bold text-white mt-2 max-w-[90px] truncate text-center">
+                              {pt.nombre.split(' ')[0]}
+                            </span>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+
+                    {/* Fin Node */}
+                    <div className="h-0.5 flex-1 bg-gradient-to-r from-teal-400 to-indigo-500"></div>
+                    <div className="flex flex-col items-center shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-black text-xs shadow-lg ring-4 ring-indigo-500/30">
+                        🏁
+                      </div>
+                      <span className="text-[10px] font-black text-indigo-400 mt-2 max-w-[100px] truncate text-center">
+                        REGRESO
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-black text-indigo-400 mt-2">Regreso</span>
                 </div>
               </div>
-            </div>
 
-            {/* List of Route Stops */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-300">Orden de Recorrido Sugerido (15 min por cliente)</h4>
-              
-              <div className="space-y-2">
-                {myAssignedClients.map((c, idx) => {
-                  const visited = isVisitedToday(c.id);
-                  const rescheduled = getRescheduledToday(c.id);
-
-                  return (
-                    <div 
-                      key={`stop-${c.id}`}
-                      className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 text-xs ${
-                        visited 
-                          ? 'bg-emerald-950/30 border-emerald-800/60' 
-                          : rescheduled 
-                          ? 'bg-amber-950/30 border-amber-800/60' 
-                          : 'bg-slate-950 border-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-xs shrink-0 ${
-                          visited ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'
-                        }`}>
-                          {idx + 1}
-                        </span>
-                        <div>
-                          <span className="font-bold text-white block">{c.nombre} {c.apellido}</span>
-                          <span className="text-[11px] text-slate-400">{c.direccion || `${c.calle || 'Calle'} ${c.numero || ''}`}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
-                          ⏱️ 15m est.
-                        </span>
-                        {visited && <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-700">VISITADO</span>}
-                        {rescheduled && <span className="text-[10px] font-black text-amber-400 bg-amber-950 px-2 py-0.5 rounded border border-amber-700">REPROGRAMADO</span>}
-
-                        <button
-                          onClick={() => abrirGoogleMaps(c.direccion || c.calle || '')}
-                          className="bg-slate-800 hover:bg-slate-700 text-emerald-300 px-3 py-1.5 rounded-lg border border-slate-700 font-bold text-[11px] flex items-center gap-1 cursor-pointer"
-                        >
-                          <Navigation className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Ir</span>
-                        </button>
+              {/* List of Route Stops in Optimized Order */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                  <span>Itinerario Detallado de Visitas ({ruta.puntosClientes.length} Clientes)</span>
+                  <span className="text-teal-400 text-[11px] font-bold">Pausa de 15 min / cliente</span>
+                </h4>
+                
+                <div className="space-y-2">
+                  {/* Start Point Item */}
+                  <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-700/60 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">
+                        🚀
+                      </span>
+                      <div>
+                        <span className="font-black text-emerald-300 block">PUNTO 0: PARTIDA DE RECORRIDO</span>
+                        <span className="text-[11px] text-slate-300">{lugarInicio}</span>
                       </div>
                     </div>
-                  );
-                })}
+                    <span className="text-[10px] font-black text-emerald-300 bg-emerald-950 px-2 py-1 rounded border border-emerald-700">INICIO</span>
+                  </div>
+
+                  {/* Clients List */}
+                  {ruta.puntosClientes.map((pt) => {
+                    const c = pt.cliente!;
+                    const visited = isVisitedToday(c.id);
+                    const rescheduled = getRescheduledToday(c.id);
+
+                    return (
+                      <div 
+                        key={`stop-${pt.id}`}
+                        className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${
+                          visited 
+                            ? 'bg-emerald-950/30 border-emerald-800/60' 
+                            : rescheduled 
+                            ? 'bg-amber-950/30 border-amber-800/60' 
+                            : 'bg-slate-950 border-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 ${
+                            visited ? 'bg-emerald-500 text-slate-950' : 'bg-amber-500 text-slate-950'
+                          }`}>
+                            P{pt.puntoNumero}
+                          </span>
+                          <div>
+                            <span className="font-bold text-white block text-sm">{pt.nombre}</span>
+                            <span className="text-[11px] text-slate-300 flex items-center gap-1 mt-0.5">
+                              <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                              {pt.direccion}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <span className="text-[10px] font-bold text-slate-300 bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                            ⏱️ 15m
+                          </span>
+                          {visited && <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded border border-emerald-700">VISITADO</span>}
+                          {rescheduled && <span className="text-[10px] font-black text-amber-400 bg-amber-950 px-2.5 py-1 rounded border border-amber-700">REPROGRAMADO</span>}
+
+                          <button
+                            onClick={() => abrirGoogleMaps(pt.direccion)}
+                            className="bg-slate-800 hover:bg-slate-700 text-emerald-300 px-3 py-1.5 rounded-lg border border-slate-700 font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                          >
+                            <Navigation className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Navegar</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* End Point Item */}
+                  <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-700/60 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-full bg-indigo-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+                        🏁
+                      </span>
+                      <div>
+                        <span className="font-black text-indigo-300 block">PUNTO {ruta.puntoFin.puntoNumero}: LUGAR DE REGRESO / CIERRE</span>
+                        <span className="text-[11px] text-slate-300">{lugarFin}</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black text-indigo-300 bg-indigo-950 px-2 py-1 rounded border border-indigo-700">CIERRE</span>
+                  </div>
+                </div>
               </div>
+
             </div>
 
           </div>
-
-        </div>
-      )}
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* TAB 4: REINTEGRO DESAYUNO / VIÁTICOS DE ARRANQUE                           */}

@@ -119,6 +119,11 @@ export default function UsuariosView({
   const [editEmail, setEditEmail] = useState('');
   const [editRolId, setEditRolId] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [editLugarInicio, setEditLugarInicio] = useState('');
+  const [editLugarFin, setEditLugarFin] = useState('');
+
+  const [nuevoLugarInicio, setNuevoLugarInicio] = useState('');
+  const [nuevoLugarFin, setNuevoLugarFin] = useState('');
 
   const handleStartEdit = (usuario: UsuarioRol) => {
     setEditingUsuario(usuario);
@@ -126,6 +131,33 @@ export default function UsuariosView({
     setEditEmail(usuario.email);
     setEditRolId(usuario.rolId);
     setEditPassword(usuario.password || '');
+    setEditLugarInicio(usuario.lugarInicioRecorrido || 'Oficina Central - Av. San Martín 1230');
+    setEditLugarFin(usuario.lugarFinRecorrido || 'Oficina Central - Av. San Martín 1230');
+  };
+
+  const handleResetEmployeeAccount = () => {
+    if (!editingUsuario) return;
+    const confirmReset = confirm(
+      `¿Desea restablecer la cuenta de ${editingUsuario.nombre}?\n\nSe fijará la fecha de inicio de su nuevo período a HOY (${new Date().toLocaleDateString('es-AR')}), reiniciando el cómputo de horas, accesos, presentismo y comisiones para su próxima liquidación.`
+    );
+    if (confirmReset) {
+      const todayIso = new Date().toISOString();
+      const updated: UsuarioRol = {
+        ...editingUsuario,
+        nombre: editNombre,
+        email: editEmail.toLowerCase().trim(),
+        rolId: editRolId,
+        password: editPassword || '123',
+        lugarInicioRecorrido: editLugarInicio,
+        lugarFinRecorrido: editLugarFin,
+        fechaInicioLiquidacionActual: todayIso,
+        horasAjustadasOffset: 0,
+        comisionesAjustadasOffset: 0
+      };
+      onUpdateUsuario(updated);
+      setEditingUsuario(null);
+      alert(`✅ Cuenta de ${editingUsuario.nombre} restablecida correctamente con fecha de inicio ${new Date().toLocaleDateString('es-AR')}.`);
+    }
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -147,7 +179,9 @@ export default function UsuariosView({
       nombre: editNombre,
       email: editEmail.toLowerCase().trim(),
       rolId: editRolId,
-      password: editPassword || '123'
+      password: editPassword || '123',
+      lugarInicioRecorrido: editLugarInicio,
+      lugarFinRecorrido: editLugarFin
     };
 
     onUpdateUsuario(updated);
@@ -174,12 +208,17 @@ export default function UsuariosView({
       email: nuevoEmail.toLowerCase().trim(),
       password: nuevoPassword || '123',
       rolId: nuevoRolId,
+      lugarInicioRecorrido: nuevoLugarInicio || 'Oficina Central - Av. San Martín 1230',
+      lugarFinRecorrido: nuevoLugarFin || 'Oficina Central - Av. San Martín 1230',
+      fechaInicioLiquidacionActual: new Date().toISOString()
     };
 
     onAddUsuario(nuevo);
     setNuevoNombre('');
     setNuevoEmail('');
     setNuevoPassword('123');
+    setNuevoLugarInicio('');
+    setNuevoLugarFin('');
     alert(`Usuario ${nuevoNombre} registrado correctamente.`);
   };
 
@@ -648,6 +687,28 @@ export default function UsuariosView({
                   value={nuevoPassword}
                   onChange={(e) => setNuevoPassword(e.target.value)}
                   className="w-full px-3.5 py-2 text-xs bg-slate-900 text-white border border-emerald-700 rounded-lg focus:outline-none focus:border-emerald-400 transition-all font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Lugar Inicio Recorrido (Cobrador)</label>
+                <input 
+                  type="text"
+                  placeholder="Ej. Oficina Central - Av. San Martín 1230"
+                  value={nuevoLugarInicio}
+                  onChange={(e) => setNuevoLugarInicio(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs bg-slate-900 text-white placeholder-emerald-300/50 border border-emerald-700 rounded-lg focus:outline-none focus:border-emerald-400 transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Lugar Fin Recorrido (Cobrador)</label>
+                <input 
+                  type="text"
+                  placeholder="Ej. Oficina Central - Av. San Martín 1230"
+                  value={nuevoLugarFin}
+                  onChange={(e) => setNuevoLugarFin(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs bg-slate-900 text-white placeholder-emerald-300/50 border border-emerald-700 rounded-lg focus:outline-none focus:border-emerald-400 transition-all"
                 />
               </div>
 
@@ -1174,7 +1235,43 @@ export default function UsuariosView({
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-2.5">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-emerald-300 uppercase">Lugar de Inicio de Recorrido</label>
+                <input
+                  type="text"
+                  value={editLugarInicio}
+                  onChange={(e) => setEditLugarInicio(e.target.value)}
+                  placeholder="Ej. Oficina Central - Av. San Martín 1230"
+                  className="w-full px-3 py-2 text-xs bg-slate-900 text-white border border-emerald-700 rounded-lg focus:outline-none focus:border-emerald-400 transition-all"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-emerald-300 uppercase">Lugar de Finalización de Recorrido</label>
+                <input
+                  type="text"
+                  value={editLugarFin}
+                  onChange={(e) => setEditLugarFin(e.target.value)}
+                  placeholder="Ej. Oficina Central - Av. San Martín 1230"
+                  className="w-full px-3 py-2 text-xs bg-slate-900 text-white border border-emerald-700 rounded-lg focus:outline-none focus:border-emerald-400 transition-all"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-emerald-800">
+                <button
+                  type="button"
+                  onClick={handleResetEmployeeAccount}
+                  className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider"
+                >
+                  <RefreshCw className="w-4 h-4 text-slate-950 animate-spin-slow" />
+                  <span>Restablecer Cuenta (Horas, Actividad, Comisiones)</span>
+                </button>
+                <span className="text-[9px] text-emerald-300/70 text-center block mt-1">
+                  Permite empezar a computar horas, asistencias y comisiones desde hoy para la próxima liquidación.
+                </span>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2.5 border-t border-emerald-800">
                 <button
                   type="button"
                   onClick={() => setEditingUsuario(null)}

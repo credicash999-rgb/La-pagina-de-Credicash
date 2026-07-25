@@ -217,6 +217,11 @@ export interface UsuarioRol {
   email: string;
   password?: string; // Contraseña para el inicio de sesión
   rolId: string;
+  lugarInicioRecorrido?: string; // e.g. "Oficina Central - Av. San Martín 1230"
+  lugarFinRecorrido?: string;    // e.g. "Oficina Central - Av. San Martín 1230"
+  fechaInicioLiquidacionActual?: string; // Fecha de inicio de cuenta limpia/período actual
+  horasAjustadasOffset?: number;
+  comisionesAjustadasOffset?: number;
 }
 
 export interface FichajeAsistencia {
