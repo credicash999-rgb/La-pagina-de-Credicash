@@ -4,11 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { Configuracion, Feriado, Cliente, Operacion, Cuota, Pago, TransaccionTesoreria } from '../types';
+import { Configuracion, Feriado, Cliente, Operacion, Cuota, Pago, TransaccionTesoreria, ConfiguracionComisiones } from '../types';
 import { 
   Settings, Calendar, Percent, Plus, Trash2, CheckCircle2, 
   HelpCircle, ShieldCheck, DollarSign, Download, Upload, FileSpreadsheet, Database,
-  Cloud, Check, X, Wifi, AlertTriangle, FileText, Lock
+  Cloud, Check, X, Wifi, AlertTriangle, FileText, Lock,
+  TrendingUp, Phone, MessageCircle, UserCheck, UserPlus, Award
 } from 'lucide-react';
 import { 
   getSavedFirebaseConfig, 
@@ -36,6 +37,7 @@ import {
 
 interface ConfiguracionViewProps {
   configuracion: Configuracion;
+  configComisiones?: ConfiguracionComisiones;
   feriados: Feriado[];
   clientes: Cliente[];
   operaciones: Operacion[];
@@ -43,6 +45,7 @@ interface ConfiguracionViewProps {
   pagos: Pago[];
   transacciones: TransaccionTesoreria[];
   onUpdateConfiguracion: (config: Configuracion) => void;
+  onUpdateConfigComisiones?: (config: ConfiguracionComisiones) => void;
   onAddFeriado: (feriado: Feriado) => void;
   onDeleteFeriado: (fecha: string) => void;
   onClearDatabase: () => void;
@@ -52,6 +55,7 @@ interface ConfiguracionViewProps {
 
 export default function ConfiguracionView({
   configuracion,
+  configComisiones,
   feriados,
   clientes,
   operaciones,
@@ -59,6 +63,7 @@ export default function ConfiguracionView({
   pagos,
   transacciones,
   onUpdateConfiguracion,
+  onUpdateConfigComisiones,
   onAddFeriado,
   onDeleteFeriado,
   onClearDatabase,
@@ -72,6 +77,14 @@ export default function ConfiguracionView({
   const [interesQuincenal, setInteresQuincenal] = useState(configuracion.interesQuincenal);
   const [interesMensual, setInteresMensual] = useState(configuracion.interesMensual);
   const [tasaMensualBase, setTasaMensualBase] = useState(configuracion.tasaMensualBase);
+
+  // Commission Module States
+  const [porcentajeComisionCobranza, setPorcentajeComisionCobranza] = useState(configComisiones?.porcentajeComisionCobranza ?? 5);
+  const [fijoComisionCobranza, setFijoComisionCobranza] = useState(configComisiones?.fijoComisionCobranza ?? 500);
+  const [montoComisionLlamada, setMontoComisionLlamada] = useState(configComisiones?.montoComisionLlamada ?? 300);
+  const [montoComisionMensaje, setMontoComisionMensaje] = useState(configComisiones?.montoComisionMensaje ?? 150);
+  const [montoComisionCaptacionCliente, setMontoComisionCaptacionCliente] = useState(configComisiones?.montoComisionCaptacionCliente ?? 2500);
+  const [montoComisionVerificacionCliente, setMontoComisionVerificacionCliente] = useState(configComisiones?.montoComisionVerificacionCliente ?? 2000);
 
   // New Goal & Minimum Payments states
   const [metaCobranzaMonto, setMetaCobranzaMonto] = useState(configuracion.metaCobranzaMonto ?? 3000000);
@@ -248,6 +261,34 @@ export default function ConfiguracionView({
 
     setNuevaFecha('');
     setNuevaDesc('');
+  };
+
+  const handleSaveComisiones = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onUpdateConfigComisiones) {
+      onUpdateConfigComisiones({
+        ...(configComisiones || {
+          montoContactoRecuperado: 2500,
+          montoClienteInactivoRecuperado: 5000,
+          porcentajeReintegroDesayuno: 50,
+          limiteSemanalReintegroDesayuno: 15000,
+          diaCierreSemanal: 'VIERNES',
+          fechaProximaLiquidacionSemanal: 'Viernes 28/07',
+          fechaProximaLiquidacionMensual: 'Viernes 31/07',
+          basicoMensual: 450000,
+          adicionalMovilidadSemanal: 25000,
+          otrosConceptosAdd: 0,
+          descuentoBeneficiosFinanciacion: 0
+        }),
+        porcentajeComisionCobranza,
+        fijoComisionCobranza,
+        montoComisionLlamada,
+        montoComisionMensaje,
+        montoComisionCaptacionCliente,
+        montoComisionVerificacionCliente
+      });
+      alert('¡Módulo de Tarifas y Valores de Comisiones guardado con éxito!');
+    }
   };
 
   return (
@@ -704,6 +745,191 @@ export default function ConfiguracionView({
 
         </div>
 
+      </div>
+
+      {/* MODULE: CONFIGURACION DE COMISIONES POR ROL Y ACCION */}
+      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-6 rounded-2xl border-2 border-amber-500/80 shadow-xl space-y-6 backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/40 pb-4">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+              Módulo de Valores y Estructura Comercial
+            </span>
+            <h3 className="text-lg font-black text-white flex items-center gap-2 mt-0.5">
+              <Award className="w-5 h-5 text-amber-400" />
+              Configuración de Tarifas y Montos de Comisiones
+            </h3>
+          </div>
+          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider self-start sm:self-auto">
+            Impacto Directo en Liquidaciones
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveComisiones} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            
+            {/* 1. Comisiones Cobrador Calle / Cobro */}
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-3">
+              <div className="flex items-center gap-2 border-b border-emerald-800/60 pb-2">
+                <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                  Cobranza de Calle (Cobrador)
+                </h4>
+              </div>
+              <div>
+                <label className="text-[10px] font-extrabold text-emerald-200 uppercase tracking-wider block mb-1">
+                  Porcentaje de Comisión por Cobro (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={porcentajeComisionCobranza}
+                    onChange={(e) => setPorcentajeComisionCobranza(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-950 border border-emerald-800 rounded-lg text-sm font-bold text-emerald-300 pr-8 focus:outline-hidden focus:border-amber-400"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-amber-400">%</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-extrabold text-emerald-200 uppercase tracking-wider block mb-1">
+                  Monto Fijo Mínimo por Cobro ($)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-emerald-400">$</span>
+                  <input
+                    type="number"
+                    value={fijoComisionCobranza}
+                    onChange={(e) => setFijoComisionCobranza(Number(e.target.value))}
+                    className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-emerald-800 rounded-lg text-sm font-bold text-emerald-300 focus:outline-hidden focus:border-amber-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Cobranza Telefónica */}
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-3">
+              <div className="flex items-center gap-2 border-b border-emerald-800/60 pb-2">
+                <Phone className="w-4 h-4 text-amber-400 shrink-0" />
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                  Cobranzas Telefónicas
+                </h4>
+              </div>
+              <div>
+                <label className="text-[10px] font-extrabold text-emerald-200 uppercase tracking-wider block mb-1">
+                  Comisión por Llamada / Gestión Concretada ($)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-amber-400">$</span>
+                  <input
+                    type="number"
+                    value={montoComisionLlamada}
+                    onChange={(e) => setMontoComisionLlamada(Number(e.target.value))}
+                    className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-emerald-800 rounded-lg text-sm font-bold text-amber-300 focus:outline-hidden focus:border-amber-400"
+                  />
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1">
+                  Monto acreditado al operador al registrar una llamada efectuada.
+                </p>
+              </div>
+            </div>
+
+            {/* 3. Gestión de WhatsApp */}
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-3">
+              <div className="flex items-center gap-2 border-b border-emerald-800/60 pb-2">
+                <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                  Gestión de WhatsApp
+                </h4>
+              </div>
+              <div>
+                <label className="text-[10px] font-extrabold text-emerald-200 uppercase tracking-wider block mb-1">
+                  Comisión por Mensaje / Gestión enviada ($)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-emerald-400">$</span>
+                  <input
+                    type="number"
+                    value={montoComisionMensaje}
+                    onChange={(e) => setMontoComisionMensaje(Number(e.target.value))}
+                    className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-emerald-800 rounded-lg text-sm font-bold text-emerald-300 focus:outline-hidden focus:border-amber-400"
+                  />
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1">
+                  Monto asignado por aviso o recordatorio enviado vía WhatsApp.
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Captación de Cliente */}
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-3">
+              <div className="flex items-center gap-2 border-b border-emerald-800/60 pb-2">
+                <UserPlus className="w-4 h-4 text-teal-400 shrink-0" />
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                  Captación de Cliente
+                </h4>
+              </div>
+              <div>
+                <label className="text-[10px] font-extrabold text-emerald-200 uppercase tracking-wider block mb-1">
+                  Monto Fijo por Captación / Alta de Nuevo Cliente ($)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-teal-400">$</span>
+                  <input
+                    type="number"
+                    value={montoComisionCaptacionCliente}
+                    onChange={(e) => setMontoComisionCaptacionCliente(Number(e.target.value))}
+                    className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-emerald-800 rounded-lg text-sm font-bold text-teal-300 focus:outline-hidden focus:border-amber-400"
+                  />
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1">
+                  Comisión acreditada al asesor o captador que trae un nuevo cliente.
+                </p>
+              </div>
+            </div>
+
+            {/* 5. Verificación de Cliente */}
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-3 lg:col-span-2">
+              <div className="flex items-center gap-2 border-b border-emerald-800/60 pb-2">
+                <UserCheck className="w-4 h-4 text-indigo-400 shrink-0" />
+                <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                  Verificación de Cliente en Domicilio
+                </h4>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold text-emerald-200 uppercase tracking-wider block mb-1">
+                    Monto Fijo por Verificación Concretada ($)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-indigo-400">$</span>
+                    <input
+                      type="number"
+                      value={montoComisionVerificacionCliente}
+                      onChange={(e) => setMontoComisionVerificacionCliente(Number(e.target.value))}
+                      className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-emerald-800 rounded-lg text-sm font-bold text-indigo-300 focus:outline-hidden focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center text-[10px] text-slate-300 leading-relaxed bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                  <p>
+                    Acredita la tarifa fija cuando el verificador confirma presencialmente los datos, recibo de sueldo y foto de fachada del cliente.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-emerald-800/80">
+            <button
+              type="submit"
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-950/80 uppercase tracking-wider transition-all"
+            >
+              <CheckCircle2 className="w-4 h-4 stroke-[3]" />
+              <span>Guardar Tarifas de Comisiones</span>
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Export & Excel Section */}

@@ -380,6 +380,44 @@ export default function CobradorCampoView({
   const totalClientesAgenda = myAssignedClients.length || 1;
   const efectividadPorcentaje = Math.round((clientesGestionados.length / totalClientesAgenda) * 100);
 
+  // Potential Earnings if 100% Collected Today
+  const pctComision = configComisiones?.porcentajeComisionCobranza || 5;
+  const fijoComision = configComisiones?.fijoComisionCobranza || 0;
+
+  const potencialGestionRoute = myAssignedClients.map(c => {
+    const cOps = operaciones.filter(o => o.idCliente === c.id && o.estado === 'ACTIVA');
+    const cCuotas = cuotas.filter(cu => cOps.some(o => o.id === cu.idOperacion) && cu.estado !== 'PAGADA');
+
+    let cobroEsperado = 0;
+    if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) {
+      cobroEsperado = c.montoMinimoInactivoConfigurado || c.montoPagoInicialRefinanciacion || Math.round((c.montoDeudaInactivo || 150000) * 0.20);
+    } else {
+      const cuotasHoyOVencidas = cCuotas.filter(cu => cu.fechaVencimiento <= todayStr);
+      if (cuotasHoyOVencidas.length > 0) {
+        cobroEsperado = cuotasHoyOVencidas.reduce((s, cu) => s + (cu.saldoPendiente || cu.valorTotalCuota), 0);
+      } else if (cCuotas.length > 0) {
+        cobroEsperado = cCuotas[0].saldoPendiente || cCuotas[0].valorTotalCuota;
+      }
+    }
+
+    const comisionEstimadaCliente = Math.max(
+      Math.round((cobroEsperado * pctComision) / 100),
+      cobroEsperado > 0 ? fijoComision : 0
+    );
+
+    return {
+      clienteId: c.id,
+      nombreCliente: `${c.nombre} ${c.apellido}`,
+      estado: c.estado,
+      cobroEsperado,
+      comisionEstimadaCliente,
+      yaCobrado: isVisitedToday(c.id)
+    };
+  });
+
+  const potencialCobroTotalHoy = potencialGestionRoute.reduce((sum, item) => sum + item.cobroEsperado, 0);
+  const potencialGananciaTotalHoy = potencialGestionRoute.reduce((sum, item) => sum + item.comisionEstimadaCliente, 0);
+
   // Time Estimation for Route (15 minutes maximum pause per client)
   const clientesTotalesAVisitar = clientesPendientes.length + clientesVisitasPendientesReprogramadas.length;
   const minutosAtencionClientes = clientesTotalesAVisitar * 15; // 15 min por cliente
@@ -796,13 +834,20 @@ export default function CobradorCampoView({
                 </span>
               </div>
 
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl md:text-3xl font-black text-emerald-300">
-                  ${comisionesGanadasHoy.toLocaleString('es-AR')} ARS
-                </span>
-                <span className="text-[10px] text-slate-400 font-bold hidden sm:inline">
-                  ({clientesGestionados.length} de {myAssignedClients.length} gestiones completadas)
-                </span>
+              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl md:text-3xl font-black text-emerald-300">
+                    ${comisionesGanadasHoy.toLocaleString('es-AR')} ARS
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold">
+                    ({clientesGestionados.length}/{myAssignedClients.length} cobrados)
+                  </span>
+                </div>
+
+                <div className="bg-amber-950/70 border border-amber-500/60 px-3 py-1 rounded-xl flex items-center gap-1.5 self-start sm:self-auto">
+                  <span className="text-[10px] font-black uppercase text-amber-300">Ganancia Potencial Hoy:</span>
+                  <span className="text-sm font-black text-amber-200">${potencialGananciaTotalHoy.toLocaleString('es-AR')} ARS</span>
+                </div>
               </div>
 
               {/* Progress Bar */}
@@ -1064,15 +1109,31 @@ export default function CobradorCampoView({
                           </div>
                         </div>
 
-                        {/* HIGHLY VISIBLE BOX: TOTAL ADEUDADO A ABONAR */}
-                        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-2.5 rounded-xl border-2 border-emerald-500/80 shadow-lg text-center">
-                          <span className="text-[9px] font-black text-emerald-300 uppercase tracking-wider block">
-                            TOTAL ADEUDADO A ABONAR
-                          </span>
-                          <span className="text-xl font-black text-yellow-300 tracking-tight block">
-                            ${totalDeudaCuotas.toLocaleString('es-AR')}
-                          </span>
-                        </div>
+                        {/* FINANCIAL SUMMARY BOX */}
+                        {(cliente.estado === 'INACTIVO' || (cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0)) ? (
+                          <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 p-2.5 rounded-xl border-2 border-amber-500/80 shadow-lg space-y-1.5 text-center">
+                            <span className="text-[9px] font-black text-amber-300 uppercase tracking-wider block">
+                              PAGO INICIAL PARA REFINANCIAR
+                            </span>
+                            <span className="text-2xl font-black text-yellow-300 tracking-tight block">
+                              ${(cliente.montoPagoInicialRefinanciacion || Math.round((cliente.montoDeudaInactivo || 150000) * 0.3)).toLocaleString('es-AR')}
+                            </span>
+                            {isUserAdmin && (
+                              <div className="pt-1 border-t border-amber-800/60 text-[9px] font-bold text-slate-400">
+                                Total Deuda Registrada (Admin): <span className="text-amber-200">${(cliente.montoDeudaInactivo || totalDeudaCuotas).toLocaleString('es-AR')}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-2.5 rounded-xl border-2 border-emerald-500/80 shadow-lg text-center">
+                            <span className="text-[9px] font-black text-emerald-300 uppercase tracking-wider block">
+                              TOTAL ADEUDADO A ABONAR
+                            </span>
+                            <span className="text-xl font-black text-yellow-300 tracking-tight block">
+                              ${totalDeudaCuotas.toLocaleString('es-AR')}
+                            </span>
+                          </div>
+                        )}
 
                         {/* MONTO MINIMO EXIGIBLE */}
                         <div className="flex items-center justify-between px-1 pt-0.5">
@@ -1594,15 +1655,31 @@ export default function CobradorCampoView({
                   </div>
                 </div>
 
-                {/* HIGHLY VISIBLE BOX: TOTAL ADEUDADO A ABONAR */}
-                <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-3 rounded-2xl border-2 border-emerald-500/80 shadow-xl text-center">
-                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
-                    TOTAL ADEUDADO A ABONAR
-                  </span>
-                  <span className="text-2xl font-black text-yellow-300 tracking-tight block">
-                    ${totalDeudaCuotas.toLocaleString('es-AR')}
-                  </span>
-                </div>
+                {/* FINANCIAL SUMMARY BOX */}
+                {(selectedCliente.estado === 'INACTIVO' || (selectedCliente.montoDeudaInactivo && selectedCliente.montoDeudaInactivo > 0)) ? (
+                  <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 p-3.5 rounded-2xl border-2 border-amber-500/80 shadow-xl space-y-2 text-center">
+                    <span className="text-[10px] font-black text-amber-300 uppercase tracking-wider block">
+                      PAGO INICIAL PARA REFINANCIAR
+                    </span>
+                    <span className="text-3xl font-black text-yellow-300 tracking-tight block">
+                      ${(selectedCliente.montoPagoInicialRefinanciacion || Math.round((selectedCliente.montoDeudaInactivo || 150000) * 0.3)).toLocaleString('es-AR')}
+                    </span>
+                    {isUserAdmin && (
+                      <div className="pt-1.5 border-t border-amber-800/60 text-[10px] font-bold text-slate-400">
+                        Total Deuda Registrada (Sólo Visible a Administrador): <span className="text-amber-200">${(selectedCliente.montoDeudaInactivo || totalDeudaCuotas).toLocaleString('es-AR')}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-3 rounded-2xl border-2 border-emerald-500/80 shadow-xl text-center">
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
+                      TOTAL ADEUDADO A ABONAR
+                    </span>
+                    <span className="text-2xl font-black text-yellow-300 tracking-tight block">
+                      ${totalDeudaCuotas.toLocaleString('es-AR')}
+                    </span>
+                  </div>
+                )}
 
                 {/* MONTO MINIMO EXIGIBLE */}
                 <div className="flex items-center justify-between px-2 pt-0.5">
@@ -2066,20 +2143,45 @@ export default function CobradorCampoView({
               </div>
             </div>
 
+            {/* HIGHLIGHTED POTENTIAL EARNINGS PROJECTION BOX */}
+            <div className="bg-gradient-to-r from-amber-950 via-slate-950 to-amber-950 p-4 rounded-2xl border-2 border-amber-500/80 shadow-xl space-y-2">
+              <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 text-amber-400" />
+                  Potencial Estimado de Ganancia del Día
+                </span>
+                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
+                  100% Cobranza
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between pt-1">
+                <div>
+                  <span className="text-2xl font-black text-amber-200">${potencialGananciaTotalHoy.toLocaleString('es-AR')} ARS</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    Proyección si cobras el 100% de los {myAssignedClients.length} clientes en tu gestión domiciliaria de hoy.
+                  </span>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Cobro Esperado Total</span>
+                  <span className="text-sm font-black text-slate-200">${potencialCobroTotalHoy.toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+            </div>
+
             {/* Breakdown of Payments Collected Today */}
             <div className="space-y-3 pt-2">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
                 <span>Detalle de Cobros y Comisiones del Día</span>
-                <span className="text-emerald-400 font-bold">{cobrosCalleRealizadosHoy.length} Cobros</span>
+                <span className="text-emerald-400 font-bold">{cobrosCalleRealizadosHoy.length} Cobros Realizados</span>
               </h4>
 
               {cobrosCalleRealizadosHoy.length === 0 ? (
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-center text-xs text-slate-400 space-y-1">
                   <p className="font-bold">Aún no se han registrado cobros el día de hoy.</p>
-                  <p className="text-[10px] text-slate-500">Cada cobro realizado genera automáticamente un 10% de comisión directa.</p>
+                  <p className="text-[10px] text-slate-500">Cada cobro realizado genera automáticamente tu comisión configurada ({configComisiones?.porcentajeComisionCobranza || 5}%).</p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {cobrosCalleRealizadosHoy.map((cobro, idx) => (
                     <div key={idx} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
                       <div>

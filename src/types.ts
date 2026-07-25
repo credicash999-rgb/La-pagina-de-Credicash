@@ -286,6 +286,8 @@ export interface ConfiguracionComisiones {
   montoClienteInactivoRecuperado: number;
   montoComisionLlamada: number;
   montoComisionMensaje: number;
+  montoComisionCaptacionCliente?: number;
+  montoComisionVerificacionCliente?: number;
   porcentajeReintegroDesayuno: number;
   limiteSemanalReintegroDesayuno: number;
   diaCierreSemanal: string;

@@ -75,6 +75,8 @@ const SEED_CONFIG_COMISIONES: ConfiguracionComisiones = {
   montoClienteInactivoRecuperado: 5000,
   montoComisionLlamada: 300,
   montoComisionMensaje: 150,
+  montoComisionCaptacionCliente: 2500,
+  montoComisionVerificacionCliente: 2000,
   porcentajeReintegroDesayuno: 50,
   limiteSemanalReintegroDesayuno: 15000,
   diaCierreSemanal: 'VIERNES',
@@ -2564,6 +2566,7 @@ export default function App() {
           {activeTab === 'configuracion' && activeUserRole.verConfiguracion && (
             <ConfiguracionView
               configuracion={configuracion}
+              configComisiones={configComisiones}
               feriados={feriados}
               clientes={clientes}
               operaciones={operaciones}
@@ -2571,6 +2574,7 @@ export default function App() {
               pagos={pagos}
               transacciones={transacciones}
               onUpdateConfiguracion={handleUpdateConfiguracion}
+              onUpdateConfigComisiones={handleUpdateConfigComisiones}
               onAddFeriado={handleAddFeriado}
               onDeleteFeriado={handleDeleteFeriado}
               onClearDatabase={handleClearDatabase}

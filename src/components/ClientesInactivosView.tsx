@@ -267,7 +267,7 @@ export default function ClientesInactivosView({
                     </select>
                   </div>
 
-                  {(activeUserRole.rolId === 'ADMIN' || activeUserRole.rolId === 'SUPERVISOR' || activeUserRole.verConfiguracion || true) && (
+                  {(activeUserRole.rolId === 'ADMIN' || activeUserRole.rolId === 'SUPERVISOR') && (
                     <button
                       onClick={() => handleOpenConfigModal(cliente)}
                       className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-black text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer border border-amber-500/40 transition-all shadow-sm"
