@@ -279,6 +279,7 @@ export interface ComisionCobrador {
 }
 
 export interface ConfiguracionComisiones {
+  modoComisionCobranza?: 'PORCENTAJE' | 'MONTO_FIJO';
   porcentajeComisionCobranza: number;
   fijoComisionCobranza: number;
   montoMinimoCobroComision?: number;

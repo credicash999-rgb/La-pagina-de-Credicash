@@ -69,6 +69,7 @@ const STORAGE_KEYS = {
 };
 
 const SEED_CONFIG_COMISIONES: ConfiguracionComisiones = {
+  modoComisionCobranza: 'PORCENTAJE',
   porcentajeComisionCobranza: 5,
   fijoComisionCobranza: 500,
   montoContactoRecuperado: 2500,
@@ -1007,8 +1008,15 @@ export default function App() {
     setTransacciones(trxList);
     saveToLocalStorage(STORAGE_KEYS.TRANSACCIONES, trxList);
 
-    // 4b. Generate commission entry for collector
-    const comVal = Math.round((nuevoPago.importe * (configComisiones?.porcentajeComisionCobranza || 5)) / 100);
+    // 4b. Generate commission entry for collector according to configured mode (PORCENTAJE or MONTO_FIJO)
+    const modoCom = configComisiones?.modoComisionCobranza || 'PORCENTAJE';
+    let finalComision = 0;
+    if (modoCom === 'MONTO_FIJO') {
+      finalComision = configComisiones?.fijoComisionCobranza || 500;
+    } else {
+      finalComision = Math.round((nuevoPago.importe * (configComisiones?.porcentajeComisionCobranza || 5)) / 100);
+    }
+
     const nuevaComision: ComisionCobrador = {
       id: `COM-${Date.now()}`,
       cobradorId: activeUser?.id || 'COB-01',
@@ -1016,7 +1024,7 @@ export default function App() {
       idCliente: nuevoPago.idCliente,
       nombreCliente: nuevoPago.nombreCliente,
       montoCobrado: nuevoPago.importe,
-      montoComision: Math.max(comVal, configComisiones?.fijoComisionCobranza || 0),
+      montoComision: finalComision,
       tipoComision: 'COBRANZA',
       fecha: nuevoPago.fechaPago,
       estado: 'PENDIENTE',

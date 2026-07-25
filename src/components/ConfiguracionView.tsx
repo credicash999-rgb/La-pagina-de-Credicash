@@ -79,6 +79,7 @@ export default function ConfiguracionView({
   const [tasaMensualBase, setTasaMensualBase] = useState(configuracion.tasaMensualBase);
 
   // Commission Module States
+  const [modoComisionCobranza, setModoComisionCobranza] = useState<'PORCENTAJE' | 'MONTO_FIJO'>(configComisiones?.modoComisionCobranza || 'PORCENTAJE');
   const [porcentajeComisionCobranza, setPorcentajeComisionCobranza] = useState(configComisiones?.porcentajeComisionCobranza ?? 5);
   const [fijoComisionCobranza, setFijoComisionCobranza] = useState(configComisiones?.fijoComisionCobranza ?? 500);
   const [montoComisionLlamada, setMontoComisionLlamada] = useState(configComisiones?.montoComisionLlamada ?? 300);
@@ -280,6 +281,7 @@ export default function ConfiguracionView({
           otrosConceptosAdd: 0,
           descuentoBeneficiosFinanciacion: 0
         }),
+        modoComisionCobranza,
         porcentajeComisionCobranza,
         fijoComisionCobranza,
         montoComisionLlamada,
@@ -768,13 +770,74 @@ export default function ConfiguracionView({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             
             {/* 1. Comisiones Cobrador Calle / Cobro */}
-            <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-3">
+            <div className="bg-slate-900/90 p-4 rounded-xl border border-emerald-800/80 space-y-3.5 lg:col-span-1">
               <div className="flex items-center gap-2 border-b border-emerald-800/60 pb-2">
                 <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                 <h4 className="text-xs font-black text-white uppercase tracking-wider">
                   Cobranza de Calle (Cobrador)
                 </h4>
               </div>
+
+              {/* Selector de Modalidad Impactante (Tilde) */}
+              <div className="bg-slate-950 p-2.5 rounded-xl border border-amber-500/50 space-y-2">
+                <span className="text-[10px] font-black uppercase text-amber-300 block tracking-wider">
+                  ✔ Modalidad Activa que Impacta en Cobros:
+                </span>
+                <div className="space-y-1.5">
+                  <label 
+                    onClick={() => setModoComisionCobranza('PORCENTAJE')}
+                    className={`flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all ${
+                      modoComisionCobranza === 'PORCENTAJE' 
+                        ? 'bg-emerald-950 border-emerald-400 text-white font-black shadow-md' 
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="modoComisionCobranza"
+                      value="PORCENTAJE"
+                      checked={modoComisionCobranza === 'PORCENTAJE'}
+                      onChange={() => setModoComisionCobranza('PORCENTAJE')}
+                      className="w-4 h-4 text-emerald-500 focus:ring-emerald-400 cursor-pointer"
+                    />
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-xs font-bold">Porcentaje (%)</span>
+                      {modoComisionCobranza === 'PORCENTAJE' && (
+                        <span className="text-[9px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.5 rounded-md uppercase">
+                          ACTIVO
+                        </span>
+                      )}
+                    </div>
+                  </label>
+
+                  <label 
+                    onClick={() => setModoComisionCobranza('MONTO_FIJO')}
+                    className={`flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition-all ${
+                      modoComisionCobranza === 'MONTO_FIJO' 
+                        ? 'bg-emerald-950 border-emerald-400 text-white font-black shadow-md' 
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="modoComisionCobranza"
+                      value="MONTO_FIJO"
+                      checked={modoComisionCobranza === 'MONTO_FIJO'}
+                      onChange={() => setModoComisionCobranza('MONTO_FIJO')}
+                      className="w-4 h-4 text-emerald-500 focus:ring-emerald-400 cursor-pointer"
+                    />
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-xs font-bold">Valor Fijo ($)</span>
+                      {modoComisionCobranza === 'MONTO_FIJO' && (
+                        <span className="text-[9px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.5 rounded-md uppercase">
+                          ACTIVO
+                        </span>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               <div>
                 <label className="text-[10px] font-extrabold text-emerald-200 uppercase tracking-wider block mb-1">
                   Porcentaje de Comisión por Cobro (%)
@@ -792,7 +855,7 @@ export default function ConfiguracionView({
               </div>
               <div>
                 <label className="text-[10px] font-extrabold text-emerald-200 uppercase tracking-wider block mb-1">
-                  Monto Fijo Mínimo por Cobro ($)
+                  Monto Fijo por Cobro ($)
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-xs font-bold text-emerald-400">$</span>

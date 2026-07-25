@@ -10,11 +10,12 @@ import {
   ConfiguracionComisiones, ConfiguracionRecorrido, TransaccionTesoreria, SolicitudReintegroDesayuno 
 } from '../types';
 import { sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
+import { exportDailyRoutePDF } from '../utils/pdfExportRoute';
 import { 
   MapPin, DollarSign, Calendar, Clock, CheckCircle2, 
   Phone, MessageCircle, Navigation, TrendingUp, 
   Camera, ChevronRight, UserX, RefreshCw, Check, 
-  X, UserCheck, Play, Compass, Coffee, Send, PhoneCall, Home, AlertTriangle
+  X, UserCheck, Play, Compass, Coffee, Send, PhoneCall, Home, AlertTriangle, FileText
 } from 'lucide-react';
 
 interface CobradorCampoViewProps {
@@ -380,30 +381,30 @@ export default function CobradorCampoView({
   const totalClientesAgenda = myAssignedClients.length || 1;
   const efectividadPorcentaje = Math.round((clientesGestionados.length / totalClientesAgenda) * 100);
 
-  // Potential Earnings if 100% Collected Today
+  // Potential Earnings calculated over TOTAL ADEUDADO A ABONAR
+  const modoComision = configComisiones?.modoComisionCobranza || 'PORCENTAJE';
   const pctComision = configComisiones?.porcentajeComisionCobranza || 5;
-  const fijoComision = configComisiones?.fijoComisionCobranza || 0;
+  const fijoComision = configComisiones?.fijoComisionCobranza || 500;
 
   const potencialGestionRoute = myAssignedClients.map(c => {
     const cOps = operaciones.filter(o => o.idCliente === c.id && o.estado === 'ACTIVA');
-    const cCuotas = cuotas.filter(cu => cOps.some(o => o.id === cu.idOperacion) && cu.estado !== 'PAGADA');
+    const { totalDeudaCuotas } = getClientFinancialSummary(c, cOps);
 
     let cobroEsperado = 0;
     if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) {
-      cobroEsperado = c.montoMinimoInactivoConfigurado || c.montoPagoInicialRefinanciacion || Math.round((c.montoDeudaInactivo || 150000) * 0.20);
+      cobroEsperado = c.montoPagoInicialRefinanciacion || Math.round((c.montoDeudaInactivo || 150000) * 0.30);
     } else {
-      const cuotasHoyOVencidas = cCuotas.filter(cu => cu.fechaVencimiento <= todayStr);
-      if (cuotasHoyOVencidas.length > 0) {
-        cobroEsperado = cuotasHoyOVencidas.reduce((s, cu) => s + (cu.saldoPendiente || cu.valorTotalCuota), 0);
-      } else if (cCuotas.length > 0) {
-        cobroEsperado = cCuotas[0].saldoPendiente || cCuotas[0].valorTotalCuota;
-      }
+      cobroEsperado = totalDeudaCuotas;
     }
 
-    const comisionEstimadaCliente = Math.max(
-      Math.round((cobroEsperado * pctComision) / 100),
-      cobroEsperado > 0 ? fijoComision : 0
-    );
+    let comisionEstimadaCliente = 0;
+    if (cobroEsperado > 0) {
+      if (modoComision === 'MONTO_FIJO') {
+        comisionEstimadaCliente = fijoComision;
+      } else {
+        comisionEstimadaCliente = Math.round((cobroEsperado * pctComision) / 100);
+      }
+    }
 
     return {
       clienteId: c.id,
@@ -426,6 +427,26 @@ export default function CobradorCampoView({
   const hsRecorrido = Math.floor(minutosTotalesRecorrido / 60);
   const minsRecorrido = minutosTotalesRecorrido % 60;
   const tiempoEstimadoFormatted = `${hsRecorrido}h ${minsRecorrido}m`;
+
+  // Helper for Admin PDF Export
+  const handleExportarPDFHojaRuta = () => {
+    let targetCobradorNombre = activeUser?.nombre || 'Cobrador de Campo';
+    if (selectedSupervisorUserId !== 'TODOS') {
+      const u = usuarios.find(usr => usr.id === selectedSupervisorUserId);
+      if (u) targetCobradorNombre = u.nombre;
+    }
+
+    exportDailyRoutePDF(
+      targetCobradorNombre,
+      todayStr,
+      myAssignedClients,
+      operaciones,
+      cuotas,
+      potencialCobroTotalHoy,
+      potencialGananciaTotalHoy,
+      tiempoEstimadoFormatted
+    );
+  };
 
   // Open Google Maps
   const abrirGoogleMaps = (direccion: string) => {
@@ -834,7 +855,7 @@ export default function CobradorCampoView({
                 </span>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl md:text-3xl font-black text-emerald-300">
                     ${comisionesGanadasHoy.toLocaleString('es-AR')} ARS
@@ -844,9 +865,18 @@ export default function CobradorCampoView({
                   </span>
                 </div>
 
-                <div className="bg-amber-950/70 border border-amber-500/60 px-3 py-1 rounded-xl flex items-center gap-1.5 self-start sm:self-auto">
-                  <span className="text-[10px] font-black uppercase text-amber-300">Ganancia Potencial Hoy:</span>
-                  <span className="text-sm font-black text-amber-200">${potencialGananciaTotalHoy.toLocaleString('es-AR')} ARS</span>
+                <div className="flex flex-col sm:items-end gap-1.5 self-start sm:self-auto">
+                  {/* TIEMPO ESTIMADO DEL RECORRIDO (ARRIBA DE GANANCIA POTENCIAL HOY) */}
+                  <div className="bg-teal-950/80 border border-teal-500/50 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 text-teal-300 text-[11px] font-bold shadow-xs">
+                    <Clock className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                    <span>Tiempo Estimado Recorrido: <strong className="text-white font-black">{tiempoEstimadoFormatted}</strong></span>
+                  </div>
+
+                  {/* GANANCIA POTENCIAL HOY */}
+                  <div className="bg-amber-950/70 border border-amber-500/60 px-3 py-1 rounded-xl flex items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase text-amber-300">Ganancia Potencial Hoy:</span>
+                    <span className="text-sm font-black text-amber-200">${potencialGananciaTotalHoy.toLocaleString('es-AR')} ARS</span>
+                  </div>
                 </div>
               </div>
 
@@ -860,8 +890,19 @@ export default function CobradorCampoView({
             </div>
           </div>
 
-          {/* Action Button for Detailed Earnings Modal */}
-          <div className="flex items-center justify-end">
+          {/* Action Buttons for Earnings Modal & Admin PDF Export */}
+          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            {isUserAdmin && (
+              <button
+                onClick={handleExportarPDFHojaRuta}
+                className="bg-red-700 hover:bg-red-600 text-white font-black text-xs px-3.5 py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-red-500/20 cursor-pointer transition-all uppercase tracking-wider shrink-0 border border-red-400"
+                title="Exportar Hoja de Ruta en PDF para el cobrador en caso de falla del sistema"
+              >
+                <FileText className="w-4 h-4 text-white shrink-0" />
+                <span>Exportar PDF Hoja de Ruta (Admin)</span>
+              </button>
+            )}
+
             <button
               onClick={() => setShowComisionesModal(true)}
               className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-4 py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-emerald-500/20 cursor-pointer transition-all uppercase tracking-wider shrink-0"
@@ -876,43 +917,44 @@ export default function CobradorCampoView({
       {/* ========================================================================= */}
       {/* FIELD COLLECTOR TAB NAVIGATION MENU                                      */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-slate-900 p-2 rounded-2xl border border-slate-800 shadow-md">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-slate-900 p-2 rounded-2xl border border-slate-800 shadow-md items-center">
+        {/* OPTION 1: GESTIÓN DIARIA (LARGE & PROMINENT) */}
         <button
           onClick={() => setActiveTab('gestion_diaria')}
-          className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-extrabold text-xs sm:text-sm transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
             activeTab === 'gestion_diaria'
               ? 'bg-emerald-600 text-white shadow-lg border border-emerald-400 ring-2 ring-emerald-500/30'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              : 'text-slate-200 bg-slate-800/80 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <Calendar className="w-4 h-4 shrink-0 text-emerald-300" />
-          <span className="truncate">1. Gestión Diaria</span>
+          <Calendar className="w-5 h-5 shrink-0 text-emerald-300" />
+          <span className="truncate">1. GESTIÓN DIARIA</span>
         </button>
 
+        {/* OPTION 2: GESTIÓN TELEFÓNICA (DISABLED & SMALLER FOR NOW) */}
         <button
-          onClick={() => setActiveTab('gestion_telefonica')}
-          className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-extrabold text-xs sm:text-sm transition-all cursor-pointer ${
-            activeTab === 'gestion_telefonica'
-              ? 'bg-emerald-600 text-white shadow-lg border border-emerald-400 ring-2 ring-emerald-500/30'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-          }`}
+          disabled={true}
+          title="Pestaña en desarrollo temporalmente deshabilitada"
+          className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl font-bold text-[10px] bg-slate-950/80 border border-slate-800 text-slate-500 cursor-not-allowed opacity-50 shadow-inner"
         >
-          <PhoneCall className="w-4 h-4 shrink-0 text-amber-300" />
-          <span className="truncate">2. Gestión Telefónica</span>
+          <PhoneCall className="w-3.5 h-3.5 shrink-0 text-slate-600" />
+          <span className="truncate">2. Gestión Telefónica (Deshabilitada)</span>
         </button>
 
+        {/* OPTION 3: VISUALIZACIÓN DE RECORRIDO (LARGE & PROMINENT) */}
         <button
           onClick={() => setActiveTab('mi_recorrido')}
-          className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-extrabold text-xs sm:text-sm transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
             activeTab === 'mi_recorrido'
               ? 'bg-emerald-600 text-white shadow-lg border border-emerald-400 ring-2 ring-emerald-500/30'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              : 'text-slate-200 bg-slate-800/80 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <Compass className="w-4 h-4 shrink-0 text-teal-300" />
-          <span className="truncate">3. Visualización de Recorrido</span>
+          <Compass className="w-5 h-5 shrink-0 text-teal-300" />
+          <span className="truncate">3. VISUALIZACIÓN DE RECORRIDO</span>
         </button>
 
+        {/* OPTION 4: REINTEGRO DESAYUNO */}
         <button
           onClick={() => setActiveTab('reintegro_desayuno')}
           className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-extrabold text-xs sm:text-sm transition-all cursor-pointer ${
