@@ -14,7 +14,7 @@ import {
   MapPin, DollarSign, Calendar, Clock, CheckCircle2, 
   Phone, MessageCircle, Navigation, TrendingUp, 
   Camera, ChevronRight, UserX, RefreshCw, Check, 
-  X, UserCheck, Play, Compass, Coffee, Send, PhoneCall
+  X, UserCheck, Play, Compass, Coffee, Send, PhoneCall, Home
 } from 'lucide-react';
 
 interface CobradorCampoViewProps {
@@ -216,6 +216,63 @@ export default function CobradorCampoView({
     list.push(op);
     clientOperationsMap.set(op.idCliente, list);
   });
+
+  // Calculate detailed financial summary for each client
+  const getClientFinancialSummary = (cliente: Cliente, ops: Operacion[]) => {
+    let totalExigible = 0;
+    let montoMinimoExigible = 0;
+    let cuotasDebeCount = 0;
+    let totalDeudaCuotas = 0;
+
+    ops.forEach(op => {
+      const opCuotas = cuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
+      const overdue = opCuotas.filter(c => c.fechaVencimiento < todayStr);
+      const dueToday = opCuotas.filter(c => c.fechaVencimiento === todayStr);
+
+      const sumOverdue = overdue.reduce((sum, c) => sum + c.saldoPendiente, 0);
+      const sumToday = dueToday.reduce((sum, c) => sum + c.saldoPendiente, 0);
+
+      const opExigible = sumOverdue + sumToday;
+      totalExigible += opExigible;
+      cuotasDebeCount += overdue.length + dueToday.length;
+      totalDeudaCuotas += sumOverdue + sumToday;
+
+      if (sumOverdue > 0) {
+        montoMinimoExigible += sumOverdue;
+      } else if (sumToday > 0) {
+        montoMinimoExigible += sumToday;
+      } else if (opCuotas.length > 0) {
+        montoMinimoExigible += opCuotas[0].saldoPendiente;
+        cuotasDebeCount += opCuotas.length;
+        totalDeudaCuotas += opCuotas.reduce((s, c) => s + c.saldoPendiente, 0);
+      }
+    });
+
+    return {
+      totalExigible,
+      montoMinimoExigible,
+      cuotasDebeCount,
+      totalDeudaCuotas
+    };
+  };
+
+  // Helper: House photo upload handler
+  const handleHousePhotoUpload = (clienteId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      const targetCliente = clientes.find(c => c.id === clienteId);
+      if (targetCliente && onUpdateCliente) {
+        onUpdateCliente({
+          ...targetCliente,
+          fotoCasa: dataUrl
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Determine client status for Field Collector agenda
   const getClienteEstadoField = (cliente: Cliente, ops: Operacion[]) => {
@@ -922,50 +979,64 @@ export default function CobradorCampoView({
                   const ops = clientOperationsMap.get(cliente.id) || [];
                   const opPrincipal = ops[0];
                   const estadoField = getClienteEstadoField(cliente, ops);
-                  const cuotasVencidas = ops.reduce((sum, o) => sum + (o.cuotasPendientes || 1), 0);
-                  const valorCuotaIndividual = opPrincipal?.valorCuota || 0;
-                  const totalExigible = ops.reduce((sum, o) => sum + (o.valorCuota || 0), 0);
+                  const { totalExigible, montoMinimoExigible, cuotasDebeCount, totalDeudaCuotas } = getClientFinancialSummary(cliente, ops);
 
                   return (
                     <div 
                       key={cliente.id}
                       className="bg-slate-900 border-2 border-slate-800 hover:border-emerald-500/60 rounded-2xl p-4 space-y-3 flex flex-col justify-between shadow-lg transition-all"
                     >
-                      {/* Header: Name & Address */}
+                      {/* Header: Name, Address & House Photo */}
                       <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h4 className="text-base font-black text-white leading-tight">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-base font-black text-white leading-tight truncate">
                               {cliente.nombre} {cliente.apellido}
                             </h4>
-                            <p className="text-xs font-semibold text-slate-300 flex items-center gap-1 mt-1">
+                            <p className="text-xs font-semibold text-slate-300 flex items-center gap-1 mt-1 truncate">
                               <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>{cliente.direccion || `${cliente.calle || 'Av. San Martín'} ${cliente.numero || '123'}`}</span>
+                              <span className="truncate">{cliente.direccion || `${cliente.calle || ''} ${cliente.numero || ''}`}</span>
                             </p>
+                            <div className="mt-2">
+                              <span className={`inline-block px-2.5 py-0.5 text-[10px] font-black uppercase rounded-lg border ${estadoField.badgeClass}`}>
+                                {estadoField.label}
+                              </span>
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Status Badge */}
-                        <div>
-                          <span className={`inline-block px-2.5 py-1 text-[10px] font-black uppercase rounded-lg border ${estadoField.badgeClass}`}>
-                            {estadoField.label}
-                          </span>
+                          {/* House Photo Section */}
+                          <div className="w-16 h-16 rounded-xl bg-slate-950 border border-slate-700/80 overflow-hidden shrink-0 flex items-center justify-center relative group">
+                            {cliente.fotoCasa ? (
+                              <img src={cliente.fotoCasa} alt="Casa" className="w-full h-full object-cover" />
+                            ) : (
+                              <label className="flex flex-col items-center justify-center text-center p-1 cursor-pointer w-full h-full hover:bg-slate-800 transition-colors">
+                                <Camera className="w-4 h-4 text-amber-400" />
+                                <span className="text-[8px] font-black text-amber-300 leading-tight mt-0.5">Foto Casa</span>
+                                <input type="file" accept="image/*" capture="environment" onChange={(e) => handleHousePhotoUpload(cliente.id, e)} className="hidden" />
+                              </label>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Required Financial Summary */}
-                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 grid grid-cols-3 gap-2 text-center text-xs">
-                        <div>
-                          <span className="text-[9px] text-slate-400 uppercase font-extrabold block">Pendientes</span>
-                          <span className="font-black text-rose-400 text-xs">{cuotasVencidas} cuota(s)</span>
+                      {/* Required Financial Summary (Cuotas debe, Total estas cuotas, Monto minimo exigible) */}
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+                        <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800 text-center">
+                          <div>
+                            <span className="text-[9px] text-slate-400 uppercase font-extrabold block">Cuotas que debe</span>
+                            <span className="font-black text-rose-400 text-xs">{cuotasDebeCount} cuota(s)</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-slate-400 uppercase font-extrabold block">Total estas cuotas</span>
+                            <span className="font-black text-amber-300 text-xs">${totalDeudaCuotas.toLocaleString('es-AR')}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-[9px] text-slate-400 uppercase font-extrabold block">Valor Cuota</span>
-                          <span className="font-bold text-white text-xs">${valorCuotaIndividual.toLocaleString('es-AR')}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-400 uppercase font-extrabold block">Exigible</span>
-                          <span className="font-black text-emerald-400 text-xs">${totalExigible.toLocaleString('es-AR')}</span>
+
+                        <div className="flex items-center justify-between pt-0.5">
+                          <span className="text-[10px] uppercase font-black text-slate-300">Monto Mínimo Exigible:</span>
+                          <span className="font-black text-emerald-400 text-sm bg-emerald-950/80 px-2.5 py-0.5 rounded-lg border border-emerald-800">
+                            ${montoMinimoExigible.toLocaleString('es-AR')}
+                          </span>
                         </div>
                       </div>
 
@@ -987,7 +1058,7 @@ export default function CobradorCampoView({
                           }}
                           className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-colors"
                         >
-                          <span>Gestionar</span>
+                          <span>Registrar / Gestionar</span>
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
@@ -1385,183 +1456,319 @@ export default function CobradorCampoView({
       {/* ========================================================================= */}
       {/* MODAL: CLIENT ACTION SHEET                                                */}
       {/* ========================================================================= */}
-      {selectedCliente && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border-2 border-emerald-500/50 rounded-3xl p-6 max-w-lg w-full space-y-5 shadow-2xl relative">
-            
-            <button
-              onClick={() => {
-                setSelectedCliente(null);
-                setSelectedOperacion(null);
-                setActionType(null);
-              }}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      {selectedCliente && (() => {
+        const clientOps = clientOperationsMap.get(selectedCliente.id) || [];
+        const { totalExigible, montoMinimoExigible, cuotasDebeCount, totalDeudaCuotas } = getClientFinancialSummary(selectedCliente, clientOps);
 
-            <div className="border-b border-slate-800 pb-4">
-              <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider block mb-0.5">
-                Ficha de Cobranza en Campo
-              </span>
-              <h3 className="text-xl font-black text-white">{selectedCliente.nombre} {selectedCliente.apellido}</h3>
-              <p className="text-xs font-bold text-slate-300 flex items-center gap-1 mt-1">
-                <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>{selectedCliente.direccion || `${selectedCliente.calle || ''} ${selectedCliente.numero || ''}`}</span>
-              </p>
-            </div>
-
-            <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <span className="text-[9px] text-slate-400 uppercase font-black block">Valor Cuota Individual</span>
-                <span className="text-base font-black text-white">
-                  ${selectedOperacion?.valorCuota?.toLocaleString('es-AR') || '0'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[9px] text-slate-400 uppercase font-black block">Total Exigible</span>
-                <span className="text-base font-black text-emerald-400">
-                  ${selectedOperacion?.valorCuota?.toLocaleString('es-AR') || '0'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-emerald-950/40 border border-emerald-700/60 p-3.5 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-emerald-400 shrink-0" />
-                <span className="text-xs font-extrabold text-emerald-200">Registrar Posición GPS Llegada</span>
-              </div>
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border-2 border-emerald-500/50 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl relative">
+              
               <button
-                onClick={() => handleEstoyEnDomicilio(selectedCliente)}
-                disabled={isCapturingGPS}
-                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs py-2 px-3 rounded-xl flex items-center gap-1 cursor-pointer transition-all shadow-md"
+                onClick={() => {
+                  setSelectedCliente(null);
+                  setSelectedOperacion(null);
+                  setActionType(null);
+                }}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 cursor-pointer"
               >
-                {isCapturingGPS ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                <span>Estoy en domicilio</span>
+                <X className="w-5 h-5" />
               </button>
-            </div>
 
-            {!actionType && (
-              <div className="space-y-2.5 pt-2 border-t border-slate-800">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-300 block">Seleccionar Acción:</span>
+              {/* Header with House Photo */}
+              <div className="border-b border-slate-800 pb-3.5 flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider block mb-0.5">
+                    Ficha de Cobranza en Campo
+                  </span>
+                  <h3 className="text-xl font-black text-white">{selectedCliente.nombre} {selectedCliente.apellido}</h3>
+                  <p className="text-xs font-bold text-slate-300 flex items-center gap-1 mt-1">
+                    <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{selectedCliente.direccion || `${selectedCliente.calle || ''} ${selectedCliente.numero || ''}`}</span>
+                  </p>
+                </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setActionType('pago')}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs p-3 rounded-xl flex flex-col items-center gap-1.5 cursor-pointer shadow-md"
-                  >
-                    <DollarSign className="w-5 h-5 text-white" />
-                    <span>Registrar Pago</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActionType('reprogramar')}
-                    className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-black text-xs p-3 rounded-xl flex flex-col items-center gap-1.5 cursor-pointer shadow-md"
-                  >
-                    <Clock className="w-5 h-5 text-slate-950" />
-                    <span>Reprogramar Visita</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActionType('no_encontrado')}
-                    className="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 font-bold text-xs p-3 rounded-xl flex flex-col items-center gap-1.5 cursor-pointer"
-                  >
-                    <UserX className="w-5 h-5 text-rose-400" />
-                    <span>No Encontrado</span>
-                  </button>
-
-                  {(selectedCliente.estado === 'INACTIVO' || selectedOperacion?.diasMora! >= 7) && (
-                    <button
-                      onClick={() => {
-                        handleContactoRecuperado(selectedCliente);
-                        setSelectedCliente(null);
-                      }}
-                      className="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700 font-bold text-xs p-3 rounded-xl flex flex-col items-center gap-1.5 cursor-pointer"
-                    >
-                      <UserCheck className="w-5 h-5 text-teal-400" />
-                      <span>Contacto Recuperado</span>
-                    </button>
+                {/* House Photo Upload / Display */}
+                <div className="w-20 h-20 rounded-2xl bg-slate-950 border border-slate-700/80 overflow-hidden shrink-0 flex items-center justify-center relative shadow-inner">
+                  {selectedCliente.fotoCasa ? (
+                    <div className="relative w-full h-full group">
+                      <img src={selectedCliente.fotoCasa} alt="Casa" className="w-full h-full object-cover" />
+                      <label className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity text-[9px] font-bold">
+                        <Camera className="w-4 h-4 text-amber-400 mb-0.5" />
+                        <span>Cambiar</span>
+                        <input type="file" accept="image/*" capture="environment" onChange={(e) => handleHousePhotoUpload(selectedCliente.id, e)} className="hidden" />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center text-center p-1.5 cursor-pointer w-full h-full hover:bg-slate-800 transition-colors">
+                      <Camera className="w-5 h-5 text-amber-400 mb-1" />
+                      <span className="text-[9px] font-black text-amber-300 leading-tight">Subir Foto Casa</span>
+                      <input type="file" accept="image/*" capture="environment" onChange={(e) => handleHousePhotoUpload(selectedCliente.id, e)} className="hidden" />
+                    </label>
                   )}
                 </div>
               </div>
-            )}
 
-            {actionType === 'pago' && (
-              <div className="space-y-4 pt-2 border-t border-slate-800">
-                <div className="flex items-center justify-between text-xs font-black text-emerald-400">
-                  <span>Formulario de Cobro en Campo</span>
-                  <button onClick={() => setActionType(null)} className="text-slate-400 hover:text-white underline cursor-pointer">Volver</button>
+              {/* Financial Summary */}
+              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800 text-center">
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase font-black block">Cuotas Pendientes</span>
+                    <span className="text-sm font-black text-rose-400">{cuotasDebeCount} cuota(s)</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase font-black block">Total Acumulado</span>
+                    <span className="text-sm font-black text-amber-300">${totalDeudaCuotas.toLocaleString('es-AR')}</span>
+                  </div>
                 </div>
 
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Monto Recibido ($)</label>
-                    <input
-                      type="number"
-                      value={montoPago}
-                      onChange={e => setMontoPago(e.target.value)}
-                      placeholder={`Ej. ${selectedOperacion?.valorCuota || 5000}`}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-black focus:outline-none focus:border-emerald-500 text-sm"
-                    />
+                <div className="grid grid-cols-2 gap-2 text-center pt-0.5">
+                  <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                    <span className="text-[9px] text-yellow-400 uppercase font-black block">Día y Moras Exigible</span>
+                    <span className="text-sm font-black text-yellow-300">${totalExigible.toLocaleString('es-AR')}</span>
                   </div>
+                  <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                    <span className="text-[9px] text-rose-400 uppercase font-black block">Pago Mínimo Exigible</span>
+                    <span className="text-sm font-black text-rose-300">${montoMinimoExigible.toLocaleString('es-AR')}</span>
+                  </div>
+                </div>
+              </div>
 
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Medio de Pago</label>
-                    <select
-                      value={medioPago}
-                      onChange={e => setMedioPago(e.target.value as any)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+              {/* GPS Arrival Check-in */}
+              <div className="bg-emerald-950/40 border border-emerald-700/60 p-3 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="text-xs font-extrabold text-emerald-200">Verificar Posición GPS de Llegada</span>
+                </div>
+                <button
+                  onClick={() => handleEstoyEnDomicilio(selectedCliente)}
+                  disabled={isCapturingGPS}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs py-2 px-3 rounded-xl flex items-center gap-1 cursor-pointer transition-all shadow-md"
+                >
+                  {isCapturingGPS ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  <span>Estoy en domicilio</span>
+                </button>
+              </div>
+
+              {/* Action Choices */}
+              {!actionType && (
+                <div className="space-y-2.5 pt-1 border-t border-slate-800">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-300 block">Seleccionar Acción de Cobro:</span>
+
+                  <div className="space-y-2">
+                    {/* Yellow Button: Cuota del dia y moras */}
+                    <button
+                      onClick={() => {
+                        setMontoPago(String(totalExigible));
+                        setActionType('pago');
+                      }}
+                      className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black text-xs py-3 px-3 rounded-xl flex items-center justify-between shadow-md transition-all cursor-pointer"
                     >
-                      <option value="EFECTIVO">Efectivo en Mano</option>
-                      <option value="TRANSFERENCIA">Transferencia Bancaria / MP</option>
-                      <option value="DEPOSITO">Depósito</option>
-                    </select>
-                  </div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-slate-950 shrink-0" />
+                        <span className="uppercase tracking-tight">Cuota del día y moras</span>
+                      </div>
+                      <span className="bg-slate-950 text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-black">
+                        ${totalExigible.toLocaleString('es-AR')}
+                      </span>
+                    </button>
 
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Foto del Comprobante (Obligatoria)</label>
-                    <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-3 text-center bg-slate-950 flex flex-col items-center gap-2">
-                      {fotoComprobante ? (
-                        <div className="relative w-full h-32 rounded-lg overflow-hidden border border-emerald-500">
-                          <img src={fotoComprobante} alt="Comprobante" className="w-full h-full object-cover" />
-                          <button
-                            onClick={() => setFotoComprobante(null)}
-                            className="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-full text-xs"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer flex flex-col items-center gap-1.5 w-full">
-                          <Camera className="w-6 h-6 text-emerald-400" />
-                          <span className="text-xs font-bold text-emerald-300">Tomar foto o Cargar imagen</span>
-                          <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
-                        </label>
+                    {/* Red Button: Pago minimo mas comunicarse con la empresa */}
+                    <button
+                      onClick={() => {
+                        setMontoPago(String(montoMinimoExigible));
+                        setActionType('pago');
+                      }}
+                      className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black text-xs py-3 px-3 rounded-xl flex items-center justify-between shadow-md transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 text-left">
+                        <DollarSign className="w-4 h-4 text-white shrink-0" />
+                        <span className="uppercase tracking-tight leading-tight">Pago mínimo + Comunicarse con la empresa</span>
+                      </div>
+                      <span className="bg-slate-950 text-rose-300 px-2.5 py-1 rounded-lg text-xs font-black shrink-0">
+                        ${montoMinimoExigible.toLocaleString('es-AR')}
+                      </span>
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* Emerald Button: Pago Parcial */}
+                      <button
+                        onClick={() => {
+                          setMontoPago('');
+                          setActionType('pago');
+                        }}
+                        className="bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                      >
+                        <DollarSign className="w-4 h-4 text-emerald-300" />
+                        <span>Pago Parcial</span>
+                      </button>
+
+                      {/* Reprogramar Visita */}
+                      <button
+                        onClick={() => setActionType('reprogramar')}
+                        className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-black text-xs py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                      >
+                        <Clock className="w-4 h-4 text-slate-950" />
+                        <span>Reprogramar Visita</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* No Encontrado */}
+                      <button
+                        onClick={() => setActionType('no_encontrado')}
+                        className="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 font-bold text-xs py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <UserX className="w-4 h-4 text-rose-400" />
+                        <span>No Encontrado</span>
+                      </button>
+
+                      {(selectedCliente.estado === 'INACTIVO' || selectedOperacion?.diasMora! >= 7) && (
+                        <button
+                          onClick={() => {
+                            handleContactoRecuperado(selectedCliente);
+                            setSelectedCliente(null);
+                          }}
+                          className="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700 font-bold text-xs py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <UserCheck className="w-4 h-4 text-teal-400" />
+                          <span>Contacto Recuperado</span>
+                        </button>
                       )}
                     </div>
                   </div>
+                </div>
+              )}
 
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Observaciones</label>
-                    <textarea
-                      value={observacionesPago}
-                      onChange={e => setObservacionesPago(e.target.value)}
-                      placeholder="Ej. Cobro realizado en domicilio."
-                      rows={2}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-emerald-500"
-                    ></textarea>
+              {/* Formulario de Pago */}
+              {actionType === 'pago' && (
+                <div className="space-y-3.5 pt-1 border-t border-slate-800">
+                  <div className="flex items-center justify-between text-xs font-black text-emerald-400">
+                    <span>Formulario de Cobro en Campo</span>
+                    <button onClick={() => setActionType(null)} className="text-slate-400 hover:text-white underline cursor-pointer">Volver</button>
                   </div>
 
-                  <button
-                    onClick={handleConfirmarPago}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Guardar y Confirmar Pago ($)</span>
-                  </button>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Monto Recibido ($)</label>
+                      <input
+                        type="number"
+                        value={montoPago}
+                        onChange={e => setMontoPago(e.target.value)}
+                        placeholder={`Ej. ${totalExigible}`}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-black focus:outline-none focus:border-emerald-500 text-sm"
+                      />
+                    </div>
+
+                    {/* LIVE PREVIEW OF COVERED CUOTAS */}
+                    {(() => {
+                      const amountToApply = parseFloat(montoPago || '0');
+                      if (amountToApply <= 0 || !selectedOperacion) return null;
+
+                      const opCuotas = cuotas.filter(c => c.idOperacion === selectedOperacion.id);
+                      const cuotasSorted = sortCuotasByPaymentPriority(opCuotas, todayStr, 'PAGO_PARCIAL');
+
+                      let rem = amountToApply;
+                      const breakdown: { num: number; fec: string; monto: number; completo: boolean; saldoRestante: number }[] = [];
+
+                      cuotasSorted.forEach(c => {
+                        if (c.estado === 'PAGADA' || rem <= 0) return;
+                        const saldo = c.saldoPendiente;
+                        if (rem >= saldo) {
+                          breakdown.push({ num: c.numeroCuota, fec: c.fechaVencimiento, monto: saldo, completo: true, saldoRestante: 0 });
+                          rem -= saldo;
+                        } else {
+                          breakdown.push({ num: c.numeroCuota, fec: c.fechaVencimiento, monto: rem, completo: false, saldoRestante: saldo - rem });
+                          rem = 0;
+                        }
+                      });
+
+                      return (
+                        <div className="bg-slate-950 p-2.5 rounded-xl border border-emerald-800 space-y-1.5">
+                          <span className="font-black text-emerald-400 block text-[10px] uppercase tracking-wider flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            Imputación estimada ({breakdown.length} cuota{breakdown.length > 1 ? 's' : ''}):
+                          </span>
+                          {breakdown.length === 0 ? (
+                            <span className="text-slate-400 italic text-[10px]">Sin cuotas para imputar.</span>
+                          ) : (
+                            <div className="space-y-1 max-h-[100px] overflow-y-auto pr-1">
+                              {breakdown.map((item) => (
+                                <div key={item.num} className="bg-slate-900 p-1.5 rounded-lg border border-slate-800 text-[10px] flex justify-between items-center">
+                                  <div>
+                                    <span className="font-bold text-white">Cuota N° {item.num} <span className="text-slate-400">({item.fec})</span></span>
+                                    {item.completo ? (
+                                      <span className="text-[9px] text-emerald-400 font-black uppercase ml-1.5">✓ Pagada</span>
+                                    ) : (
+                                      <span className="text-[9px] text-amber-400 font-black uppercase ml-1.5">⚡ Saldo ${item.saldoRestante}</span>
+                                    )}
+                                  </div>
+                                  <span className="font-black text-emerald-300 text-xs">+${item.monto.toLocaleString('es-AR')}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Medio de Pago</label>
+                      <select
+                        value={medioPago}
+                        onChange={e => setMedioPago(e.target.value as any)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="EFECTIVO">Efectivo en Mano</option>
+                        <option value="TRANSFERENCIA">Transferencia Bancaria / MP</option>
+                        <option value="DEPOSITO">Depósito</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Foto del Comprobante (Obligatoria)</label>
+                      <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-3 text-center bg-slate-950 flex flex-col items-center gap-2">
+                        {fotoComprobante ? (
+                          <div className="relative w-full h-32 rounded-lg overflow-hidden border border-emerald-500">
+                            <img src={fotoComprobante} alt="Comprobante" className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => setFotoComprobante(null)}
+                              className="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-full text-xs cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer flex flex-col items-center gap-1.5 w-full">
+                            <Camera className="w-6 h-6 text-emerald-400" />
+                            <span className="text-xs font-bold text-emerald-300">Tomar foto o Cargar comprobante</span>
+                            <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Observaciones</label>
+                      <textarea
+                        value={observacionesPago}
+                        onChange={e => setObservacionesPago(e.target.value)}
+                        placeholder="Ej. Cobro realizado en domicilio."
+                        rows={2}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-emerald-500"
+                      ></textarea>
+                    </div>
+
+                    <button
+                      onClick={handleConfirmarPago}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Guardar y Confirmar Pago ($)</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {actionType === 'reprogramar' && (
               <div className="space-y-4 pt-2 border-t border-slate-800">
@@ -1632,7 +1839,8 @@ export default function CobradorCampoView({
 
           </div>
         </div>
-      )}
+      );
+    })()}
 
       {/* PHONE CALL MODAL */}
       {showPhoneCallModal && gestionClienteSelected && (

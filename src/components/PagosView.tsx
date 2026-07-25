@@ -182,8 +182,8 @@ export default function PagosView({
     const overdueCuotas = sortedPending.filter(c => c.fechaVencimiento < today);
     const vencido = overdueCuotas.reduce((sum, c) => sum + c.saldoPendiente, 0);
     
-    // Current installment: the first pending one that is NOT overdue (due date >= today), if any
-    const currentCuota = sortedPending.find(c => c.fechaVencimiento >= today);
+    // Current installment: ONLY pending installment due TODAY (fechaVencimiento === today)
+    const currentCuota = sortedPending.find(c => c.fechaVencimiento === today);
     const corriente = currentCuota ? currentCuota.saldoPendiente : 0;
     
     const total = vencido + corriente;
@@ -482,7 +482,7 @@ export default function PagosView({
     const updatedCuotas: Cuota[] = [];
     
     const allOpCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
-    const cuotasToProcess = sortCuotasByPaymentPriority(allOpCuotas, getTodayStr(), modality);
+    const cuotasToProcess = sortCuotasByPaymentPriority(allOpCuotas, fechaPago || getTodayStr(), modality);
 
     let totalCapitalPaid = 0;
     let totalInteresPaid = 0;
@@ -2068,6 +2068,65 @@ export default function PagosView({
                 <span className="font-mono font-bold text-emerald-300">{fechaPago}</span>
               </div>
             </div>
+
+            {/* PREVIEW BREAKDOWN OF COVERED CUOTAS */}
+            {(() => {
+              const amountToApply = parseFloat(importeCobrado || '0');
+              if (amountToApply <= 0) return null;
+
+              let currentModality: 'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B' = 'PAGO_REGULAR';
+              if (activeAction === 'pago_parcial') {
+                currentModality = 'PAGO_PARCIAL';
+              } else if (activeAction === 'pago_adelantado') {
+                currentModality = prepaymentMode === 'FINAL_ATRAS' ? 'PAGO_ADELANTADO_OPCION_A' : 'PAGO_ADELANTADO_OPCION_B';
+              }
+
+              const allOpCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
+              const cuotasSorted = sortCuotasByPaymentPriority(allOpCuotas, fechaPago || getTodayStr(), currentModality);
+
+              let rem = amountToApply;
+              const breakdown: { num: number; fec: string; monto: number; completo: boolean; saldoRestante: number }[] = [];
+
+              cuotasSorted.forEach(c => {
+                if (c.estado === 'PAGADA' || rem <= 0) return;
+                const saldo = c.saldoPendiente;
+                if (rem >= saldo) {
+                  breakdown.push({ num: c.numeroCuota, fec: c.fechaVencimiento, monto: saldo, completo: true, saldoRestante: 0 });
+                  rem -= saldo;
+                } else {
+                  breakdown.push({ num: c.numeroCuota, fec: c.fechaVencimiento, monto: rem, completo: false, saldoRestante: saldo - rem });
+                  rem = 0;
+                }
+              });
+
+              return (
+                <div className="bg-slate-900 p-3 rounded-xl border border-emerald-700/80 space-y-2 text-xs">
+                  <span className="font-black text-amber-300 block uppercase tracking-wider text-[10px] flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                    Detalle de Imputación de Cuotas ({breakdown.length} cuota{breakdown.length > 1 ? 's' : ''}):
+                  </span>
+                  {breakdown.length === 0 ? (
+                    <span className="text-emerald-200/70 italic text-[11px]">No hay cuotas pendientes para imputar.</span>
+                  ) : (
+                    <div className="space-y-1.5 max-h-[130px] overflow-y-auto pr-1">
+                      {breakdown.map((item) => (
+                        <div key={item.num} className="bg-slate-950 p-2 rounded-lg border border-emerald-800 text-[11px] flex justify-between items-center">
+                          <div>
+                            <span className="font-bold text-white block">Cuota N° {item.num} <span className="text-[10px] text-emerald-300">({item.fec})</span></span>
+                            {item.completo ? (
+                              <span className="text-[9px] text-emerald-400 font-extrabold uppercase">✓ Pagada Completa</span>
+                            ) : (
+                              <span className="text-[9px] text-amber-400 font-extrabold uppercase">⚡ Pago Parcial (Queda saldo ${item.saldoRestante.toLocaleString('es-ES')})</span>
+                            )}
+                          </div>
+                          <span className="font-black text-emerald-300 text-xs">+${item.monto.toLocaleString('es-ES')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {observacionesInput && (
               <div className="text-xs space-y-1">

@@ -50,6 +50,7 @@ export interface Cliente {
     reciboSueldo?: string;
     otros?: string;
   };
+  fotoCasa?: string;
   observaciones?: string;
 }
 
