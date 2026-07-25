@@ -14,7 +14,7 @@ import {
   MapPin, DollarSign, Calendar, Clock, CheckCircle2, 
   Phone, MessageCircle, Navigation, TrendingUp, 
   Camera, ChevronRight, UserX, RefreshCw, Check, 
-  X, UserCheck, Play, Compass, Coffee, Send, PhoneCall, Home
+  X, UserCheck, Play, Compass, Coffee, Send, PhoneCall, Home, AlertTriangle
 } from 'lucide-react';
 
 interface CobradorCampoViewProps {
@@ -96,6 +96,7 @@ export default function CobradorCampoView({
   const [gestionClienteSelected, setGestionClienteSelected] = useState<Cliente | null>(null);
   const [notasGestionTel, setNotasGestionTel] = useState<string>('');
   const [showPhoneCallModal, setShowPhoneCallModal] = useState<boolean>(false);
+  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState<boolean>(false);
 
   // Form states for Breakfast Reimbursement Request
   const [lugarDesayuno, setLugarDesayuno] = useState<string>('Café Martinez - Shopping Abasto');
@@ -220,39 +221,74 @@ export default function CobradorCampoView({
   // Calculate detailed financial summary for each client
   const getClientFinancialSummary = (cliente: Cliente, ops: Operacion[]) => {
     let totalExigible = 0;
-    let montoMinimoExigible = 0;
     let cuotasDebeCount = 0;
     let totalDeudaCuotas = 0;
+    let cuotasDiariasCount = 0;
+    let cuotasSemanalesCount = 0;
+    let cuotasOtrasCount = 0;
 
     ops.forEach(op => {
       const opCuotas = cuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
       const overdue = opCuotas.filter(c => c.fechaVencimiento < todayStr);
       const dueToday = opCuotas.filter(c => c.fechaVencimiento === todayStr);
 
-      const sumOverdue = overdue.reduce((sum, c) => sum + c.saldoPendiente, 0);
-      const sumToday = dueToday.reduce((sum, c) => sum + c.saldoPendiente, 0);
+      const activeDebts = (overdue.length > 0 || dueToday.length > 0) 
+        ? [...overdue, ...dueToday] 
+        : opCuotas;
 
-      const opExigible = sumOverdue + sumToday;
-      totalExigible += opExigible;
-      cuotasDebeCount += overdue.length + dueToday.length;
-      totalDeudaCuotas += sumOverdue + sumToday;
+      const count = activeDebts.length;
+      const sum = activeDebts.reduce((s, c) => s + c.saldoPendiente, 0);
 
-      if (sumOverdue > 0) {
-        montoMinimoExigible += sumOverdue;
-      } else if (sumToday > 0) {
-        montoMinimoExigible += sumToday;
-      } else if (opCuotas.length > 0) {
-        montoMinimoExigible += opCuotas[0].saldoPendiente;
-        cuotasDebeCount += opCuotas.length;
-        totalDeudaCuotas += opCuotas.reduce((s, c) => s + c.saldoPendiente, 0);
+      totalExigible += sum;
+      cuotasDebeCount += count;
+      totalDeudaCuotas += sum;
+
+      if (op.frecuencia === 'DIARIA') {
+        cuotasDiariasCount += count;
+      } else if (op.frecuencia === 'SEMANAL') {
+        cuotasSemanalesCount += count;
+      } else {
+        cuotasOtrasCount += count;
       }
     });
+
+    // Calculate Monto Minimo Exigible
+    let montoMinimoExigible = 0;
+    if (cliente.estado === 'INACTIVO') {
+      // For INACTIVE clients: Admin configured amount OR 20% of inactive debt
+      if (cliente.montoMinimoInactivoConfigurado !== undefined && cliente.montoMinimoInactivoConfigurado > 0) {
+        montoMinimoExigible = cliente.montoMinimoInactivoConfigurado;
+      } else {
+        const baseInactivo = cliente.montoDeudaInactivo || totalDeudaCuotas || 150000;
+        montoMinimoExigible = Math.round(baseInactivo * 0.20);
+      }
+    } else {
+      // ACTIVE CLIENT IN MORA: "el pago minimo para clientes activo debe ser la mitad de la cantidad de cuotas que debe"
+      if (cuotasDebeCount > 0) {
+        montoMinimoExigible = Math.round(totalExigible * 0.5);
+      } else {
+        montoMinimoExigible = Math.round(totalExigible * 0.5);
+      }
+    }
+
+    // 5-Day Commission Countdown System
+    let diaGestion = 1;
+    if (cliente.fechaInicioGestionCobro) {
+      const start = new Date(cliente.fechaInicioGestionCobro).getTime();
+      const now = new Date(todayStr).getTime();
+      const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1;
+      diaGestion = diffDays > 0 ? diffDays : 1;
+    }
 
     return {
       totalExigible,
       montoMinimoExigible,
       cuotasDebeCount,
-      totalDeudaCuotas
+      totalDeudaCuotas,
+      cuotasDiariasCount,
+      cuotasSemanalesCount,
+      cuotasOtrasCount,
+      diaGestion
     };
   };
 
@@ -979,14 +1015,22 @@ export default function CobradorCampoView({
                   const ops = clientOperationsMap.get(cliente.id) || [];
                   const opPrincipal = ops[0];
                   const estadoField = getClienteEstadoField(cliente, ops);
-                  const { totalExigible, montoMinimoExigible, cuotasDebeCount, totalDeudaCuotas } = getClientFinancialSummary(cliente, ops);
+                  const { 
+                    totalExigible, 
+                    montoMinimoExigible, 
+                    cuotasDebeCount, 
+                    totalDeudaCuotas,
+                    cuotasDiariasCount,
+                    cuotasSemanalesCount,
+                    diaGestion 
+                  } = getClientFinancialSummary(cliente, ops);
 
                   return (
                     <div 
                       key={cliente.id}
                       className="bg-slate-900 border-2 border-slate-800 hover:border-emerald-500/60 rounded-2xl p-4 space-y-3 flex flex-col justify-between shadow-lg transition-all"
                     >
-                      {/* Header: Name, Address & House Photo */}
+                      {/* Header: Name, Address, Status & House Photo */}
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -997,10 +1041,24 @@ export default function CobradorCampoView({
                               <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               <span className="truncate">{cliente.direccion || `${cliente.calle || ''} ${cliente.numero || ''}`}</span>
                             </p>
-                            <div className="mt-2">
+                            
+                            {/* Badges: Status & 5-Day Commission Countdown */}
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
                               <span className={`inline-block px-2.5 py-0.5 text-[10px] font-black uppercase rounded-lg border ${estadoField.badgeClass}`}>
                                 {estadoField.label}
                               </span>
+
+                              {diaGestion <= 5 ? (
+                                <span className="text-[10px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-emerald-400" />
+                                  Día {diaGestion}/5 Comisión
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-black text-rose-300 bg-rose-950/90 border border-rose-800 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3 text-rose-400" />
+                                  5 Días Vencido
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -1019,22 +1077,38 @@ export default function CobradorCampoView({
                         </div>
                       </div>
 
-                      {/* Required Financial Summary (Cuotas debe, Total estas cuotas, Monto minimo exigible) */}
-                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
-                        <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800 text-center">
-                          <div>
-                            <span className="text-[9px] text-slate-400 uppercase font-extrabold block">Cuotas que debe</span>
-                            <span className="font-black text-rose-400 text-xs">{cuotasDebeCount} cuota(s)</span>
+                      {/* Required Financial Summary Box */}
+                      <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2.5 text-xs">
+                        {/* Frequency Columns */}
+                        <div className="grid grid-cols-3 gap-1.5 pb-2 border-b border-slate-800/80 text-center">
+                          <div className="bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
+                            <span className="text-slate-400 uppercase font-black block text-[8px]">Cuotas Diarias</span>
+                            <span className="font-black text-amber-300 text-xs">{cuotasDiariasCount}</span>
                           </div>
-                          <div>
-                            <span className="text-[9px] text-slate-400 uppercase font-extrabold block">Total estas cuotas</span>
-                            <span className="font-black text-amber-300 text-xs">${totalDeudaCuotas.toLocaleString('es-AR')}</span>
+                          <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
+                            <span className="text-slate-400 uppercase font-black block text-[8px]">Cuotas Semanales</span>
+                            <span className="font-black text-teal-300 text-xs">{cuotasSemanalesCount}</span>
+                          </div>
+                          <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
+                            <span className="text-slate-400 uppercase font-black block text-[8px]">Total Cuotas</span>
+                            <span className="font-black text-rose-400 text-xs">{cuotasDebeCount}</span>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-0.5">
+                        {/* HIGHLY VISIBLE BOX: TOTAL ADEUDADO A ABONAR */}
+                        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-2.5 rounded-xl border-2 border-emerald-500/80 shadow-lg text-center">
+                          <span className="text-[9px] font-black text-emerald-300 uppercase tracking-wider block">
+                            TOTAL ADEUDADO A ABONAR
+                          </span>
+                          <span className="text-xl font-black text-yellow-300 tracking-tight block">
+                            ${totalDeudaCuotas.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+
+                        {/* MONTO MINIMO EXIGIBLE */}
+                        <div className="flex items-center justify-between px-1 pt-0.5">
                           <span className="text-[10px] uppercase font-black text-slate-300">Monto Mínimo Exigible:</span>
-                          <span className="font-black text-emerald-400 text-sm bg-emerald-950/80 px-2.5 py-0.5 rounded-lg border border-emerald-800">
+                          <span className="font-black text-emerald-400 text-sm bg-emerald-950/90 px-2.5 py-0.5 rounded-lg border border-emerald-800">
                             ${montoMinimoExigible.toLocaleString('es-AR')}
                           </span>
                         </div>
@@ -1458,19 +1532,24 @@ export default function CobradorCampoView({
       {/* ========================================================================= */}
       {selectedCliente && (() => {
         const clientOps = clientOperationsMap.get(selectedCliente.id) || [];
-        const { totalExigible, montoMinimoExigible, cuotasDebeCount, totalDeudaCuotas } = getClientFinancialSummary(selectedCliente, clientOps);
+        const { 
+          totalExigible, 
+          montoMinimoExigible, 
+          cuotasDebeCount, 
+          totalDeudaCuotas,
+          cuotasDiariasCount,
+          cuotasSemanalesCount,
+          diaGestion 
+        } = getClientFinancialSummary(selectedCliente, clientOps);
 
         return (
           <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-slate-900 border-2 border-emerald-500/50 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl relative">
               
               <button
-                onClick={() => {
-                  setSelectedCliente(null);
-                  setSelectedOperacion(null);
-                  setActionType(null);
-                }}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 cursor-pointer"
+                onClick={() => setShowCancelConfirmModal(true)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 cursor-pointer bg-slate-950/60 rounded-full hover:bg-rose-900/60 transition-colors"
+                title="Cancelar y Cerrar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1478,9 +1557,20 @@ export default function CobradorCampoView({
               {/* Header with House Photo */}
               <div className="border-b border-slate-800 pb-3.5 flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider block mb-0.5">
-                    Ficha de Cobranza en Campo
-                  </span>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
+                      Ficha de Cobranza en Campo
+                    </span>
+                    {diaGestion <= 5 ? (
+                      <span className="text-[9px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-md">
+                        Día {diaGestion}/5 Comisión
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-black text-rose-300 bg-rose-950/90 border border-rose-800 px-2 py-0.5 rounded-md">
+                        5 Días Vencido
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-xl font-black text-white">{selectedCliente.nombre} {selectedCliente.apellido}</h3>
                   <p className="text-xs font-bold text-slate-300 flex items-center gap-1 mt-1">
                     <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -1510,27 +1600,39 @@ export default function CobradorCampoView({
               </div>
 
               {/* Financial Summary */}
-              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2 text-xs">
-                <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800 text-center">
-                  <div>
-                    <span className="text-[9px] text-slate-400 uppercase font-black block">Cuotas Pendientes</span>
-                    <span className="text-sm font-black text-rose-400">{cuotasDebeCount} cuota(s)</span>
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-3 text-xs">
+                {/* Column Breakdown by Frequency */}
+                <div className="grid grid-cols-3 gap-1.5 pb-2 border-b border-slate-800/80 text-center">
+                  <div className="bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 uppercase font-black block text-[8px]">Cuotas Diarias</span>
+                    <span className="font-black text-amber-300 text-xs">{cuotasDiariasCount}</span>
                   </div>
-                  <div>
-                    <span className="text-[9px] text-slate-400 uppercase font-black block">Total Acumulado</span>
-                    <span className="text-sm font-black text-amber-300">${totalDeudaCuotas.toLocaleString('es-AR')}</span>
+                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
+                    <span className="text-slate-400 uppercase font-black block text-[8px]">Cuotas Semanales</span>
+                    <span className="font-black text-teal-300 text-xs">{cuotasSemanalesCount}</span>
+                  </div>
+                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
+                    <span className="text-slate-400 uppercase font-black block text-[8px]">Total Cuotas</span>
+                    <span className="font-black text-rose-400 text-xs">{cuotasDebeCount}</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-center pt-0.5">
-                  <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
-                    <span className="text-[9px] text-yellow-400 uppercase font-black block">Día y Moras Exigible</span>
-                    <span className="text-sm font-black text-yellow-300">${totalExigible.toLocaleString('es-AR')}</span>
-                  </div>
-                  <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800">
-                    <span className="text-[9px] text-rose-400 uppercase font-black block">Pago Mínimo Exigible</span>
-                    <span className="text-sm font-black text-rose-300">${montoMinimoExigible.toLocaleString('es-AR')}</span>
-                  </div>
+                {/* HIGHLY VISIBLE BOX: TOTAL ADEUDADO A ABONAR */}
+                <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-3 rounded-2xl border-2 border-emerald-500/80 shadow-xl text-center">
+                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
+                    TOTAL ADEUDADO A ABONAR
+                  </span>
+                  <span className="text-2xl font-black text-yellow-300 tracking-tight block">
+                    ${totalDeudaCuotas.toLocaleString('es-AR')}
+                  </span>
+                </div>
+
+                {/* MONTO MINIMO EXIGIBLE */}
+                <div className="flex items-center justify-between px-2 pt-0.5">
+                  <span className="text-[10px] uppercase font-black text-slate-300">Monto Mínimo Exigible:</span>
+                  <span className="font-black text-emerald-400 text-base bg-emerald-950/90 px-3 py-1 rounded-xl border border-emerald-800">
+                    ${montoMinimoExigible.toLocaleString('es-AR')}
+                  </span>
                 </div>
               </div>
 
@@ -1837,10 +1939,63 @@ export default function CobradorCampoView({
               </div>
             )}
 
+            {/* Botón Cancelar Operación siempre disponible */}
+            <div className="pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setShowCancelConfirmModal(true)}
+                className="w-full bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-300 font-black text-xs py-2.5 rounded-xl border border-slate-700 hover:border-rose-800 flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <X className="w-4 h-4 text-rose-400" />
+                <span>Cancelar Operación</span>
+              </button>
+            </div>
+
           </div>
         </div>
       );
     })()}
+
+      {/* CANCEL CONFIRMATION MODAL */}
+      {showCancelConfirmModal && (
+        <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-rose-500/80 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl text-center relative">
+            <div className="w-12 h-12 rounded-2xl bg-rose-950 border border-rose-700/80 flex items-center justify-center mx-auto text-rose-400">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-white">¿Está seguro que desea cancelar?</h3>
+              <p className="text-xs font-semibold text-slate-300 leading-relaxed">
+                Si cancela ahora, los datos o la selección realizada no se guardarán en la gestión de campo actual.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowCancelConfirmModal(false);
+                  setSelectedCliente(null);
+                  setSelectedOperacion(null);
+                  setActionType(null);
+                  setMontoPago('');
+                  setFotoComprobante(null);
+                  setObservacionesPago('');
+                }}
+                className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black text-xs py-3 rounded-xl shadow-lg cursor-pointer transition-all uppercase tracking-wider"
+              >
+                Sí, Cancelar Gestión
+              </button>
+
+              <button
+                onClick={() => setShowCancelConfirmModal(false)}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-xs py-2.5 rounded-xl border border-slate-700 cursor-pointer transition-all"
+              >
+                Continuar Registrando
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PHONE CALL MODAL */}
       {showPhoneCallModal && gestionClienteSelected && (

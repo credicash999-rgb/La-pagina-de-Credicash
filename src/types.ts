@@ -20,6 +20,8 @@ export interface Cliente {
   cobradorAsignadoNombre?: string;
   montoDeudaInactivo?: number;
   montoPagoInicialRefinanciacion?: number;
+  montoMinimoInactivoConfigurado?: number; // Para que el admin configure el mínimo exigible de inactivos
+  fechaInicioGestionCobro?: string; // Para la cuenta regresiva de 5 días de comisión
   esClienteInactivoRefinanciacion?: boolean;
   estado: 'ACTIVO' | 'FINALIZADO' | 'EVASIVO' | 'INACTIVO' | 'EN_MORA' | 'SOLICITANTE' | 'PROSPECTO' | 'SUSPENDIDO' | 'CONGELADO';
   fechaRegistro: string;
