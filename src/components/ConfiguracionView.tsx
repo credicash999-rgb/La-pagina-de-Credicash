@@ -9,7 +9,7 @@ import {
   Settings, Calendar, Percent, Plus, Trash2, CheckCircle2, 
   HelpCircle, ShieldCheck, DollarSign, Download, Upload, FileSpreadsheet, Database,
   Cloud, Check, X, Wifi, AlertTriangle, FileText, Lock,
-  TrendingUp, Phone, MessageCircle, UserCheck, UserPlus, Award
+  TrendingUp, Phone, MessageCircle, UserCheck, UserPlus, Award, Navigation
 } from 'lucide-react';
 import { 
   getSavedFirebaseConfig, 
@@ -108,6 +108,14 @@ export default function ConfiguracionView({
   const [moraMensualAvisoDias, setMoraMensualAvisoDias] = useState(configuracion.moraMensualAvisoDias ?? 1);
   const [moraMensualLlamarDias, setMoraMensualLlamarDias] = useState(configuracion.moraMensualLlamarDias ?? 2);
   const [moraMensualCobradorDias, setMoraMensualCobradorDias] = useState(configuracion.moraMensualCobradorDias ?? 2);
+
+  // Recorrido Default Locations (Punto de Partida y Punto de Finalizacion)
+  const [lugarInicioRecorridoPredeterminado, setLugarInicioRecorridoPredeterminado] = useState(
+    configuracion.lugarInicioRecorridoPredeterminado || configuracion.puntoSalida || 'Oficina Central - Av. San Martín 1230'
+  );
+  const [lugarFinRecorridoPredeterminado, setLugarFinRecorridoPredeterminado] = useState(
+    configuracion.lugarFinRecorridoPredeterminado || configuracion.puntoLlegada || 'Oficina Central - Av. San Martín 1230'
+  );
 
   // Holiday form states
   const [nuevaFecha, setNuevaFecha] = useState('');
@@ -217,6 +225,7 @@ export default function ConfiguracionView({
   const handleSaveRates = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateConfiguracion({
+      ...configuracion,
       interesDiario,
       interesSemanal,
       interesQuincenal,
@@ -237,8 +246,12 @@ export default function ConfiguracionView({
       moraMensualAvisoDias,
       moraMensualLlamarDias,
       moraMensualCobradorDias,
+      lugarInicioRecorridoPredeterminado,
+      lugarFinRecorridoPredeterminado,
+      puntoSalida: lugarInicioRecorridoPredeterminado,
+      puntoLlegada: lugarFinRecorridoPredeterminado
     });
-    alert('¡Configuración de Tasas, Metas y Políticas de Alertas guardada con éxito!');
+    alert('¡Configuración de Tasas, Puntos de Recorrido y Políticas guardada con éxito!');
   };
 
   const handleAddFeriadoSubmit = (e: React.FormEvent) => {
@@ -482,6 +495,45 @@ export default function ConfiguracionView({
                   <p className="text-[10px] text-emerald-300/70 mt-1">
                     Cantidad de cuotas vencidas que el cobrador requiere saldar para evitar la advertencia de pago mínimo en el panel.
                   </p>
+                </div>
+
+                {/* Configuración de Puntos de Partida y Cierre de Recorridos */}
+                <div className="pt-4 border-t border-emerald-800/80 space-y-3">
+                  <h4 className="text-[10px] font-extrabold text-teal-300 bg-teal-950/80 border border-teal-700/80 px-3.5 py-1.5 rounded-lg uppercase tracking-wider inline-flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5 text-teal-400" />
+                    Punto de Partida y Punto de Finalización de Recorridos
+                  </h4>
+                  <p className="text-[11px] text-emerald-200/80 leading-relaxed">
+                    Ubicaciones centrales predeterminadas desde donde parten y finalizan los cobradores sus rutas diarias en calle.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                        Punto / Lugar de Partida Predeterminado
+                      </label>
+                      <input
+                        type="text"
+                        value={lugarInicioRecorridoPredeterminado}
+                        onChange={(e) => setLugarInicioRecorridoPredeterminado(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-bold text-white focus:outline-hidden focus:border-teal-400"
+                        placeholder="Ej. Oficina Central - Av. San Martín 1230"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                        Punto / Lugar de Finalización Predeterminado
+                      </label>
+                      <input
+                        type="text"
+                        value={lugarFinRecorridoPredeterminado}
+                        onChange={(e) => setLugarFinRecorridoPredeterminado(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-bold text-white focus:outline-hidden focus:border-teal-400"
+                        placeholder="Ej. Oficina Central - Av. San Martín 1230"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Políticas de Alertas y Cobranza por Frecuencia */}

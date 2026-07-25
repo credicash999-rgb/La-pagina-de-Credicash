@@ -166,6 +166,11 @@ export interface Configuracion {
   moraMensualAvisoDias?: number;
   moraMensualLlamarDias?: number;
   moraMensualCobradorDias?: number;
+  // Puntos predeterminados para la ruta de cobranza en calle
+  lugarInicioRecorridoPredeterminado?: string;
+  lugarFinRecorridoPredeterminado?: string;
+  puntoSalida?: string;
+  puntoLlegada?: string;
 }
 
 export interface TransaccionTesoreria {
