@@ -1048,15 +1048,25 @@ export default function CobradorCampoView({
                                 {estadoField.label}
                               </span>
 
-                              {diaGestion <= 5 ? (
+                              {diaGestion <= 2 ? (
                                 <span className="text-[10px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-lg flex items-center gap-1">
                                   <Clock className="w-3 h-3 text-emerald-400" />
                                   Día {diaGestion}/5 Comisión
                                 </span>
+                              ) : diaGestion <= 4 ? (
+                                <span className="text-[10px] font-black text-amber-300 bg-amber-950/90 border border-amber-600/80 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-amber-400" />
+                                  Día {diaGestion}/5 Comisión
+                                </span>
+                              ) : diaGestion === 5 ? (
+                                <span className="text-[10px] font-black text-rose-100 bg-rose-950 border-2 border-rose-500 px-2 py-0.5 rounded-lg flex items-center gap-1 animate-pulse shadow-md shadow-rose-950">
+                                  <AlertTriangle className="w-3 h-3 text-rose-400 animate-bounce" />
+                                  Día 5/5 ¡ÚLTIMO DÍA COMISIÓN!
+                                </span>
                               ) : (
-                                <span className="text-[10px] font-black text-rose-300 bg-rose-950/90 border border-rose-800 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                <span className="text-[10px] font-black text-rose-400 bg-slate-950/90 border border-rose-900/80 px-2 py-0.5 rounded-lg flex items-center gap-1">
                                   <AlertTriangle className="w-3 h-3 text-rose-400" />
-                                  5 Días Vencido
+                                  5 Días Vencido (Sin Comisión)
                                 </span>
                               )}
                             </div>
@@ -1561,13 +1571,25 @@ export default function CobradorCampoView({
                     <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
                       Ficha de Cobranza en Campo
                     </span>
-                    {diaGestion <= 5 ? (
-                      <span className="text-[9px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-md">
+                    {diaGestion <= 2 ? (
+                      <span className="text-[9px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-emerald-400" />
                         Día {diaGestion}/5 Comisión
                       </span>
+                    ) : diaGestion <= 4 ? (
+                      <span className="text-[9px] font-black text-amber-300 bg-amber-950/90 border border-amber-600/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-400" />
+                        Día {diaGestion}/5 Comisión
+                      </span>
+                    ) : diaGestion === 5 ? (
+                      <span className="text-[9px] font-black text-rose-100 bg-rose-950 border-2 border-rose-500 px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse shadow-lg shadow-rose-950/80">
+                        <AlertTriangle className="w-3 h-3 text-rose-400 animate-bounce" />
+                        Día 5/5 ¡ÚLTIMO DÍA COMISIÓN!
+                      </span>
                     ) : (
-                      <span className="text-[9px] font-black text-rose-300 bg-rose-950/90 border border-rose-800 px-2 py-0.5 rounded-md">
-                        5 Días Vencido
+                      <span className="text-[9px] font-black text-rose-400 bg-slate-950/90 border border-rose-900 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-rose-400" />
+                        5 Días Vencido (Sin Comisión)
                       </span>
                     )}
                   </div>

@@ -36,12 +36,13 @@ import LoginView from './components/LoginView';
 import CrediCashLogo from './components/CrediCashLogo';
 import CobradorCampoView from './components/CobradorCampoView';
 import LiquidacionesView from './components/LiquidacionesView';
+import ClientesInactivosView from './components/ClientesInactivosView';
 
 // Icons
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
-  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered
+  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -1856,6 +1857,8 @@ export default function App() {
     switch (activeTab) {
       case 'dashboard': return 'Consola Dashboard';
       case 'clientes': return 'Buscar Cliente';
+      case 'clientes-inactivos': return 'Clientes Inactivos con Deuda';
+      case 'nuevo-cliente': return 'Nuevo Cliente (Ficha)';
       case 'operaciones': return 'Nuevo Crédito';
       case 'pagos': return 'Consola del Operador de Pagos';
       case 'pagos-whatsapp': return 'Gestión Diaria';
@@ -2016,6 +2019,23 @@ export default function App() {
                     <div className="flex flex-col min-w-0 leading-tight">
                       <span>Buscar Cliente</span>
                       <span className="text-[10px] font-medium text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
+                    </div>
+                  </button>
+                )}
+
+                {activeUserRole.verClientes && (
+                  <button
+                    onClick={() => setActiveTab('clientes-inactivos')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                      activeTab === 'clientes-inactivos'
+                        ? 'bg-rose-600 text-white font-black border border-rose-500 shadow-sm ring-2 ring-rose-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                    }`}
+                  >
+                    <UserX className="w-4 h-4 shrink-0 text-rose-400" />
+                    <div className="flex flex-col min-w-0 leading-tight">
+                      <span>Clientes Inactivos</span>
+                      <span className="text-[10px] font-medium text-rose-300/80 mt-0.5">(Con Deuda / Sin Cuotas)</span>
                     </div>
                   </button>
                 )}
@@ -2420,6 +2440,16 @@ export default function App() {
               verDniCliente={activeUserRole.verDniCliente}
               verDireccionCliente={activeUserRole.verDireccionCliente}
               verIngresosCliente={activeUserRole.verIngresosCliente}
+            />
+          )}
+
+          {activeTab === 'clientes-inactivos' && (
+            <ClientesInactivosView
+              clientes={clientes}
+              operaciones={operaciones}
+              activeUserRole={activeUser}
+              usuarios={usuarios}
+              onUpdateCliente={handleUpdateCliente}
             />
           )}
 
