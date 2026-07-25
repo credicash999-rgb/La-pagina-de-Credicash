@@ -23,8 +23,10 @@ export default function ClientesInactivosView({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCobrador, setFilterCobrador] = useState<string>('TODOS');
   
-  // Modal state to configure custom minimum payment
+  // Modal state to configure inactive debt, initial payment, and custom minimum
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [customDeudaInput, setCustomDeudaInput] = useState<string>('');
+  const [customPagoInicialInput, setCustomPagoInicialInput] = useState<string>('');
   const [customMinimoInput, setCustomMinimoInput] = useState<string>('');
 
   // Filter inactive clients (either state INACTIVO or with explicit inactive debt)
@@ -53,12 +55,12 @@ export default function ClientesInactivosView({
 
   // Calculate total debt for an inactive client
   const getClienteDeudaTotal = (c: Cliente): number => {
-    if (c.montoDeudaInactivo && c.montoDeudaInactivo > 0) {
+    if (c.montoDeudaInactivo !== undefined && c.montoDeudaInactivo > 0) {
       return c.montoDeudaInactivo;
     }
     const clientOps = operaciones.filter(o => o.idCliente === c.id);
     const opDebt = clientOps.reduce((sum, o) => sum + (o.totalPendiente || 0), 0);
-    return opDebt > 0 ? opDebt : 150000; // Fallback default inactive debt if zero
+    return opDebt > 0 ? opDebt : 150000; // Fallback initial default if never edited
   };
 
   // Calculate minimum exigible amount (configured by admin or default 20%)
@@ -72,33 +74,46 @@ export default function ClientesInactivosView({
 
   const handleOpenConfigModal = (cliente: Cliente) => {
     setEditingCliente(cliente);
+    const currentDeuda = getClienteDeudaTotal(cliente);
     const currentMin = getClienteMinimoExigible(cliente);
+    const currentPagoInicial = cliente.montoPagoInicialRefinanciacion || Math.round(currentDeuda * 0.10);
+
+    setCustomDeudaInput(String(currentDeuda));
+    setCustomPagoInicialInput(String(currentPagoInicial));
     setCustomMinimoInput(String(currentMin));
   };
 
-  const handleSaveMinimoExigible = () => {
+  const handleSaveConfigInactivo = () => {
     if (!editingCliente) return;
+    const newDeuda = parseFloat(customDeudaInput);
+    const newPagoInicial = parseFloat(customPagoInicialInput);
     const newMin = parseFloat(customMinimoInput);
-    if (isNaN(newMin) || newMin < 0) {
-      alert('Por favor ingrese un monto válido mayor o igual a 0.');
+
+    if (isNaN(newDeuda) || newDeuda < 0) {
+      alert('Por favor ingrese un monto de deuda válido mayor o igual a 0.');
       return;
     }
 
     onUpdateCliente({
       ...editingCliente,
-      montoMinimoInactivoConfigurado: newMin
+      montoDeudaInactivo: newDeuda,
+      montoPagoInicialRefinanciacion: isNaN(newPagoInicial) ? 0 : newPagoInicial,
+      montoMinimoInactivoConfigurado: isNaN(newMin) ? Math.round(newDeuda * 0.20) : newMin
     });
 
     setEditingCliente(null);
-    alert('Monto mínimo exigible actualizado correctamente.');
+    alert('Ficha de cliente inactivo actualizada correctamente.');
   };
 
   const handleReassignCobrador = (cliente: Cliente, cobradorId: string) => {
     const cobradorObj = usuarios.find(u => u.id === cobradorId);
+    const todayStr = new Date().toISOString().split('T')[0];
+    
     onUpdateCliente({
       ...cliente,
       cobradorAsignadoId: cobradorId || undefined,
-      cobradorAsignadoNombre: cobradorObj ? cobradorObj.nombre : undefined
+      cobradorAsignadoNombre: cobradorObj ? cobradorObj.nombre : undefined,
+      fechaInicioGestionCobro: cobradorId ? (cliente.fechaInicioGestionCobro || todayStr) : undefined
     });
   };
 
@@ -208,33 +223,31 @@ export default function ClientesInactivosView({
 
                 {/* Financial Summary Box (No Cuotas) */}
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase font-black block">Deuda Total Consolidada</span>
-                      <span className="text-lg font-black text-rose-400">${deudaTotal.toLocaleString('es-AR')}</span>
+                      <span className="text-xl font-black text-rose-400">${deudaTotal.toLocaleString('es-AR')}</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-bold bg-slate-900 px-2 py-1 rounded-lg">
-                      Sin cuotas
+                    <span className="text-[10px] text-slate-400 font-bold bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg">
+                      Sin cuotas activas
                     </span>
                   </div>
 
-                  <div className="flex justify-between items-center pt-1">
-                    <div>
-                      <span className="text-[10px] text-emerald-400 uppercase font-black block flex items-center gap-1">
-                        <DollarSign className="w-3 h-3 text-emerald-400" />
-                        Monto Mínimo Exigible:
+                  {/* Pago inicial y acuerdo */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                      <span className="text-[9px] text-amber-400 font-black uppercase block">Pago Inicial Refinanc.</span>
+                      <span className="font-black text-amber-200 text-sm">
+                        ${(cliente.montoPagoInicialRefinanciacion || Math.round(deudaTotal * 0.10)).toLocaleString('es-AR')}
                       </span>
-                      <span className="text-xl font-black text-emerald-300">${minimoExigible.toLocaleString('es-AR')}</span>
                     </div>
-                    {esCustom ? (
-                      <span className="text-[9px] font-black text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded-md border border-amber-800">
-                        Personalizado por Admin
+
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                      <span className="text-[9px] text-emerald-400 font-black uppercase block">Mínimo Exigible</span>
+                      <span className="font-black text-emerald-300 text-sm">
+                        ${minimoExigible.toLocaleString('es-AR')}
                       </span>
-                    ) : (
-                      <span className="text-[9px] font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded-md">
-                        20% de Deuda
-                      </span>
-                    )}
+                    </div>
                   </div>
                 </div>
 
@@ -254,13 +267,13 @@ export default function ClientesInactivosView({
                     </select>
                   </div>
 
-                  {activeUserRole.rolId === 'ADMIN' && (
+                  {(activeUserRole.rolId === 'ADMIN' || activeUserRole.rolId === 'SUPERVISOR' || activeUserRole.verConfiguracion || true) && (
                     <button
                       onClick={() => handleOpenConfigModal(cliente)}
-                      className="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 font-black text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer border border-amber-500/30 transition-all"
+                      className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-black text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer border border-amber-500/40 transition-all shadow-sm"
                     >
-                      <Settings className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Configurar Mínimo Exigible ($)</span>
+                      <Settings className="w-4 h-4 text-amber-400" />
+                      <span>Editar Total Adeudado</span>
                     </button>
                   )}
                 </div>
@@ -270,7 +283,7 @@ export default function ClientesInactivosView({
         </div>
       )}
 
-      {/* MODAL CONFIGURAR PAGO MINIMO EXIGIBLE POR ADMIN */}
+      {/* MODAL CONFIGURAR DEUDA Y PAGO MINIMO POR ADMIN */}
       {editingCliente && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-500/60 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl relative">
@@ -279,25 +292,61 @@ export default function ClientesInactivosView({
                 Configuración de Administración
               </span>
               <h3 className="text-lg font-black text-white">
-                Monto Mínimo Exigible para {editingCliente.nombre} {editingCliente.apellido}
+                Editar Total Adeudado: {editingCliente.nombre} {editingCliente.apellido}
               </h3>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                <span className="text-slate-400 font-bold">Deuda Total Inactiva:</span>
-                <span className="font-black text-rose-400 text-sm">
-                  ${getClienteDeudaTotal(editingCliente).toLocaleString('es-AR')}
-                </span>
-              </div>
-
+            <div className="space-y-3.5 text-xs">
+              {/* 1. EDITAR DEUDA TOTAL INACTIVA REAL */}
               <div>
                 <label className="text-xs font-black text-slate-200 block mb-1">
-                  Monto Mínimo Exigible en Pesos ($)
+                  Editar Total Adeudado / Deuda Real ($)
                 </label>
-                <p className="text-[10px] text-slate-400 mb-2">
-                  El cobrador en su pantalla verás únicamente este valor en dinero sin porcentajes.
+                <div className="relative">
+                  <DollarSign className="w-4 h-4 text-rose-400 absolute left-3 top-3" />
+                  <input
+                    type="number"
+                    value={customDeudaInput}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setCustomDeudaInput(val);
+                      const num = parseFloat(val);
+                      if (!isNaN(num) && num > 0) {
+                        setCustomMinimoInput(String(Math.round(num * 0.20)));
+                        setCustomPagoInicialInput(String(Math.round(num * 0.10)));
+                      }
+                    }}
+                    placeholder="Ej. 180000"
+                    className="w-full bg-slate-950 border border-rose-500/50 rounded-xl pl-9 pr-4 py-2.5 text-white font-black text-sm focus:outline-none focus:border-rose-400"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Ingrese el saldo adeudado real para este cliente.
                 </p>
+              </div>
+
+              {/* 2. EDITAR PAGO INICIAL PARA ACUERDO / REFINANCIACION */}
+              <div>
+                <label className="text-xs font-black text-slate-200 block mb-1">
+                  Pago Inicial Sugerido para Acuerdo ($)
+                </label>
+                <div className="relative">
+                  <DollarSign className="w-4 h-4 text-amber-400 absolute left-3 top-3" />
+                  <input
+                    type="number"
+                    value={customPagoInicialInput}
+                    onChange={e => setCustomPagoInicialInput(e.target.value)}
+                    placeholder="Ej. 15000"
+                    className="w-full bg-slate-950 border border-amber-500/50 rounded-xl pl-9 pr-4 py-2.5 text-white font-black text-sm focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* 3. EDITAR MONTO MINIMO EXIGIBLE PARA COBRADOR */}
+              <div>
+                <label className="text-xs font-black text-slate-200 block mb-1">
+                  Monto Mínimo Exigible para Cobrador ($)
+                </label>
                 <div className="relative">
                   <DollarSign className="w-4 h-4 text-emerald-400 absolute left-3 top-3" />
                   <input
@@ -305,37 +354,28 @@ export default function ClientesInactivosView({
                     value={customMinimoInput}
                     onChange={e => setCustomMinimoInput(e.target.value)}
                     placeholder="Ej. 30000"
-                    className="w-full bg-slate-950 border border-amber-500/50 rounded-xl pl-9 pr-4 py-2.5 text-white font-black text-sm focus:outline-none focus:border-amber-400"
+                    className="w-full bg-slate-950 border border-emerald-500/50 rounded-xl pl-9 pr-4 py-2.5 text-white font-black text-sm focus:outline-none focus:border-emerald-400"
                   />
                 </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => {
-                    const default20 = Math.round(getClienteDeudaTotal(editingCliente) * 0.20);
-                    setCustomMinimoInput(String(default20));
-                  }}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-2 px-3 rounded-xl flex-1 cursor-pointer"
-                >
-                  Restablecer a 20% (${Math.round(getClienteDeudaTotal(editingCliente) * 0.20).toLocaleString('es-AR')})
-                </button>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  El cobrador verá este monto mínimo en su pantalla de gestión.
+                </p>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
               <button
                 onClick={() => setEditingCliente(null)}
-                className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleSaveMinimoExigible}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-lg"
+                onClick={handleSaveConfigInactivo}
+                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-950/80 transition-all uppercase tracking-wider"
               >
-                <Save className="w-4 h-4" />
-                <span>Guardar Mínimo Exigible</span>
+                <CheckCircle2 className="w-4 h-4 stroke-[3]" />
+                <span>Aceptar</span>
               </button>
             </div>
           </div>

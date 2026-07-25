@@ -97,6 +97,7 @@ export default function CobradorCampoView({
   const [notasGestionTel, setNotasGestionTel] = useState<string>('');
   const [showPhoneCallModal, setShowPhoneCallModal] = useState<boolean>(false);
   const [showCancelConfirmModal, setShowCancelConfirmModal] = useState<boolean>(false);
+  const [showComisionesModal, setShowComisionesModal] = useState<boolean>(false);
 
   // Form states for Breakfast Reimbursement Request
   const [lugarDesayuno, setLugarDesayuno] = useState<string>('Café Martinez - Shopping Abasto');
@@ -202,9 +203,10 @@ export default function CobradorCampoView({
     return isEvasivo || isDueTodayOrOverdue || isRescheduledToday;
   });
 
-  // Filter clients to show only those who have operations to collect today OR are marked EVASIVO
+  // Filter clients to show only those who have operations to collect today OR are marked EVASIVO or INACTIVO with debt
   const myAssignedClients = rawAssigned.filter(c => {
     if (c.estado === 'EVASIVO') return true;
+    if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) return true;
     const clientOps = myAssignedOperations.filter(o => o.idCliente === c.id);
     const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === c.id && r.fechaReprogramada === todayStr && !r.completada);
     return clientOps.length > 0 || isRescheduledToday;
@@ -252,23 +254,21 @@ export default function CobradorCampoView({
       }
     });
 
-    // Calculate Monto Minimo Exigible
+    // Calculate Monto Minimo Exigible and Total Deuda
     let montoMinimoExigible = 0;
-    if (cliente.estado === 'INACTIVO') {
-      // For INACTIVE clients: Admin configured amount OR 20% of inactive debt
+    if (cliente.estado === 'INACTIVO' || (cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0)) {
+      if (totalDeudaCuotas === 0) {
+        totalDeudaCuotas = cliente.montoDeudaInactivo || 150000;
+      }
       if (cliente.montoMinimoInactivoConfigurado !== undefined && cliente.montoMinimoInactivoConfigurado > 0) {
         montoMinimoExigible = cliente.montoMinimoInactivoConfigurado;
       } else {
-        const baseInactivo = cliente.montoDeudaInactivo || totalDeudaCuotas || 150000;
-        montoMinimoExigible = Math.round(baseInactivo * 0.20);
+        montoMinimoExigible = Math.round(totalDeudaCuotas * 0.20);
       }
+      totalExigible = montoMinimoExigible;
     } else {
-      // ACTIVE CLIENT IN MORA: "el pago minimo para clientes activo debe ser la mitad de la cantidad de cuotas que debe"
-      if (cuotasDebeCount > 0) {
-        montoMinimoExigible = Math.round(totalExigible * 0.5);
-      } else {
-        montoMinimoExigible = Math.round(totalExigible * 0.5);
-      }
+      // ACTIVE CLIENT IN MORA
+      montoMinimoExigible = Math.round(totalExigible * 0.5);
     }
 
     // 5-Day Commission Countdown System
@@ -367,6 +367,14 @@ export default function CobradorCampoView({
   const totalCobradoHoy = myComisionesHoy.reduce((sum, c) => sum + c.montoCobrado, 0);
 
   const totalComisionesAcumuladas = myComisiones.reduce((sum, c) => sum + c.montoComision, 0);
+
+  const cobrosCalleRealizadosHoy = myComisionesHoy.map(c => ({
+    clienteNombre: c.nombreCliente || 'Cliente',
+    hora: 'Hoy',
+    formaPago: c.tipoComision === 'COBRANZA' ? 'Efectivo / Calle' : (c.tipoComision || 'Gestión'),
+    montoCobrado: c.montoCobrado || 0,
+    comisionGanada: c.montoComision || 0
+  }));
 
   // Effectiveness %
   const totalClientesAgenda = myAssignedClients.length || 1;
@@ -766,81 +774,57 @@ export default function CobradorCampoView({
       )}
 
       {/* ========================================================================= */}
-      {/* FIXED TOP MOTIVATIONAL & REAL-TIME PERFORMANCE METER                       */}
+      {/* FIXED TOP LONG BAR: COMISIONES ALCANZADAS + ACCESO A MIS GANANCIAS        */}
       {/* ========================================================================= */}
-      <div className="sticky top-0 z-30 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border-2 border-emerald-500/70 rounded-3xl p-4 md:p-5 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+      <div className="sticky top-0 z-30 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-2 border-emerald-500/80 rounded-3xl p-4 shadow-2xl backdrop-blur-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
-          
-          {/* Financial Metrics in Dollars ($) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-            
-            {/* Real-time Earnings Today in Money ($) */}
-            <div className="bg-slate-950/90 p-3 rounded-2xl border-2 border-emerald-500/50 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-emerald-400 mb-0.5">
-                <span className="text-[10px] font-black uppercase tracking-wider">Comisión Ganada Hoy</span>
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-              </div>
-              <span className="text-xl md:text-2xl font-black text-emerald-300">
-                ${comisionesGanadasHoy.toLocaleString('es-AR')}
-              </span>
-              <span className="text-[9px] text-emerald-400/90 font-bold mt-0.5">Cobros + Llamadas + WhatsApp</span>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          {/* Main Earnings Indicator Bar */}
+          <div className="flex items-center gap-3.5 flex-1">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-lg shadow-emerald-900/50">
+              <DollarSign className="w-7 h-7 stroke-[3]" />
             </div>
 
-            {/* Acumulado Total en Comisiones ($) */}
-            <div className="bg-slate-950/90 p-3 rounded-2xl border border-indigo-500/40 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-indigo-400 mb-0.5">
-                <span className="text-[10px] font-black uppercase tracking-wider">Comisiones Acumuladas</span>
-                <Calendar className="w-4 h-4 text-indigo-400" />
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                  Comisiones del Día Alcanzadas
+                </span>
+                <span className="text-xs font-black text-amber-300">
+                  Avance: {efectividadPorcentaje}%
+                </span>
               </div>
-              <span className="text-lg md:text-xl font-black text-indigo-200">
-                ${totalComisionesAcumuladas.toLocaleString('es-AR')}
-              </span>
-              <span className="text-[9px] text-slate-400 mt-0.5">Próx. Liq: {configComisiones?.fechaProximaLiquidacionSemanal || 'Viernes'}</span>
-            </div>
 
-            {/* Visitas & Avance */}
-            <div className="bg-slate-950/90 p-3 rounded-2xl border border-amber-500/40 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-amber-400 mb-0.5">
-                <span className="text-[10px] font-black uppercase tracking-wider">Efectividad del Día</span>
-                <Clock className="w-4 h-4 text-amber-400" />
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl md:text-3xl font-black text-emerald-300">
+                  ${comisionesGanadasHoy.toLocaleString('es-AR')} ARS
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold hidden sm:inline">
+                  ({clientesGestionados.length} de {myAssignedClients.length} gestiones completadas)
+                </span>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-xl md:text-2xl font-black text-amber-300">{efectividadPorcentaje}%</span>
-                <span className="text-[10px] font-bold text-slate-400">({clientesGestionados.length}/{totalClientesAgenda})</span>
+
+              {/* Progress Bar */}
+              <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                <div 
+                  className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.max(6, efectividadPorcentaje)}%` }}
+                ></div>
               </div>
-              <span className="text-[9px] text-slate-400 mt-0.5">Visitas completadas</span>
-            </div>
-
-          </div>
-
-          {/* Effectiveness Meter Gauge Bar */}
-          <div className="bg-slate-950/90 p-3.5 rounded-2xl border border-slate-700/80 flex flex-col gap-2 min-w-[240px]">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
-                Meta Diaria de Cobro
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-emerald-400">{efectividadPorcentaje}%</span>
-              </div>
-            </div>
-
-            <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700 p-0.5">
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(8, efectividadPorcentaje)}%` }}
-              ></div>
-            </div>
-
-            <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold pt-0.5">
-              <span>Cartera Día: <b className="text-white">{myAssignedClients.length}</b></span>
-              <span>Gestionados: <b className="text-emerald-300">{clientesGestionados.length}</b></span>
-              <span className="text-emerald-400 font-black">Comisión del Día Alcanzada: ${comisionesGanadasHoy.toLocaleString('es-AR')}</span>
             </div>
           </div>
 
+          {/* Action Button for Detailed Earnings Modal */}
+          <div className="flex items-center justify-end">
+            <button
+              onClick={() => setShowComisionesModal(true)}
+              className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-4 py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-emerald-500/20 cursor-pointer transition-all uppercase tracking-wider shrink-0"
+            >
+              <TrendingUp className="w-4 h-4 stroke-[3]" />
+              <span>Mis Ganancias y Comisiones</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -902,27 +886,6 @@ export default function CobradorCampoView({
       {/* ========================================================================= */}
       {activeTab === 'gestion_diaria' && (
         <div className="space-y-6">
-
-          {/* Daily Commissions Earned Counter Banner */}
-          <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-2 border-emerald-500/80 rounded-2xl p-4 shadow-xl flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black shrink-0">
-                <DollarSign className="w-6 h-6 stroke-[3]" />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider block">
-                  Comisiones del Día Alcanzadas
-                </span>
-                <span className="text-xl md:text-2xl font-black text-emerald-300">
-                  ${comisionesGanadasHoy.toLocaleString('es-AR')} ARS
-                </span>
-              </div>
-            </div>
-            <div className="text-right hidden sm:block">
-              <span className="text-[10px] font-bold text-slate-400 block">Cartera de Clientes del Día</span>
-              <span className="text-xs font-black text-emerald-400">{myAssignedClients.length} Clientes Asignados</span>
-            </div>
-          </div>
           
           {/* VISITAS REPROGRAMADAS / PENDIENTES DE HOY */}
           {clientesVisitasPendientesReprogramadas.length > 0 && (
@@ -1090,18 +1053,14 @@ export default function CobradorCampoView({
                       {/* Required Financial Summary Box */}
                       <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2.5 text-xs">
                         {/* Frequency Columns */}
-                        <div className="grid grid-cols-3 gap-1.5 pb-2 border-b border-slate-800/80 text-center">
-                          <div className="bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
-                            <span className="text-slate-400 uppercase font-black block text-[8px]">Cuotas Diarias</span>
-                            <span className="font-black text-amber-300 text-xs">{cuotasDiariasCount}</span>
+                        <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800/80 text-center">
+                          <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                            <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas Diarias</span>
+                            <span className="font-black text-amber-300 text-sm">{cuotasDiariasCount}</span>
                           </div>
-                          <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-                            <span className="text-slate-400 uppercase font-black block text-[8px]">Cuotas Semanales</span>
-                            <span className="font-black text-teal-300 text-xs">{cuotasSemanalesCount}</span>
-                          </div>
-                          <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-                            <span className="text-slate-400 uppercase font-black block text-[8px]">Total Cuotas</span>
-                            <span className="font-black text-rose-400 text-xs">{cuotasDebeCount}</span>
+                          <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                            <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas Semanales</span>
+                            <span className="font-black text-teal-300 text-sm">{cuotasSemanalesCount}</span>
                           </div>
                         </div>
 
@@ -1624,18 +1583,14 @@ export default function CobradorCampoView({
               {/* Financial Summary */}
               <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-3 text-xs">
                 {/* Column Breakdown by Frequency */}
-                <div className="grid grid-cols-3 gap-1.5 pb-2 border-b border-slate-800/80 text-center">
-                  <div className="bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
-                    <span className="text-slate-400 uppercase font-black block text-[8px]">Cuotas Diarias</span>
-                    <span className="font-black text-amber-300 text-xs">{cuotasDiariasCount}</span>
+                <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800/80 text-center">
+                  <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas Diarias</span>
+                    <span className="font-black text-amber-300 text-sm">{cuotasDiariasCount}</span>
                   </div>
-                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-                    <span className="text-slate-400 uppercase font-black block text-[8px]">Cuotas Semanales</span>
-                    <span className="font-black text-teal-300 text-xs">{cuotasSemanalesCount}</span>
-                  </div>
-                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-                    <span className="text-slate-400 uppercase font-black block text-[8px]">Total Cuotas</span>
-                    <span className="font-black text-rose-400 text-xs">{cuotasDebeCount}</span>
+                  <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas Semanales</span>
+                    <span className="font-black text-teal-300 text-sm">{cuotasSemanalesCount}</span>
                   </div>
                 </div>
 
@@ -2057,6 +2012,98 @@ export default function CobradorCampoView({
               >
                 <Phone className="w-4 h-4" />
                 <span>Confirmar Llamada Realizada</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MIS GANANCIAS Y COMISIONES MODAL */}
+      {showComisionesModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-emerald-500/80 rounded-3xl p-6 max-w-lg w-full space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowComisionesModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 cursor-pointer bg-slate-800 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-lg shadow-emerald-950">
+                <TrendingUp className="w-7 h-7 stroke-[3]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider block">
+                  Resumen de Rendimiento
+                </span>
+                <h3 className="text-xl font-black text-white">Mis Ganancias y Comisiones</h3>
+              </div>
+            </div>
+
+            {/* KPI Cards Grid inside Modal */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 1. Comisiones del Día */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border-2 border-emerald-500/60 text-center">
+                <span className="text-[10px] font-black uppercase text-emerald-400 block mb-1">Ganado Hoy</span>
+                <span className="text-xl font-black text-emerald-300">${comisionesGanadasHoy.toLocaleString('es-AR')}</span>
+                <span className="text-[9px] text-slate-400 block mt-1">Cobros + Gestiones</span>
+              </div>
+
+              {/* 2. Comisiones Acumuladas */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-indigo-500/50 text-center">
+                <span className="text-[10px] font-black uppercase text-indigo-400 block mb-1">Acumulado Mes</span>
+                <span className="text-xl font-black text-indigo-200">${totalComisionesAcumuladas.toLocaleString('es-AR')}</span>
+                <span className="text-[9px] text-slate-400 block mt-1">Próx. Liq: {configComisiones?.fechaProximaLiquidacionSemanal || 'Viernes'}</span>
+              </div>
+
+              {/* 3. Efectividad del Día */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-amber-500/50 text-center">
+                <span className="text-[10px] font-black uppercase text-amber-400 block mb-1">Efectividad</span>
+                <span className="text-xl font-black text-amber-300">{efectividadPorcentaje}%</span>
+                <span className="text-[9px] text-slate-400 block mt-1">{clientesGestionados.length}/{totalClientesAgenda} Visitados</span>
+              </div>
+            </div>
+
+            {/* Breakdown of Payments Collected Today */}
+            <div className="space-y-3 pt-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                <span>Detalle de Cobros y Comisiones del Día</span>
+                <span className="text-emerald-400 font-bold">{cobrosCalleRealizadosHoy.length} Cobros</span>
+              </h4>
+
+              {cobrosCalleRealizadosHoy.length === 0 ? (
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-center text-xs text-slate-400 space-y-1">
+                  <p className="font-bold">Aún no se han registrado cobros el día de hoy.</p>
+                  <p className="text-[10px] text-slate-500">Cada cobro realizado genera automáticamente un 10% de comisión directa.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {cobrosCalleRealizadosHoy.map((cobro, idx) => (
+                    <div key={idx} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-black text-white block">{cobro.clienteNombre}</span>
+                        <span className="text-[10px] text-slate-400">{cobro.hora} hs • {cobro.formaPago}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-black text-slate-200 block">${cobro.montoCobrado.toLocaleString('es-AR')}</span>
+                        <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800 inline-block">
+                          +${cobro.comisionGanada.toLocaleString('es-AR')} com.
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setShowComisionesModal(false)}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs py-3 rounded-xl cursor-pointer"
+              >
+                Cerrar Ventana
               </button>
             </div>
           </div>
