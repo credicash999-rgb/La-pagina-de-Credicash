@@ -238,6 +238,9 @@ export default function CobradorCampoView({
     let cuotasDiariasCount = 0;
     let cuotasSemanalesCount = 0;
     let cuotasOtrasCount = 0;
+    let diasMoraMax = 0;
+    let cuotasVencidasCount = 0;
+    let cuotasHoyCount = 0;
 
     ops.forEach(op => {
       let opCuotas = cuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
@@ -253,6 +256,20 @@ export default function CobradorCampoView({
 
       const overdue = opCuotas.filter(c => c.fechaVencimiento < todayStr);
       const dueToday = opCuotas.filter(c => c.fechaVencimiento === todayStr);
+
+      cuotasVencidasCount += overdue.length;
+      cuotasHoyCount += dueToday.length;
+
+      if (overdue.length > 0) {
+        const oldestStr = overdue.map(c => c.fechaVencimiento).sort()[0];
+        const oldestTime = new Date(oldestStr + 'T00:00:00').getTime();
+        const todayTime = new Date(todayStr + 'T00:00:00').getTime();
+        const diffDays = Math.max(0, Math.floor((todayTime - oldestTime) / (1000 * 60 * 60 * 24)));
+        if (diffDays > diasMoraMax) diasMoraMax = diffDays;
+      }
+      if (op.diasMora && op.diasMora > diasMoraMax) {
+        diasMoraMax = op.diasMora;
+      }
 
       let activeDebts: Cuota[] = [];
       if (overdue.length > 0 || dueToday.length > 0) {
@@ -277,6 +294,10 @@ export default function CobradorCampoView({
         cuotasOtrasCount += count;
       }
     });
+
+    if (cliente.diasMora && cliente.diasMora > diasMoraMax) {
+      diasMoraMax = cliente.diasMora;
+    }
 
     // Fallback if totalDeudaCuotas computed 0 but client has active loan
     if (totalDeudaCuotas === 0 && ops.length > 0) {
@@ -326,7 +347,10 @@ export default function CobradorCampoView({
       cuotasDiariasCount,
       cuotasSemanalesCount,
       cuotasOtrasCount,
-      diaGestion
+      diaGestion,
+      diasMoraMax,
+      cuotasVencidasCount,
+      cuotasHoyCount
     };
   };
 
@@ -1128,7 +1152,10 @@ export default function CobradorCampoView({
                     totalSaldoRestanteCredito,
                     cuotasDiariasCount,
                     cuotasSemanalesCount,
-                    diaGestion 
+                    diaGestion,
+                    diasMoraMax,
+                    cuotasVencidasCount,
+                    cuotasHoyCount
                   } = getClientFinancialSummary(cliente, ops);
 
                   return (
@@ -1148,11 +1175,23 @@ export default function CobradorCampoView({
                               <span className="truncate">{cliente.direccion || `${cliente.calle || ''} ${cliente.numero || ''}`}</span>
                             </p>
                             
-                            {/* Badges: Status & 5-Day Commission Countdown */}
+                            {/* Badges: Status, Dias de Mora & 5-Day Commission Countdown */}
                             <div className="mt-2 flex flex-wrap items-center gap-1.5">
                               <span className={`inline-block px-2.5 py-0.5 text-[10px] font-black uppercase rounded-lg border ${estadoField.badgeClass}`}>
                                 {estadoField.label}
                               </span>
+
+                              {diasMoraMax > 0 ? (
+                                <span className="text-[10px] font-black text-rose-300 bg-rose-950/90 border border-rose-600/80 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3 text-rose-400" />
+                                  {diasMoraMax} Días de Mora
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                  Cobro Día de Hoy
+                                </span>
+                              )}
 
                               {diaGestion <= 2 ? (
                                 <span className="text-[10px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-lg flex items-center gap-1">
@@ -1164,15 +1203,10 @@ export default function CobradorCampoView({
                                   <Clock className="w-3 h-3 text-amber-400" />
                                   Día {diaGestion}/5 Comisión
                                 </span>
-                              ) : diaGestion === 5 ? (
-                                <span className="text-[10px] font-black text-rose-100 bg-rose-950 border-2 border-rose-500 px-2 py-0.5 rounded-lg flex items-center gap-1 animate-pulse shadow-md shadow-rose-950">
-                                  <AlertTriangle className="w-3 h-3 text-rose-400 animate-bounce" />
-                                  Día 5/5 ¡ÚLTIMO DÍA COMISIÓN!
-                                </span>
                               ) : (
-                                <span className="text-[10px] font-black text-rose-400 bg-slate-950/90 border border-rose-900/80 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                <span className="text-[10px] font-black text-rose-100 bg-rose-950 border-2 border-rose-500 px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-md shadow-rose-950">
                                   <AlertTriangle className="w-3 h-3 text-rose-400" />
-                                  5 Días Vencido (Sin Comisión)
+                                  Día 5/5 Comisión
                                 </span>
                               )}
                             </div>
@@ -1198,12 +1232,12 @@ export default function CobradorCampoView({
                         {/* Frequency Columns */}
                         <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800/80 text-center">
                           <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
-                            <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas Diarias</span>
-                            <span className="font-black text-amber-300 text-sm">{cuotasDiariasCount}</span>
+                            <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas en Mora</span>
+                            <span className="font-black text-rose-400 text-sm">{cuotasVencidasCount}</span>
                           </div>
                           <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
-                            <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas Semanales</span>
-                            <span className="font-black text-teal-300 text-sm">{cuotasSemanalesCount}</span>
+                            <span className="text-slate-400 uppercase font-black block text-[9px]">Cuota Día de Hoy</span>
+                            <span className="font-black text-amber-300 text-sm">{cuotasHoyCount > 0 ? `${cuotasHoyCount} Hoy` : (cuotasDebeCount > 0 ? '1 Exigible' : '0')}</span>
                           </div>
                         </div>
 
@@ -1230,11 +1264,6 @@ export default function CobradorCampoView({
                             <span className="text-xl font-black text-yellow-300 tracking-tight block">
                               ${totalDeudaCuotas.toLocaleString('es-AR')}
                             </span>
-                            {totalSaldoRestanteCredito > totalDeudaCuotas && (
-                              <span className="text-[9px] font-semibold text-slate-400 block pt-0.5">
-                                Saldo Total Crédito: ${totalSaldoRestanteCredito.toLocaleString('es-AR')}
-                              </span>
-                            )}
                           </div>
                         )}
 
@@ -1746,7 +1775,10 @@ export default function CobradorCampoView({
           totalSaldoRestanteCredito,
           cuotasDiariasCount,
           cuotasSemanalesCount,
-          diaGestion 
+          diaGestion,
+          diasMoraMax,
+          cuotasVencidasCount,
+          cuotasHoyCount
         } = getClientFinancialSummary(selectedCliente, clientOps);
 
         return (
@@ -1764,10 +1796,22 @@ export default function CobradorCampoView({
               {/* Header with House Photo */}
               <div className="border-b border-slate-800 pb-3.5 flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
                     <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
                       Ficha de Cobranza en Campo
                     </span>
+                    {diasMoraMax > 0 ? (
+                      <span className="text-[9px] font-black text-rose-300 bg-rose-950/90 border border-rose-700/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-rose-400" />
+                        {diasMoraMax} Días de Mora
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        Cobro Día de Hoy
+                      </span>
+                    )}
+
                     {diaGestion <= 2 ? (
                       <span className="text-[9px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-2 py-0.5 rounded-md flex items-center gap-1">
                         <Clock className="w-3 h-3 text-emerald-400" />
@@ -1778,15 +1822,10 @@ export default function CobradorCampoView({
                         <Clock className="w-3 h-3 text-amber-400" />
                         Día {diaGestion}/5 Comisión
                       </span>
-                    ) : diaGestion === 5 ? (
-                      <span className="text-[9px] font-black text-rose-100 bg-rose-950 border-2 border-rose-500 px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse shadow-lg shadow-rose-950/80">
-                        <AlertTriangle className="w-3 h-3 text-rose-400 animate-bounce" />
-                        Día 5/5 ¡ÚLTIMO DÍA COMISIÓN!
-                      </span>
                     ) : (
-                      <span className="text-[9px] font-black text-rose-400 bg-slate-950/90 border border-rose-900 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="text-[9px] font-black text-rose-100 bg-rose-950 border border-rose-500 px-2 py-0.5 rounded-md flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3 text-rose-400" />
-                        5 Días Vencido (Sin Comisión)
+                        Día 5/5 Comisión
                       </span>
                     )}
                   </div>
@@ -1823,12 +1862,12 @@ export default function CobradorCampoView({
                 {/* Column Breakdown by Frequency */}
                 <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800/80 text-center">
                   <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
-                    <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas Diarias</span>
-                    <span className="font-black text-amber-300 text-sm">{cuotasDiariasCount}</span>
+                    <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas en Mora</span>
+                    <span className="font-black text-rose-400 text-sm">{cuotasVencidasCount}</span>
                   </div>
                   <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
-                    <span className="text-slate-400 uppercase font-black block text-[9px]">Cuotas Semanales</span>
-                    <span className="font-black text-teal-300 text-sm">{cuotasSemanalesCount}</span>
+                    <span className="text-slate-400 uppercase font-black block text-[9px]">Cuota Día de Hoy</span>
+                    <span className="font-black text-amber-300 text-sm">{cuotasHoyCount > 0 ? `${cuotasHoyCount} Hoy` : (cuotasDebeCount > 0 ? '1 Exigible' : '0')}</span>
                   </div>
                 </div>
 
@@ -1855,11 +1894,6 @@ export default function CobradorCampoView({
                     <span className="text-2xl font-black text-yellow-300 tracking-tight block">
                       ${totalDeudaCuotas.toLocaleString('es-AR')}
                     </span>
-                    {totalSaldoRestanteCredito > totalDeudaCuotas && (
-                      <span className="text-[10px] font-semibold text-slate-400 block pt-0.5">
-                        Saldo Total Crédito: ${totalSaldoRestanteCredito.toLocaleString('es-AR')}
-                      </span>
-                    )}
                   </div>
                 )}
 
