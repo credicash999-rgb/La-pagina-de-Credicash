@@ -1342,25 +1342,30 @@ export default function ConfiguracionView({
                 </button>
               </div>
 
-              {/* Share link to configure phones/other PCs with 1 click */}
-              <div className="mt-3 p-3 bg-slate-900 border border-amber-500/40 rounded-xl space-y-2">
-                <span className="text-[10px] font-black uppercase text-amber-300 block">
-                  📱 Enlace de Vinculación Directa para Celulares o PCs
+              {/* Share link to configure phones/other PCs securely with login requirement */}
+              <div className="mt-4 p-4 bg-slate-900 border-2 border-amber-500/50 rounded-2xl space-y-2.5 shadow-lg">
+                <span className="text-xs font-black uppercase text-amber-300 flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-amber-400" />
+                  <span>📱 Enlace de Vinculación Seguro para Celulares / Multidispositivo</span>
                 </span>
-                <p className="text-[11px] text-slate-300 leading-tight">
-                  Envíe este enlace por WhatsApp a su celular u otra computadora para vincularse a la nube de la empresa automáticamente:
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Envíe este enlace por WhatsApp a los celulares o computadoras de sus empleados. Al abrirlo, el sistema guardará las credenciales de la nube de forma transparente y **los redirigirá directamente a la Pantalla de Iniciar Sesión**, exigiendo que cada usuario ingrese con su correo electrónico y contraseña registrados.
                 </p>
+                <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-[10px] text-amber-200/90 font-semibold flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Seguridad Garantizada: Bypassea la configuración manual pero exige autenticación previa. Ningún empleado podrá acceder al panel de Administrador sin credenciales.</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
                     const link = generateShareableFirebaseLink();
                     navigator.clipboard.writeText(link);
-                    alert('¡Enlace de vinculación copiado! Abra este enlace en su celular o navegador para sincronizar la información al instante.');
+                    alert('¡Enlace seguro copiado al portapapeles! Envíelo por WhatsApp a sus cobradores. Al abrirlo, conectará el dispositivo a la nube y solicitará su correo y contraseña.');
                   }}
-                  className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                  className="w-full py-2.5 px-3 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all"
                 >
                   <Cloud className="w-4 h-4" />
-                  Copiar Enlace para Celular / WhatsApp
+                  Copiar Enlace Seguro de Acceso a Nube (WhatsApp)
                 </button>
               </div>
             </form>

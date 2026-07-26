@@ -279,19 +279,374 @@ export default function LiquidacionesView({
     printWindow.document.close();
   };
 
+  // Check if current active user is Administrator or Superadmin
+  const isAdmin = activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN';
+
+  // =========================================================================
+  // COBRADOR / NON-ADMIN READ-ONLY VIEW
+  // =========================================================================
+  if (!isAdmin) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const myComisiones = comisiones.filter(c => c.cobradorId === activeUser?.id);
+    const myComisionesHoy = myComisiones.filter(c => c.fecha === todayStr);
+
+    // Calculate Saturday to Friday current week range
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 is Sun, 6 is Sat
+    const diffToSat = (dayOfWeek + 1) % 7;
+    const lastSaturday = new Date(now);
+    lastSaturday.setDate(now.getDate() - diffToSat);
+    const lastSaturdayStr = lastSaturday.toISOString().split('T')[0];
+
+    const myComisionesSemana = myComisiones.filter(c => c.fecha >= lastSaturdayStr && c.fecha <= todayStr);
+
+    const comisionHoyTotal = myComisionesHoy.reduce((s, c) => s + (c.montoComision || 0), 0);
+    const comisionSemanaTotal = myComisionesSemana.reduce((s, c) => s + (c.montoComision || 0), 0);
+    const comisionMesTotal = myComisiones.reduce((s, c) => s + (c.montoComision || 0), 0);
+
+    const misSemanales = liquidacionesSemanales.filter(l => l.usuarioId === activeUser?.id || l.colaboradorNombre === activeUser?.nombre);
+    const misMensuales = liquidacionesMensuales.filter(l => l.usuarioId === activeUser?.id || l.colaboradorNombre === activeUser?.nombre);
+
+    return (
+      <div className="w-full max-w-7xl mx-auto space-y-6 font-sans text-slate-100 pb-20">
+        
+        {/* Header Banner Cobrador */}
+        <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+              <DollarSign className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-white">Mi Panel de Comisiones & Liquidaciones</h2>
+              <p className="text-xs font-medium text-slate-400">
+                Consulta de comisiones ganadas, días acumulados de cobro y fechas fijas de pago de haberes.
+              </p>
+            </div>
+          </div>
+          <div className="px-3 py-2 bg-emerald-950 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-emerald-400" />
+            <span>Cobrador: {activeUser?.nombre || 'Usuario'}</span>
+          </div>
+        </div>
+
+        {/* Cronograma de Fechas de Cobro (Lectura Informativa) */}
+        <div className="bg-slate-900 border-2 border-emerald-500/40 rounded-3xl p-5 shadow-xl space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+            <Calendar className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-sm font-black uppercase text-white tracking-wider">
+              Fechas Fijas de Cobro y Cierre de Ciclos
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-slate-950/90 border border-emerald-500/30 rounded-2xl space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">
+                1. Cobro Semanal de Comisiones
+              </span>
+              <p className="text-base font-black text-white">
+                SÁBADO DE CADA SEMANA
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                El ciclo cierra el Viernes a las 23:59hs. El total acumulado de Sábado a Viernes se cobra el día Sábado.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-950/90 border border-teal-500/30 rounded-2xl space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-teal-400 block">
+                2. Cobro Mensual de Haberes
+              </span>
+              <p className="text-base font-black text-white">
+                Del 10 al 20 de cada mes
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Liquidación oficial del Sueldo Básico y balance de comisiones/adicionales correspondientes al período mensual.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-950/90 border border-indigo-500/30 rounded-2xl space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 block">
+                3. Período Acumulativo Vigente
+              </span>
+              <p className="text-base font-black text-white">
+                Sábado a Viernes
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Cálculo automatizado de comisiones por cada cobro diario asentado y validado en calle.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tarjetas de Métricas para Cobrador */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 bg-slate-900 border border-emerald-500/40 rounded-2xl shadow-md space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">
+              Comisión de Hoy
+            </span>
+            <p className="text-2xl font-black text-emerald-400">
+              ${comisionHoyTotal.toLocaleString('es-AR')}
+            </p>
+            <span className="text-[11px] text-slate-400 font-medium block">
+              Ganada en el día de la fecha
+            </span>
+          </div>
+
+          <div className="p-4 bg-slate-900 border border-teal-500/40 rounded-2xl shadow-md space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-teal-300 block">
+              Acumulado Semanal (Sáb a Vie)
+            </span>
+            <p className="text-2xl font-black text-teal-300">
+              ${comisionSemanaTotal.toLocaleString('es-AR')}
+            </p>
+            <span className="text-[11px] text-teal-400/90 font-bold block">
+              Disponible para cobrar este Sábado
+            </span>
+          </div>
+
+          <div className="p-4 bg-slate-900 border border-indigo-500/40 rounded-2xl shadow-md space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300 block">
+              Acumulado Total Mes
+            </span>
+            <p className="text-2xl font-black text-indigo-300">
+              ${comisionMesTotal.toLocaleString('es-AR')}
+            </p>
+            <span className="text-[11px] text-slate-400 font-medium block">
+              Suma total de comisiones del mes
+            </span>
+          </div>
+
+          <div className="p-4 bg-slate-900 border border-amber-500/40 rounded-2xl shadow-md space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 block">
+              Sueldo Básico Referencial
+            </span>
+            <p className="text-2xl font-black text-amber-300">
+              ${(configComisiones?.basicoMensual || 450000).toLocaleString('es-AR')}
+            </p>
+            <span className="text-[11px] text-slate-400 font-medium block">
+              Cobro del 10 al 20 de cada mes
+            </span>
+          </div>
+        </div>
+
+        {/* Tabla Lectura de Mis Comisiones */}
+        <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-2">
+              <Award className="w-5 h-5 text-emerald-400" />
+              <span>Mi Historial de Comisiones Generadas</span>
+            </h3>
+            <span className="text-xs text-slate-400 font-bold">
+              Total Registros: {myComisiones.length}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-800">
+            <table className="w-full text-left text-xs text-slate-300">
+              <thead className="bg-slate-950 text-slate-400 uppercase font-black tracking-wider text-[10px]">
+                <tr>
+                  <th className="p-3">Fecha</th>
+                  <th className="p-3">Cliente</th>
+                  <th className="p-3">Monto Cobrado</th>
+                  <th className="p-3">Tipo / Concepto</th>
+                  <th className="p-3 text-right">Comisión Ganada</th>
+                  <th className="p-3 text-center">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-medium">
+                {myComisiones.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-slate-500 font-bold">
+                      Aún no registra comisiones acumuladas en el sistema.
+                    </td>
+                  </tr>
+                ) : (
+                  myComisiones.map((com) => (
+                    <tr key={com.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="p-3 font-mono text-slate-300">{com.fecha}</td>
+                      <td className="p-3 font-bold text-white">{com.nombreCliente}</td>
+                      <td className="p-3 font-semibold text-emerald-300">${(com.montoCobrado || 0).toLocaleString('es-AR')}</td>
+                      <td className="p-3 text-slate-400">{com.tipoComision || 'COBRANZA'}</td>
+                      <td className="p-3 text-right font-black text-emerald-400 text-sm">${(com.montoComision || 0).toLocaleString('es-AR')}</td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                          com.estado === 'VERIFICADO' 
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        }`}>
+                          {com.estado || 'VERIFICADO'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Mis Recibos Emitidos (Lectura) */}
+        {(misSemanales.length > 0 || misMensuales.length > 0) && (
+          <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+            <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
+              <FileText className="w-5 h-5 text-indigo-400" />
+              <span>Mis Recibos y Comprobantes de Liquidación</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {misSemanales.map((liq) => (
+                <div key={liq.id} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-emerald-400 block">Liquidación Semanal</span>
+                    <span className="text-xs font-bold text-white block mt-0.5">{liq.periodo}</span>
+                    <span className="text-[11px] text-slate-400 mt-1 block">Neto: ${liq.netoPagar.toLocaleString('es-AR')}</span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedSemanal(liq)}
+                    className="p-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Ver Recibo</span>
+                  </button>
+                </div>
+              ))}
+
+              {misMensuales.map((liq) => (
+                <div key={liq.id} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-indigo-400 block">Liquidación Mensual</span>
+                    <span className="text-xs font-bold text-white block mt-0.5">{liq.periodo}</span>
+                    <span className="text-[11px] text-slate-400 mt-1 block">Neto: ${liq.totalNetoMensual.toLocaleString('es-AR')}</span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedMensual(liq)}
+                    className="p-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Ver Recibo</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal Recibo Impresión para Cobrador */}
+        {selectedSemanal && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-6 relative shadow-2xl">
+              <button
+                onClick={() => setSelectedSemanal(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white font-bold text-sm"
+              >
+                ✕ Cerrar
+              </button>
+              <div id="receipt-semanal-cobrador-print" className="bg-white text-slate-900 p-6 rounded-2xl space-y-4 border font-sans">
+                <div className="flex justify-between items-center border-b pb-3">
+                  <div>
+                    <h2 className="text-xl font-black text-emerald-800">CrediCash S.A.</h2>
+                    <p className="text-[11px] text-slate-600 font-bold">RECIBO DE LIQUIDACIÓN SEMANAL DE COMISIONES</p>
+                  </div>
+                  <div className="text-right text-xs">
+                    <span className="font-bold block">ID: {selectedSemanal.id}</span>
+                    <span className="text-slate-500">{selectedSemanal.fechaGeneracion}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs bg-slate-100 p-3 rounded-lg border">
+                  <div>
+                    <span className="text-slate-500 font-semibold block">Cobrador:</span>
+                    <span className="font-bold text-slate-900 text-sm">{selectedSemanal.colaboradorNombre}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-semibold block">Período:</span>
+                    <span className="font-bold text-slate-900">{selectedSemanal.periodo}</span>
+                  </div>
+                </div>
+                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex justify-between items-center">
+                  <span className="font-bold text-emerald-900 text-xs">TOTAL NETO A COBRAR:</span>
+                  <span className="font-black text-emerald-900 text-xl">${selectedSemanal.netoPagar.toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => triggerPrintWindow('receipt-semanal-cobrador-print')}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-2.5 px-4 rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Imprimir / Exportar Recibo PDF</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedMensual && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-6 relative shadow-2xl">
+              <button
+                onClick={() => setSelectedMensual(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white font-bold text-sm"
+              >
+                ✕ Cerrar
+              </button>
+              <div id="receipt-mensual-cobrador-print" className="bg-white text-slate-900 p-6 rounded-2xl space-y-4 border font-sans">
+                <div className="flex justify-between items-center border-b pb-3">
+                  <div>
+                    <h2 className="text-xl font-black text-emerald-800">CrediCash S.A.</h2>
+                    <p className="text-[11px] text-slate-600 font-bold">RECIBO DE LIQUIDACIÓN MENSUAL DE HABERES</p>
+                  </div>
+                  <div className="text-right text-xs">
+                    <span className="font-bold block">ID: {selectedMensual.id}</span>
+                    <span className="text-slate-500">{selectedMensual.fechaGeneracion}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-xs bg-slate-100 p-3 rounded-lg border">
+                  <div>
+                    <span className="text-slate-500 font-semibold block">Empleado:</span>
+                    <span className="font-bold text-slate-900 text-sm">{selectedMensual.usuarioNombre}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-semibold block">Período Mensual:</span>
+                    <span className="font-bold text-slate-900">{selectedMensual.periodoMes}</span>
+                  </div>
+                </div>
+                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 flex justify-between items-center">
+                  <span className="font-bold text-indigo-900 text-xs">TOTAL NETO MENSUAL:</span>
+                  <span className="font-black text-indigo-900 text-xl">${selectedMensual.totalNetoMensual.toLocaleString('es-AR')}</span>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => triggerPrintWindow('receipt-mensual-cobrador-print')}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-2.5 px-4 rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Imprimir / Exportar Recibo PDF</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // ADMIN FULL VIEW
+  // =========================================================================
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 font-sans text-slate-100 pb-20">
       
-      {/* Header Banner */}
+      {/* Header Banner Admin */}
       <div className="bg-slate-900 border-2 border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
             <DollarSign className="w-7 h-7" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-white">Módulo de Liquidaciones & Comisiones</h2>
+            <h2 className="text-xl font-black text-white">Módulo de Liquidaciones & Comisiones (Administrador)</h2>
             <p className="text-xs font-medium text-slate-400">
-              Generación automática de recibos semanales, liquidaciones mensuales de sueldo y reglas de comisiones.
+              Generación de recibos semanales, liquidaciones mensuales de sueldo y reglas de comisiones.
             </p>
           </div>
         </div>
@@ -331,7 +686,7 @@ export default function LiquidacionesView({
         </div>
       </div>
 
-      {/* Multi-Device Cloud Sync & Database Notice Bar */}
+      {/* Multi-Device Cloud Sync Notice Bar (Admin) */}
       <div className="bg-slate-900 border-2 border-indigo-500/50 rounded-3xl p-4 shadow-xl flex flex-col lg:flex-row items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="p-2.5 bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 rounded-2xl shrink-0">
@@ -339,27 +694,15 @@ export default function LiquidacionesView({
           </div>
           <div>
             <h3 className="text-xs font-black uppercase text-indigo-300 tracking-wider flex items-center gap-2">
-              <span>Sincronización Multidispositivo (PC / Celular) y Base de Datos</span>
+              <span>Sincronización de Base de Datos y Nube</span>
             </h3>
             <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
-              Si abre la aplicación desde otro celular o PC, descargue o suba la base de datos de su empresa a la nube para reflejar todos los clientes, créditos y pagos al instante.
+              Sincronice o respalde los datos en Firestore para asegurar que todos los cobradores vean los clientes y pagos actualizados.
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            onClick={() => {
-              const link = generateShareableFirebaseLink();
-              navigator.clipboard.writeText(link);
-              setCloudSyncStatus('📋 ¡Enlace copiado al portapapeles! Envíelo por WhatsApp o ábralo en su celular para vincularlo a la nube al instante.');
-            }}
-            className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
-            title="Copiar enlace directo con credenciales para conectar otro celular o PC a la nube sin configurar nada"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>Copiar Enlace Celular</span>
-          </button>
           <button
             onClick={handleSyncCloud}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
@@ -393,7 +736,7 @@ export default function LiquidacionesView({
               }
             }}
             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
-            title="Subir estado local a Firestore para que otros dispositivos lo descarguen"
+            title="Subir estado local a Firestore"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Subir Todo a Nube</span>

@@ -689,6 +689,18 @@ export default function App() {
   useEffect(() => {
     let unsubRealtime: (() => void) | undefined;
 
+    // Check if app was opened via a shareable linking URL (?fb=... or ?fb_config=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('fb') || urlParams.has('fb_config')) {
+      // Force saving the cloud credentials and logout immediately to present Login Screen
+      initializeFirebase();
+      localStorage.removeItem('credicash_logged_in');
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
+      setIsLoggedIn(false);
+      // Clean query string from browser URL bar
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     if (isFirebaseEnabled()) {
       initializeFirebase();
       downloadAllFromFirestore().then(res => {

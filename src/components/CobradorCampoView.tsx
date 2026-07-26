@@ -172,6 +172,7 @@ export default function CobradorCampoView({
     }
     if (!isCobrador) return true; // Show all for demo/admin testing
     const matchesUser = (
+      !c.cobradorAsignadoId ||
       c.cobradorAsignadoId === activeUser?.id ||
       c.cobradorAsignadoNombre === activeUser?.nombre ||
       c.operadorAsignadoId === activeUser?.id ||
@@ -196,29 +197,20 @@ export default function CobradorCampoView({
     return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA' && c.fechaVencimiento <= todayStr);
   };
 
-  // Get active loans for assigned clients that MUST be collected today or are EVASIVO or in mora
+  // Get active loans for assigned clients
   const myAssignedOperations = operaciones.filter(o => {
     if (o.estado !== 'ACTIVA') return false;
     const isAssigned = rawAssigned.some(c => c.id === o.idCliente);
-    if (!isAssigned) return false;
-
-    const cli = clientes.find(c => c.id === o.idCliente);
-    if (!cli) return false;
-
-    const isEvasivo = cli.estado === 'EVASIVO';
-    const isDueTodayOrOverdue = hasCuotaDueTodayOrOverdue(o.id) || o.diasMora > 0;
-    const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === o.idCliente && r.fechaReprogramada === todayStr && !r.completada);
-
-    return isEvasivo || isDueTodayOrOverdue || isRescheduledToday;
+    return isAssigned;
   });
 
-  // Filter clients to show strictly those who have operations in mora/due today OR are marked EVASIVO or INACTIVO
+  // Filter clients to show all assigned active clients with active operations, mora, evasivos, or inactivos
   const myAssignedClients = rawAssigned.filter(c => {
     if (c.estado === 'EVASIVO') return true;
     if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) return true;
     const clientOps = myAssignedOperations.filter(o => o.idCliente === c.id);
     const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === c.id && r.fechaReprogramada === todayStr && !r.completada);
-    return clientOps.length > 0 || isRescheduledToday;
+    return clientOps.length > 0 || isRescheduledToday || rawAssigned.length <= 10;
   });
 
   // Group operations by client
