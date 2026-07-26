@@ -81,6 +81,10 @@ export default function PagosView({
   const [observacionesInput, setObservacionesInput] = useState('');
   const [promesaFecha, setPromesaFecha] = useState('');
 
+  // Field collector commission checkbox
+  const [esCobroEnCalle, setEsCobroEnCalle] = useState<boolean>(false);
+  const [selectedCobradorId, setSelectedCobradorId] = useState<string>('');
+
   // Payment Audit & Registry Filter and Editing States
   const [pagoSearchTerm, setPagoSearchTerm] = useState('');
   const [pagoFilterModalidad, setPagoFilterModalidad] = useState<string>('TODOS');
@@ -614,6 +618,10 @@ export default function PagosView({
       ? `Cuotas N° ${affectedCuotaNumbers.sort((a,b) => a - b).join(', ')}`
       : 'Sin cuotas';
 
+    const cobradorSeleccionado = esCobroEnCalle && selectedCobradorId
+      ? (usuarios.find(u => u.id === selectedCobradorId)?.nombre || loggedInUserName)
+      : loggedInUserName;
+
     // Create a new Pago record
     const nuevoPago: Pago = {
       id: `PAG-${Date.now().toString().slice(-6)}`,
@@ -623,11 +631,13 @@ export default function PagosView({
       fechaPago,
       horaPago: formattedTime,
       importe: valorCobrado,
-      cobrador: loggedInUserName,
+      cobrador: cobradorSeleccionado,
       metodoPago: medioPago,
       modalidad: modality,
       cuotasAfectadas: cuotasAfectadasText,
-      observaciones: observacionesInput,
+      observaciones: esCobroEnCalle
+        ? `[Cobro en Calle por ${cobradorSeleccionado} - Comisión Aplicable] ${observacionesInput}`
+        : observacionesInput,
     };
 
     // Create Treasury record
@@ -1486,6 +1496,37 @@ export default function PagosView({
                             onChange={(e) => setFechaPago(e.target.value)}
                             className="w-full px-2.5 py-1.5 bg-slate-900 text-white border border-emerald-700 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
                           />
+                        </div>
+
+                        {/* Checkbox "Cobrado por Cobrador en Calle" for commission generation */}
+                        <div className="bg-slate-900/90 p-2.5 rounded-xl border border-emerald-700/80 space-y-2 col-span-2">
+                          <label className="flex items-center gap-2 text-xs font-bold text-amber-300 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={esCobroEnCalle}
+                              onChange={(e) => setEsCobroEnCalle(e.target.checked)}
+                              className="w-4 h-4 text-emerald-500 bg-slate-900 border-emerald-700 rounded focus:ring-emerald-400 cursor-pointer accent-emerald-500"
+                            />
+                            <span>🏍️ Tildar: Cobrado por Cobrador en Calle (Genera Comisión)</span>
+                          </label>
+
+                          {esCobroEnCalle && (
+                            <div className="pt-1 space-y-1 animate-fade-in">
+                              <label className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider block">Seleccionar Cobrador que realizó la visita:</label>
+                              <select
+                                value={selectedCobradorId}
+                                onChange={(e) => setSelectedCobradorId(e.target.value)}
+                                className="w-full px-2.5 py-1.5 bg-slate-950 text-white border border-emerald-600 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+                              >
+                                <option value="">-- Seleccionar Cobrador --</option>
+                                {usuarios.map(u => (
+                                  <option key={u.id} value={u.id}>
+                                    👤 {u.nombre} ({u.rolId === 'COBRADOR' ? 'Cobrador Calle' : u.rolId})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

@@ -53,6 +53,8 @@ export interface Cliente {
     otros?: string;
   };
   fotoCasa?: string;
+  gpsLat?: number;
+  gpsLng?: number;
   observaciones?: string;
 }
 
@@ -360,8 +362,11 @@ export interface LiquidacionMensual {
 }
 
 export interface ConfiguracionRecorrido {
-  puntoSalida: string;
-  puntoRegreso: string;
+  puntoSalida?: string;
+  puntoLlegada?: string;
+  puntoRegreso?: string;
+  lugarInicioRecorridoPredeterminado?: string;
+  lugarFinRecorridoPredeterminado?: string;
 }
 
 

@@ -4,7 +4,7 @@ import {
   Shield, UserPlus, Users, ToggleLeft, ToggleRight, Check, Trash2, 
   Lock, KeyRound, Mail, Info, ShieldAlert, CheckCircle2, Edit2, X,
   Clock, Calendar, LogIn, LogOut, CheckCircle, Activity, UserCheck,
-  UserX, AlertCircle, Filter
+  UserX, AlertCircle, Filter, RefreshCw
 } from 'lucide-react';
 
 interface UsuariosViewProps {

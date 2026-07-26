@@ -191,12 +191,12 @@ export default function CobradorCampoView({
   // Check visited today
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Helper: check if an operation has unpaid cuotas
+  // Helper: check if an operation has unpaid cuotas due today or overdue
   const hasCuotaDueTodayOrOverdue = (opId: string) => {
-    return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA');
+    return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA' && c.fechaVencimiento <= todayStr);
   };
 
-  // Get active loans for assigned clients that MUST be collected today or are EVASIVO
+  // Get active loans for assigned clients that MUST be collected today or are EVASIVO or in mora
   const myAssignedOperations = operaciones.filter(o => {
     if (o.estado !== 'ACTIVA') return false;
     const isAssigned = rawAssigned.some(c => c.id === o.idCliente);
@@ -212,18 +212,14 @@ export default function CobradorCampoView({
     return isEvasivo || isDueTodayOrOverdue || isRescheduledToday;
   });
 
-  // Filter clients to show only those who have operations to collect today OR are marked EVASIVO or INACTIVO with debt
-  let myAssignedClients = rawAssigned.filter(c => {
+  // Filter clients to show strictly those who have operations in mora/due today OR are marked EVASIVO or INACTIVO
+  const myAssignedClients = rawAssigned.filter(c => {
     if (c.estado === 'EVASIVO') return true;
     if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) return true;
     const clientOps = myAssignedOperations.filter(o => o.idCliente === c.id);
     const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === c.id && r.fechaReprogramada === todayStr && !r.completada);
     return clientOps.length > 0 || isRescheduledToday;
   });
-
-  if (myAssignedClients.length === 0 && rawAssigned.length > 0) {
-    myAssignedClients = rawAssigned;
-  }
 
   // Group operations by client
   const clientOperationsMap = new Map<string, Operacion[]>();

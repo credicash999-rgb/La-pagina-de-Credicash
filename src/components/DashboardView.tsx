@@ -101,8 +101,26 @@ export default function DashboardView({
   // 1. KPI Calculations
   const totalClientes = clientes.length;
   const clientesActivos = clientes.filter(c => c.estado === 'ACTIVO').length;
-  const clientesMora = clientes.filter(c => c.estado === 'EN_MORA').length;
+  const clientesMora = clientes.filter(c => c.estado === 'EN_MORA' || c.estado === 'EVASIVO').length;
   const clientesSolicitantes = clientes.filter(c => c.estado === 'SOLICITANTE').length;
+  const clientesInactivos = clientes.filter(c => c.estado === 'INACTIVO' || c.estado === 'CONGELADO');
+
+  // Deuda e impacto de clientes inactivos
+  const deudaClientesInactivosTotal = clientesInactivos.reduce((sum, c) => {
+    if (c.montoDeudaInactivo && c.montoDeudaInactivo > 0) {
+      return sum + c.montoDeudaInactivo;
+    }
+    const clientOps = operaciones.filter(o => o.idCliente === c.id);
+    return sum + clientOps.reduce((s, o) => s + o.totalPendiente, 0);
+  }, 0);
+
+  const pagoInicialRefinanciacionTotal = clientesInactivos.reduce((sum, c) => {
+    if (c.montoPagoInicialRefinanciacion && c.montoPagoInicialRefinanciacion > 0) {
+      return sum + c.montoPagoInicialRefinanciacion;
+    }
+    const debt = c.montoDeudaInactivo || 150000;
+    return sum + Math.round(debt * 0.3);
+  }, 0);
 
   const totalFinanciado = operaciones.reduce((acc, op) => acc + op.totalFinanciado, 0);
   const capitalEntregado = operaciones.reduce((acc, op) => acc + op.capitalEntregado, 0);
@@ -247,63 +265,78 @@ export default function DashboardView({
       {subTab === 'kpis' ? (
         <>
           {/* Grid Cards KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         
         {/* Colocado total */}
-        <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md flex items-center justify-between">
+        <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Total Colocado</span>
-            <h3 className="text-xl font-extrabold text-white">${totalFinanciado.toLocaleString('es-ES')}</h3>
-            <p className="text-[10px] text-emerald-200/80">
-              Capital entregado: <span className="font-semibold text-white">${capitalEntregado.toLocaleString('es-ES')}</span>
+            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Total Colocado</span>
+            <h3 className="text-lg font-extrabold text-white">${totalFinanciado.toLocaleString('es-ES')}</h3>
+            <p className="text-[9px] text-emerald-200/80">
+              Cap. Entregado: <span className="font-semibold text-white">${capitalEntregado.toLocaleString('es-ES')}</span>
             </p>
           </div>
-          <div className="p-3 bg-emerald-900/80 rounded-lg text-emerald-300 border border-emerald-700">
-            <DollarSign className="w-5 h-5" />
+          <div className="p-2.5 bg-emerald-900/80 rounded-lg text-emerald-300 border border-emerald-700 shrink-0">
+            <DollarSign className="w-4 h-4" />
           </div>
         </div>
 
         {/* Recuperado */}
-        <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md flex items-center justify-between">
+        <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Recuperado</span>
-            <h3 className="text-xl font-extrabold text-emerald-300">${totalCobrado.toLocaleString('es-ES')}</h3>
-            <p className="text-[10px] text-emerald-200/80">
-              Intereses cobrados: <span className="font-semibold text-emerald-300">${interesCobrado.toLocaleString('es-ES')}</span>
+            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Recuperado</span>
+            <h3 className="text-lg font-extrabold text-emerald-300">${totalCobrado.toLocaleString('es-ES')}</h3>
+            <p className="text-[9px] text-emerald-200/80">
+              Intereses: <span className="font-semibold text-emerald-300">${interesCobrado.toLocaleString('es-ES')}</span>
             </p>
           </div>
-          <div className="p-3 bg-emerald-900/80 rounded-lg text-emerald-300 border border-emerald-700">
-            <CheckCircle className="w-5 h-5" />
+          <div className="p-2.5 bg-emerald-900/80 rounded-lg text-emerald-300 border border-emerald-700 shrink-0">
+            <CheckCircle className="w-4 h-4" />
           </div>
         </div>
 
-        {/* Pendiente */}
-        <div className="bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md flex items-center justify-between">
+        {/* Pendiente Activos */}
+        <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Pendiente de Cobro</span>
-            <h3 className="text-xl font-extrabold text-white">${carteraPendienteTotal.toLocaleString('es-ES')}</h3>
-            <p className="text-[10px] text-emerald-200/80">
-              Total neto en circulación
+            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Pendiente Activos</span>
+            <h3 className="text-lg font-extrabold text-white">${carteraPendienteTotal.toLocaleString('es-ES')}</h3>
+            <p className="text-[9px] text-emerald-200/80">
+              Cartera viva en calle
             </p>
           </div>
-          <div className="p-3 bg-emerald-900/80 rounded-lg text-emerald-300 border border-emerald-700">
-            <Calendar className="w-5 h-5" />
+          <div className="p-2.5 bg-emerald-900/80 rounded-lg text-emerald-300 border border-emerald-700 shrink-0">
+            <Calendar className="w-4 h-4" />
           </div>
         </div>
 
         {/* En Mora */}
-        <div className="bg-emerald-950/90 p-5 rounded-2xl border border-rose-800/80 shadow-md flex items-center justify-between">
+        <div className="bg-emerald-950/90 p-4 rounded-2xl border border-rose-800/80 shadow-md flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">Cartera Vencida (Mora)</span>
-            <h3 className="text-xl font-extrabold text-rose-400">${capitalEnMora.toLocaleString('es-ES')}</h3>
-            <p className="text-[10px] text-rose-300 font-medium">
+            <span className="text-[10px] font-bold text-rose-300 uppercase tracking-wider">Mora Activa</span>
+            <h3 className="text-lg font-extrabold text-rose-400">${capitalEnMora.toLocaleString('es-ES')}</h3>
+            <p className="text-[9px] text-rose-300 font-medium">
               {cuotasMora.length} cuotas vencidas
             </p>
           </div>
-          <div className="p-3 bg-rose-950 rounded-lg text-rose-400 border border-rose-800">
-            <AlertTriangle className="w-5 h-5" />
+          <div className="p-2.5 bg-rose-950 rounded-lg text-rose-400 border border-rose-800 shrink-0">
+            <AlertTriangle className="w-4 h-4" />
           </div>
         </div>
+
+        {/* Cartera Inactiva / Congelada */}
+        <div className="bg-gradient-to-br from-amber-950/90 to-slate-900 p-4 rounded-2xl border-2 border-amber-500/80 shadow-md flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-amber-300 uppercase tracking-wider">Cartera Inactiva ({clientesInactivos.length})</span>
+            <h3 className="text-lg font-extrabold text-yellow-300">${deudaClientesInactivosTotal.toLocaleString('es-ES')}</h3>
+            <p className="text-[9px] text-amber-200/90 font-bold">
+              Pago Inicial Refin: <span className="text-white">${pagoInicialRefinanciacionTotal.toLocaleString('es-ES')}</span>
+            </p>
+          </div>
+          <div className="p-2.5 bg-amber-950 text-amber-300 rounded-lg border border-amber-700 shrink-0">
+            <Users className="w-4 h-4" />
+          </div>
+        </div>
+
       </div>
 
       {/* Visual Charts & breakdowns using Pure SVGs / HTML */}
