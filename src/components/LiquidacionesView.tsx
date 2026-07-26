@@ -304,8 +304,8 @@ export default function LiquidacionesView({
     const comisionSemanaTotal = myComisionesSemana.reduce((s, c) => s + (c.montoComision || 0), 0);
     const comisionMesTotal = myComisiones.reduce((s, c) => s + (c.montoComision || 0), 0);
 
-    const misSemanales = liquidacionesSemanales.filter(l => l.usuarioId === activeUser?.id || l.colaboradorNombre === activeUser?.nombre);
-    const misMensuales = liquidacionesMensuales.filter(l => l.usuarioId === activeUser?.id || l.colaboradorNombre === activeUser?.nombre);
+    const misSemanales = liquidacionesSemanales.filter(l => l.usuarioId === activeUser?.id || l.usuarioNombre === activeUser?.nombre);
+    const misMensuales = liquidacionesMensuales.filter(l => l.usuarioId === activeUser?.id || l.usuarioNombre === activeUser?.nombre);
 
     return (
       <div className="w-full max-w-7xl mx-auto space-y-6 font-sans text-slate-100 pb-20">
@@ -497,8 +497,8 @@ export default function LiquidacionesView({
                 <div key={liq.id} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-black uppercase text-emerald-400 block">Liquidación Semanal</span>
-                    <span className="text-xs font-bold text-white block mt-0.5">{liq.periodo}</span>
-                    <span className="text-[11px] text-slate-400 mt-1 block">Neto: ${liq.netoPagar.toLocaleString('es-AR')}</span>
+                    <span className="text-xs font-bold text-white block mt-0.5">{liq.periodoSemana}</span>
+                    <span className="text-[11px] text-slate-400 mt-1 block">Neto: ${liq.totalNetoSemanal.toLocaleString('es-AR')}</span>
                   </div>
                   <button
                     onClick={() => setSelectedSemanal(liq)}
@@ -514,7 +514,7 @@ export default function LiquidacionesView({
                 <div key={liq.id} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-black uppercase text-indigo-400 block">Liquidación Mensual</span>
-                    <span className="text-xs font-bold text-white block mt-0.5">{liq.periodo}</span>
+                    <span className="text-xs font-bold text-white block mt-0.5">{liq.periodoMes}</span>
                     <span className="text-[11px] text-slate-400 mt-1 block">Neto: ${liq.totalNetoMensual.toLocaleString('es-AR')}</span>
                   </div>
                   <button

@@ -8,7 +8,7 @@ import { Configuracion, Feriado, Cliente, Operacion, Cuota, Pago, TransaccionTes
 import { 
   Settings, Calendar, Percent, Plus, Trash2, CheckCircle2, 
   HelpCircle, ShieldCheck, DollarSign, Download, Upload, FileSpreadsheet, Database,
-  Cloud, Check, X, Wifi, AlertTriangle, FileText, Lock,
+  Cloud, Check, X, Wifi, AlertTriangle, FileText, Lock, Smartphone,
   TrendingUp, Phone, MessageCircle, UserCheck, UserPlus, Award, Navigation
 } from 'lucide-react';
 import { 

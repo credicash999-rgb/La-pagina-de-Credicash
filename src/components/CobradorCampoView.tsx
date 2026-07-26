@@ -205,16 +205,16 @@ export default function CobradorCampoView({
     return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA' && c.fechaVencimiento <= todayStr);
   };
 
-  // Get active loans for assigned clients
+  // Get active loans for assigned clients (including operations in mora/vencidas)
   const myAssignedOperations = operaciones.filter(o => {
-    if (o.estado !== 'ACTIVA') return false;
+    if (o.estado === 'FINALIZADA' || o.estado === 'REFINANCIADA') return false;
     const isAssigned = rawAssigned.some(c => c.id === o.idCliente);
     return isAssigned;
   });
 
   // Filter clients to show all assigned active clients with active operations, mora, evasivos, or inactivos
   const myAssignedClients = rawAssigned.filter(c => {
-    if (c.estado === 'EVASIVO') return true;
+    if (c.estado === 'EVASIVO' || c.estado === 'EN_MORA' || c.estado === 'ACTIVO') return true;
     if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) return true;
     const clientOps = myAssignedOperations.filter(o => o.idCliente === c.id);
     const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === c.id && r.fechaReprogramada === todayStr && !r.completada);
@@ -244,7 +244,7 @@ export default function CobradorCampoView({
 
       // FALLBACK: If cuotas array is empty for this active operation (e.g., pending cloud sync),
       // synthesize cuotas on the fly so values are NEVER $0 or missing!
-      if (opCuotas.length === 0 && op.estado === 'ACTIVA') {
+      if (opCuotas.length === 0 && op.estado !== 'FINALIZADA' && op.estado !== 'REFINANCIADA') {
         opCuotas = generarPlanCuotas(op, []).filter(c => c.estado !== 'PAGADA');
       }
 
@@ -269,7 +269,7 @@ export default function CobradorCampoView({
       cuotasDebeCount += count;
       totalDeudaCuotas += sum;
 
-      if (op.frecuencia === 'DIARIA' || op.frecuencia === 'DIARIO') {
+      if (op.frecuencia === 'DIARIA') {
         cuotasDiariasCount += count;
       } else if (op.frecuencia === 'SEMANAL') {
         cuotasSemanalesCount += count;
@@ -280,12 +280,12 @@ export default function CobradorCampoView({
 
     // Fallback if totalDeudaCuotas computed 0 but client has active loan
     if (totalDeudaCuotas === 0 && ops.length > 0) {
-      const activeOp = ops.find(o => o.estado === 'ACTIVA');
+      const activeOp = ops.find(o => o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
       if (activeOp) {
-        totalDeudaCuotas = activeOp.valorCuota || Math.round((activeOp.montoTotalDevolver || 10000) / (activeOp.cantidadCuotas || 10));
-        totalSaldoRestanteCredito = activeOp.totalPendiente || activeOp.montoTotalDevolver || totalDeudaCuotas;
+        totalDeudaCuotas = activeOp.valorCuota || Math.round((activeOp.totalFinanciado || 10000) / (activeOp.cantidadCuotas || 10));
+        totalSaldoRestanteCredito = activeOp.totalPendiente || activeOp.totalFinanciado || totalDeudaCuotas;
         if (cuotasDiariasCount === 0 && cuotasSemanalesCount === 0) {
-          if (activeOp.frecuencia === 'DIARIA' || activeOp.frecuencia === 'DIARIO') cuotasDiariasCount = 1;
+          if (activeOp.frecuencia === 'DIARIA') cuotasDiariasCount = 1;
           else cuotasSemanalesCount = 1;
         }
       }
@@ -432,7 +432,7 @@ export default function CobradorCampoView({
   const fijoComision = configComisiones?.fijoComisionCobranza || 500;
 
   const potencialGestionRoute = myAssignedClients.map(c => {
-    const cOps = operaciones.filter(o => o.idCliente === c.id && o.estado === 'ACTIVA');
+    const cOps = operaciones.filter(o => o.idCliente === c.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
     const { totalDeudaCuotas } = getClientFinancialSummary(c, cOps);
 
     let cobroEsperado = 0;
@@ -1125,6 +1125,7 @@ export default function CobradorCampoView({
                     montoMinimoExigible, 
                     cuotasDebeCount, 
                     totalDeudaCuotas,
+                    totalSaldoRestanteCredito,
                     cuotasDiariasCount,
                     cuotasSemanalesCount,
                     diaGestion 
