@@ -17,7 +17,8 @@ import {
 import { 
   uploadAllToFirestore, 
   downloadAllFromFirestore, 
-  isFirebaseEnabled 
+  isFirebaseEnabled,
+  generateShareableFirebaseLink
 } from '../lib/firebaseSync';
 
 interface LiquidacionesViewProps {
@@ -347,6 +348,18 @@ export default function LiquidacionesView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              const link = generateShareableFirebaseLink();
+              navigator.clipboard.writeText(link);
+              setCloudSyncStatus('📋 ¡Enlace copiado al portapapeles! Envíelo por WhatsApp o ábralo en su celular para vincularlo a la nube al instante.');
+            }}
+            className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+            title="Copiar enlace directo con credenciales para conectar otro celular o PC a la nube sin configurar nada"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Copiar Enlace Celular</span>
+          </button>
           <button
             onClick={handleSyncCloud}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"

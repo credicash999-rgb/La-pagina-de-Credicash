@@ -23,6 +23,7 @@ import {
   uploadAllToFirestore,
   downloadAllFromFirestore,
   initializeFirebase,
+  generateShareableFirebaseLink,
   syncToGoogleSheet
 } from '../lib/firebaseSync';
 import { 
@@ -1338,6 +1339,28 @@ export default function ConfiguracionView({
                 >
                   <Lock className="w-3.5 h-3.5" />
                   Guardar Ajustes de Nube
+                </button>
+              </div>
+
+              {/* Share link to configure phones/other PCs with 1 click */}
+              <div className="mt-3 p-3 bg-slate-900 border border-amber-500/40 rounded-xl space-y-2">
+                <span className="text-[10px] font-black uppercase text-amber-300 block">
+                  📱 Enlace de Vinculación Directa para Celulares o PCs
+                </span>
+                <p className="text-[11px] text-slate-300 leading-tight">
+                  Envíe este enlace por WhatsApp a su celular u otra computadora para vincularse a la nube de la empresa automáticamente:
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const link = generateShareableFirebaseLink();
+                    navigator.clipboard.writeText(link);
+                    alert('¡Enlace de vinculación copiado! Abra este enlace en su celular o navegador para sincronizar la información al instante.');
+                  }}
+                  className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                >
+                  <Cloud className="w-4 h-4" />
+                  Copiar Enlace para Celular / WhatsApp
                 </button>
               </div>
             </form>

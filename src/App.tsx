@@ -21,6 +21,8 @@ import {
   uploadDocToFirestore, 
   deleteDocFromFirestore,
   downloadAllFromFirestore,
+  subscribeToFirestore,
+  generateShareableFirebaseLink,
   syncToGoogleSheet
 } from './lib/firebaseSync';
 
@@ -638,42 +640,67 @@ export default function App() {
     setIsLoggedIn(false);
   };
 
+  // Comprehensive helper to apply cloud snapshot to state and localStorage
+  const applyCloudSnapshotData = (data: any) => {
+    if (!data) return;
+    if (data.clientes && data.clientes.length > 0) {
+      setClientes(data.clientes);
+      saveToLocalStorage(STORAGE_KEYS.CLIENTES, data.clientes);
+    }
+    if (data.operaciones && data.operaciones.length > 0) {
+      setOperaciones(data.operaciones);
+      saveToLocalStorage(STORAGE_KEYS.OPERACIONES, data.operaciones);
+    }
+    if (data.cuotas && data.cuotas.length > 0) {
+      setCuotas(data.cuotas);
+      saveToLocalStorage(STORAGE_KEYS.CUOTAS, data.cuotas);
+    }
+    if (data.pagos && data.pagos.length > 0) {
+      setPagos(data.pagos);
+      saveToLocalStorage(STORAGE_KEYS.PAGOS, data.pagos);
+    }
+    if (data.transacciones && data.transacciones.length > 0) {
+      setTransacciones(data.transacciones);
+      saveToLocalStorage(STORAGE_KEYS.TRANSACCIONES, data.transacciones);
+    }
+    if (data.usuarios && data.usuarios.length > 0) {
+      setUsuarios(data.usuarios);
+      saveToLocalStorage(STORAGE_KEYS.USUARIOS, data.usuarios);
+    }
+    if (data.comisiones && data.comisiones.length > 0) {
+      setComisiones(data.comisiones);
+      saveToLocalStorage(STORAGE_KEYS.COMISIONES, data.comisiones);
+    }
+    if (data.feriados && data.feriados.length > 0) {
+      setFeriados(data.feriados);
+      saveToLocalStorage(STORAGE_KEYS.FERIADOS, data.feriados);
+    }
+    if (data.visitasHistory && data.visitasHistory.length > 0) {
+      setVisitasHistory(data.visitasHistory);
+      saveToLocalStorage(STORAGE_KEYS.VISITAS_HISTORY, data.visitasHistory);
+    }
+    if (data.configuracion) {
+      setConfiguracion(data.configuracion);
+      saveToLocalStorage(STORAGE_KEYS.CONFIGURACION, data.configuracion);
+    }
+  };
+
   // Initialize Firebase client on mount if enabled and pull latest cloud database
   useEffect(() => {
+    let unsubRealtime: (() => void) | undefined;
+
     if (isFirebaseEnabled()) {
       initializeFirebase();
       downloadAllFromFirestore().then(res => {
         if (res.success && res.data) {
-          if (res.data.clientes && res.data.clientes.length > 0) {
-            setClientes(res.data.clientes);
-            saveToLocalStorage(STORAGE_KEYS.CLIENTES, res.data.clientes);
-          }
-          if (res.data.operaciones && res.data.operaciones.length > 0) {
-            setOperaciones(res.data.operaciones);
-            saveToLocalStorage(STORAGE_KEYS.OPERACIONES, res.data.operaciones);
-          }
-          if (res.data.cuotas && res.data.cuotas.length > 0) {
-            setCuotas(res.data.cuotas);
-            saveToLocalStorage(STORAGE_KEYS.CUOTAS, res.data.cuotas);
-          }
-          if (res.data.pagos && res.data.pagos.length > 0) {
-            setPagos(res.data.pagos);
-            saveToLocalStorage(STORAGE_KEYS.PAGOS, res.data.pagos);
-          }
-          if (res.data.transacciones && res.data.transacciones.length > 0) {
-            setTransacciones(res.data.transacciones);
-            saveToLocalStorage(STORAGE_KEYS.TRANSACCIONES, res.data.transacciones);
-          }
-          if (res.data.usuarios && res.data.usuarios.length > 0) {
-            setUsuarios(res.data.usuarios);
-            saveToLocalStorage(STORAGE_KEYS.USUARIOS, res.data.usuarios);
-          }
-          if (res.data.configuracion) {
-            setConfiguracion(res.data.configuracion);
-            saveToLocalStorage(STORAGE_KEYS.CONFIGURACION, res.data.configuracion);
-          }
+          applyCloudSnapshotData(res.data);
         }
       }).catch(err => console.warn('Cloud auto-sync download failed on startup:', err));
+
+      // Attach real-time listener for multi-device sync
+      unsubRealtime = subscribeToFirestore((cloudData) => {
+        applyCloudSnapshotData(cloudData);
+      });
     }
 
     // Cross-tab sync handler
@@ -692,7 +719,10 @@ export default function App() {
       }
     };
     window.addEventListener('storage', handleStorageEvent);
-    return () => window.removeEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+      if (unsubRealtime) unsubRealtime();
+    };
   }, []);
 
   // Sync state to global window reference for cloud backup helpers

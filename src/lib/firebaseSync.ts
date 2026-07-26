@@ -13,6 +13,7 @@ import {
   writeBatch, 
   deleteDoc,
   getDoc,
+  onSnapshot,
   Firestore
 } from 'firebase/firestore';
 import { 
@@ -36,8 +37,33 @@ const STORAGE_KEYS = {
   AUTO_SYNC_ENABLED: 'credicash_auto_sync_enabled',
 };
 
-// Retrieve configuration from local storage or environment variables
+// Retrieve configuration from URL search params, local storage, or environment variables
 export function getSavedFirebaseConfig(): FirebaseConfig | null {
+  // 1. Try URL parameters for 1-click device configuration sharing
+  if (typeof window !== 'undefined') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const rawParam = urlParams.get('fb_config') || urlParams.get('fb');
+      if (rawParam) {
+        let decodedStr = rawParam;
+        try {
+          decodedStr = atob(rawParam);
+        } catch (e) {
+          // Not Base64, keep raw
+        }
+        const parsed = JSON.parse(decodedStr);
+        if (parsed && parsed.apiKey && parsed.projectId) {
+          localStorage.setItem(STORAGE_KEYS.FIREBASE_CONFIG, JSON.stringify(parsed));
+          localStorage.setItem(STORAGE_KEYS.FIREBASE_ENABLED, 'true');
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading URL Firebase config:', e);
+    }
+  }
+
+  // 2. Try localStorage
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.FIREBASE_CONFIG);
     if (saved) {
@@ -50,7 +76,7 @@ export function getSavedFirebaseConfig(): FirebaseConfig | null {
     console.error('Error parsing saved Firebase config:', e);
   }
 
-  // Fallback to Vite environment variables if defined
+  // 3. Fallback to Vite environment variables if defined
   const metaEnv = (import.meta as any).env || {};
   const envConfig = {
     apiKey: metaEnv.VITE_FIREBASE_API_KEY || '',
@@ -71,17 +97,34 @@ export function getSavedFirebaseConfig(): FirebaseConfig | null {
 export function saveFirebaseConfig(config: FirebaseConfig | null) {
   if (config) {
     localStorage.setItem(STORAGE_KEYS.FIREBASE_CONFIG, JSON.stringify(config));
+    localStorage.setItem(STORAGE_KEYS.FIREBASE_ENABLED, 'true');
   } else {
     localStorage.removeItem(STORAGE_KEYS.FIREBASE_CONFIG);
   }
 }
 
 export function isFirebaseEnabled(): boolean {
-  return localStorage.getItem(STORAGE_KEYS.FIREBASE_ENABLED) === 'true';
+  const explicit = localStorage.getItem(STORAGE_KEYS.FIREBASE_ENABLED);
+  if (explicit === 'false') return false;
+  const config = getSavedFirebaseConfig();
+  return Boolean(config && config.apiKey && config.projectId);
 }
 
 export function setFirebaseEnabled(enabled: boolean) {
   localStorage.setItem(STORAGE_KEYS.FIREBASE_ENABLED, String(enabled));
+}
+
+export function generateShareableFirebaseLink(): string {
+  if (typeof window === 'undefined') return '';
+  const config = getSavedFirebaseConfig();
+  if (!config) return window.location.origin + window.location.pathname;
+  try {
+    const jsonStr = JSON.stringify(config);
+    const base64 = btoa(jsonStr);
+    return `${window.location.origin}${window.location.pathname}?fb=${encodeURIComponent(base64)}`;
+  } catch (e) {
+    return window.location.origin + window.location.pathname;
+  }
 }
 
 export function isAutoSyncEnabled(): boolean {
@@ -384,4 +427,42 @@ export async function syncToGoogleSheet(action: 'add_cliente' | 'add_prestamo' |
     console.error('Error syncing to Google Sheet:', error);
     return { success: false, message: error.message || 'Error de red al conectar con Google Sheets.' };
   }
+}
+
+/**
+ * Attaches real-time listeners to Firestore collections to keep multi-device state in sync
+ */
+export function subscribeToFirestore(onDataChange: (data: any) => void): () => void {
+  const db = getDb();
+  if (!db || !isFirebaseEnabled()) return () => {};
+
+  const collectionsToListen = ['clientes', 'operaciones', 'cuotas', 'pagos', 'transacciones', 'usuarios', 'comisiones'];
+  const unsubscribes: (() => void)[] = [];
+
+  let isFirstLoad = true;
+  collectionsToListen.forEach((colName) => {
+    try {
+      const unsub = onSnapshot(collection(db, colName), (snapshot) => {
+        // Skip triggering full download on initial empty query unless changes occur
+        if (isFirstLoad) {
+          isFirstLoad = false;
+          return;
+        }
+        if (!snapshot.empty) {
+          downloadAllFromFirestore().then(res => {
+            if (res.success && res.data) {
+              onDataChange(res.data);
+            }
+          });
+        }
+      }, (err) => console.warn(`Snapshot listener notice on ${colName}:`, err));
+      unsubscribes.push(unsub);
+    } catch (err) {
+      console.warn(`Failed to attach snapshot on ${colName}`, err);
+    }
+  });
+
+  return () => {
+    unsubscribes.forEach(u => u());
+  };
 }
