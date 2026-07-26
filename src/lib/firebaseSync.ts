@@ -15,7 +15,10 @@ import {
   getDoc,
   Firestore
 } from 'firebase/firestore';
-import { Cliente, Operacion, Cuota, Pago, TransaccionTesoreria, Configuracion, Feriado } from '../types';
+import { 
+  Cliente, Operacion, Cuota, Pago, TransaccionTesoreria, Configuracion, Feriado,
+  UsuarioRol, PermisosRol, ComisionCobrador, VisitaDomicilio 
+} from '../types';
 
 export interface FirebaseConfig {
   apiKey: string;
@@ -176,6 +179,10 @@ export async function uploadAllToFirestore(payload: {
   transacciones: TransaccionTesoreria[];
   configuracion: Configuracion;
   feriados: Feriado[];
+  usuarios?: UsuarioRol[];
+  roles?: PermisosRol[];
+  comisiones?: ComisionCobrador[];
+  visitasHistory?: VisitaDomicilio[];
 }): Promise<{ success: boolean; error?: string }> {
   const db = getDb();
   if (!db) {
@@ -183,8 +190,9 @@ export async function uploadAllToFirestore(payload: {
   }
 
   try {
-    // Helper function to upload array in chunks of 500 (Firestore batch limit)
+    // Helper function to upload array in chunks of 400
     const uploadCollection = async <T extends { id: string }>(name: string, items: T[]) => {
+      if (!items || items.length === 0) return;
       let chunk: T[] = [];
       for (let i = 0; i < items.length; i++) {
         chunk.push(items[i]);
@@ -219,11 +227,24 @@ export async function uploadAllToFirestore(payload: {
     await uploadCollection('transacciones', payload.transacciones);
 
     // 6. Feriados
-    // For feriados, they don't have standard id, so we use their date (fecha) as ID
     const feriadosWithId = payload.feriados.map(f => ({ ...f, id: f.fecha }));
     await uploadCollection('feriados', feriadosWithId);
 
-    // 7. Configuración
+    // 7. Optional Collections
+    if (payload.usuarios && payload.usuarios.length > 0) {
+      await uploadCollection('usuarios', payload.usuarios);
+    }
+    if (payload.roles && payload.roles.length > 0) {
+      await uploadCollection('roles', payload.roles);
+    }
+    if (payload.comisiones && payload.comisiones.length > 0) {
+      await uploadCollection('comisiones', payload.comisiones);
+    }
+    if (payload.visitasHistory && payload.visitasHistory.length > 0) {
+      await uploadCollection('visitas', payload.visitasHistory);
+    }
+
+    // 8. Configuración
     const configRef = doc(db, 'system_config', 'global');
     await setDoc(configRef, {
       ...payload.configuracion,
@@ -251,6 +272,10 @@ export async function downloadAllFromFirestore(): Promise<{
     transacciones: TransaccionTesoreria[];
     configuracion?: Configuracion;
     feriados: Feriado[];
+    usuarios?: UsuarioRol[];
+    roles?: PermisosRol[];
+    comisiones?: ComisionCobrador[];
+    visitasHistory?: VisitaDomicilio[];
   };
   error?: string;
 }> {
@@ -261,15 +286,19 @@ export async function downloadAllFromFirestore(): Promise<{
 
   try {
     const fetchCollection = async (name: string): Promise<any[]> => {
-      const querySnapshot = await getDocs(collection(db, name));
-      const items: any[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        // Remove tracking field if exists
-        delete data.lastUpdated;
-        items.push(data);
-      });
-      return items;
+      try {
+        const querySnapshot = await getDocs(collection(db, name));
+        const items: any[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          delete data.lastUpdated;
+          items.push(data);
+        });
+        return items;
+      } catch (err) {
+        console.warn(`Could not fetch collection ${name}:`, err);
+        return [];
+      }
     };
 
     const clientes = await fetchCollection('clientes');
@@ -278,6 +307,11 @@ export async function downloadAllFromFirestore(): Promise<{
     const pagos = await fetchCollection('pagos');
     const transacciones = await fetchCollection('transacciones');
     const feriadosRaw = await fetchCollection('feriados');
+    const usuarios = await fetchCollection('usuarios');
+    const roles = await fetchCollection('roles');
+    const comisiones = await fetchCollection('comisiones');
+    const visitasHistory = await fetchCollection('visitas');
+
     const feriados = feriadosRaw.map(f => ({
       fecha: f.fecha,
       descripcion: f.descripcion,
@@ -286,12 +320,16 @@ export async function downloadAllFromFirestore(): Promise<{
 
     // Fetch config
     let configuracion: Configuracion | undefined = undefined;
-    const configDoc = await getDoc(doc(db, 'system_config', 'global'));
-    if (configDoc.exists()) {
-      const configData = configDoc.data();
-      delete configData.id;
-      delete configData.lastUpdated;
-      configuracion = configData as Configuracion;
+    try {
+      const configDoc = await getDoc(doc(db, 'system_config', 'global'));
+      if (configDoc.exists()) {
+        const configData = configDoc.data();
+        delete configData.id;
+        delete configData.lastUpdated;
+        configuracion = configData as Configuracion;
+      }
+    } catch (e) {
+      console.warn('Could not fetch global config from Firestore', e);
     }
 
     return {
@@ -303,7 +341,11 @@ export async function downloadAllFromFirestore(): Promise<{
         pagos,
         transacciones,
         configuracion,
-        feriados
+        feriados,
+        usuarios: usuarios.length > 0 ? usuarios : undefined,
+        roles: roles.length > 0 ? roles : undefined,
+        comisiones: comisiones.length > 0 ? comisiones : undefined,
+        visitasHistory: visitasHistory.length > 0 ? visitasHistory : undefined
       }
     };
   } catch (error: any) {

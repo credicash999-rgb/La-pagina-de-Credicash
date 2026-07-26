@@ -20,6 +20,7 @@ import {
   isAutoSyncEnabled,
   uploadDocToFirestore, 
   deleteDocFromFirestore,
+  downloadAllFromFirestore,
   syncToGoogleSheet
 } from './lib/firebaseSync';
 
@@ -637,11 +638,61 @@ export default function App() {
     setIsLoggedIn(false);
   };
 
-  // Initialize Firebase client on mount if enabled
+  // Initialize Firebase client on mount if enabled and pull latest cloud database
   useEffect(() => {
     if (isFirebaseEnabled()) {
       initializeFirebase();
+      downloadAllFromFirestore().then(res => {
+        if (res.success && res.data) {
+          if (res.data.clientes && res.data.clientes.length > 0) {
+            setClientes(res.data.clientes);
+            saveToLocalStorage(STORAGE_KEYS.CLIENTES, res.data.clientes);
+          }
+          if (res.data.operaciones && res.data.operaciones.length > 0) {
+            setOperaciones(res.data.operaciones);
+            saveToLocalStorage(STORAGE_KEYS.OPERACIONES, res.data.operaciones);
+          }
+          if (res.data.cuotas && res.data.cuotas.length > 0) {
+            setCuotas(res.data.cuotas);
+            saveToLocalStorage(STORAGE_KEYS.CUOTAS, res.data.cuotas);
+          }
+          if (res.data.pagos && res.data.pagos.length > 0) {
+            setPagos(res.data.pagos);
+            saveToLocalStorage(STORAGE_KEYS.PAGOS, res.data.pagos);
+          }
+          if (res.data.transacciones && res.data.transacciones.length > 0) {
+            setTransacciones(res.data.transacciones);
+            saveToLocalStorage(STORAGE_KEYS.TRANSACCIONES, res.data.transacciones);
+          }
+          if (res.data.usuarios && res.data.usuarios.length > 0) {
+            setUsuarios(res.data.usuarios);
+            saveToLocalStorage(STORAGE_KEYS.USUARIOS, res.data.usuarios);
+          }
+          if (res.data.configuracion) {
+            setConfiguracion(res.data.configuracion);
+            saveToLocalStorage(STORAGE_KEYS.CONFIGURACION, res.data.configuracion);
+          }
+        }
+      }).catch(err => console.warn('Cloud auto-sync download failed on startup:', err));
     }
+
+    // Cross-tab sync handler
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (!e.key || !e.newValue) return;
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (e.key === STORAGE_KEYS.CLIENTES) setClientes(parsed);
+        if (e.key === STORAGE_KEYS.OPERACIONES) setOperaciones(parsed);
+        if (e.key === STORAGE_KEYS.CUOTAS) setCuotas(parsed);
+        if (e.key === STORAGE_KEYS.PAGOS) setPagos(parsed);
+        if (e.key === STORAGE_KEYS.TRANSACCIONES) setTransacciones(parsed);
+        if (e.key === STORAGE_KEYS.USUARIOS) setUsuarios(parsed);
+      } catch (err) {
+        // ignore parse error
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+    return () => window.removeEventListener('storage', handleStorageEvent);
   }, []);
 
   // Load state from local storage on mount
@@ -959,7 +1010,8 @@ export default function App() {
   };
 
   const handleUpdateOperacion = (updated: Operacion) => {
-    const list = operaciones.map(o => o.id === updated.id ? updated : o);
+    const exists = operaciones.some(o => o.id === updated.id);
+    const list = exists ? operaciones.map(o => o.id === updated.id ? updated : o) : [updated, ...operaciones];
     setOperaciones(list);
     saveToLocalStorage(STORAGE_KEYS.OPERACIONES, list);
 
