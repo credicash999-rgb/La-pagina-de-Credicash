@@ -8,9 +8,10 @@ import { Cliente, Operacion, UsuarioRol } from '../types';
 import { 
   Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, FileText, MapPin, 
   Briefcase, Eye, X, Download, Calendar, ArrowLeft, AlertTriangle, Info, 
-  Printer, ArrowRight, RefreshCw, ChevronRight, PauseCircle, Lock
+  Printer, ArrowRight, RefreshCw, ChevronRight, PauseCircle, Lock, Upload
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import { parseClientesCSV } from '../utils/importHelper';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -56,6 +57,49 @@ export default function ClientesView({
   const [viewingCliente, setViewingCliente] = useState<Cliente | null>(null);
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
   const [includeTotalInPDF, setIncludeTotalInPDF] = useState<boolean>(false);
+
+  // Batch CSV/Excel Client Import States
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importedPreview, setImportedPreview] = useState<Cliente[]>([]);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleCSVFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (!content) return;
+
+      const result = parseClientesCSV(content, clientes);
+      if (result.success && result.clientes.length > 0) {
+        setImportedPreview(result.clientes);
+        setImportErrors(result.errors || []);
+        setIsImportModalOpen(true);
+      } else {
+        alert(result.errors.join('\n') || 'No se pudieron procesar los registros del archivo CSV.');
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+    // Reset file input so user can pick same file again if needed
+    if (e.target) e.target.value = '';
+  };
+
+  const handleConfirmImport = () => {
+    if (importedPreview.length === 0) return;
+
+    let count = 0;
+    importedPreview.forEach(cli => {
+      onAddCliente(cli);
+      count++;
+    });
+
+    alert(`✅ ¡Se ingresaron ${count} clientes a CrediCash con éxito! Todo verificado.`);
+    setIsImportModalOpen(false);
+    setImportedPreview([]);
+  };
 
   const getClientCreditsSummary = (clientId: string) => {
     if (!operaciones || operaciones.length === 0) return 'Sin créditos';
@@ -983,14 +1027,34 @@ export default function ClientesView({
           </p>
         </div>
         {canManage && (
-          <button
-            id="btn-nuevo-cliente"
-            onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 rounded-lg font-bold transition-all text-xs shadow-md cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            NUEVO CLIENTE
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleCSVFileSelect}
+              accept=".csv,.txt"
+              className="hidden"
+            />
+            <button
+              id="btn-importar-clientes"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-emerald-600 text-emerald-300 hover:bg-slate-800 rounded-lg font-bold transition-all text-xs shadow-md cursor-pointer"
+              title="Importar archivo CSV o Excel con lista de clientes"
+            >
+              <Upload className="w-4 h-4 text-emerald-400" />
+              IMPORTAR CLIENTES (CSV/Excel)
+            </button>
+            <button
+              id="btn-nuevo-cliente"
+              type="button"
+              onClick={handleOpenAdd}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white hover:bg-emerald-500 rounded-lg font-bold transition-all text-xs shadow-md cursor-pointer shrink-0"
+            >
+              <UserPlus className="w-4 h-4" />
+              NUEVO CLIENTE
+            </button>
+          </div>
         )}
       </div>
 
@@ -2654,6 +2718,120 @@ export default function ClientesView({
                 CERRAR EXPEDIENTE
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE VERIFICACIÓN Y CORROBORACIÓN PREVIA A LA IMPORTACIÓN MASIVA DE CLIENTES */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-emerald-950 border-2 border-emerald-500/80 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            
+            {/* Modal Header */}
+            <div className="p-5 border-b border-emerald-800 bg-slate-900 flex justify-between items-center">
+              <div>
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  Corroboración Previa de Clientes a Ingresar
+                </h3>
+                <p className="text-xs text-emerald-300/80 mt-0.5">
+                  Revise los datos extraídos del archivo antes de ejecutarlos en su empresa. Se han procesado <span className="font-extrabold text-white">{importedPreview.length}</span> registros.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setImportedPreview([]);
+                }}
+                className="text-emerald-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              
+              <div className="bg-emerald-900/40 border border-emerald-700/80 p-3.5 rounded-xl text-xs text-emerald-200 flex items-start gap-3">
+                <Info className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-extrabold text-white block">Protección de Datos Garantizada</span>
+                  <p className="text-[11px] text-emerald-300/90 mt-0.5">
+                    Este proceso agregará los clientes de forma limpia a CrediCash. <b>Ningún cliente o crédito existente será alterado ni borrado.</b>
+                  </p>
+                </div>
+              </div>
+
+              {importErrors.length > 0 && (
+                <div className="bg-amber-950/80 border border-amber-700 p-3 rounded-xl text-xs text-amber-200 space-y-1">
+                  <span className="font-bold block text-amber-300">Observaciones detectadas:</span>
+                  <ul className="list-disc list-inside text-[11px] text-amber-200/90">
+                    {importErrors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Table Preview */}
+              <div className="border border-emerald-800 rounded-xl overflow-hidden bg-slate-900/80 max-h-80 overflow-y-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-emerald-900/80 text-emerald-300 font-extrabold uppercase sticky top-0 border-b border-emerald-800">
+                    <tr>
+                      <th className="py-2.5 px-3">ID Asignado</th>
+                      <th className="py-2.5 px-3">Cliente</th>
+                      <th className="py-2.5 px-3">DNI</th>
+                      <th className="py-2.5 px-3">Teléfono</th>
+                      <th className="py-2.5 px-3">Dirección</th>
+                      <th className="py-2.5 px-3">Ocupación</th>
+                      <th className="py-2.5 px-3">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-emerald-800/60 text-emerald-100 font-medium">
+                    {importedPreview.map((cli, idx) => (
+                      <tr key={idx} className="hover:bg-emerald-900/40">
+                        <td className="py-2 px-3 font-mono font-extrabold text-emerald-300">{cli.id}</td>
+                        <td className="py-2 px-3 font-bold text-white">{cli.nombre} {cli.apellido}</td>
+                        <td className="py-2 px-3 font-mono">{cli.dni}</td>
+                        <td className="py-2 px-3">{cli.telefono || 'N/A'}</td>
+                        <td className="py-2 px-3 truncate max-w-[150px]">{cli.direccion || 'N/A'}</td>
+                        <td className="py-2 px-3 truncate max-w-[120px]">{cli.trabajo || 'Independiente'}</td>
+                        <td className="py-2 px-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-700">
+                            {cli.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-5 border-t border-emerald-800 bg-slate-900 flex justify-between items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setImportedPreview([]);
+                }}
+                className="px-4 py-2.5 bg-slate-800 text-slate-300 hover:text-white rounded-lg font-bold text-xs cursor-pointer transition-colors"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmImport}
+                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-extrabold text-xs shadow-lg transition-all cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>CONFIRMAR E INGRESAR {importedPreview.length} CLIENTES</span>
+              </button>
+            </div>
+
           </div>
         </div>
       )}

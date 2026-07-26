@@ -1581,6 +1581,35 @@ export default function App() {
     }
   };
 
+  const handleBatchUpdateData = (
+    repairedClientes: Cliente[],
+    repairedOps?: Operacion[],
+    repairedCuotas?: Cuota[]
+  ) => {
+    if (repairedClientes && repairedClientes.length > 0) {
+      setClientes(repairedClientes);
+      saveToLocalStorage(STORAGE_KEYS.CLIENTES, repairedClientes);
+    }
+    if (repairedOps && repairedOps.length > 0) {
+      setOperaciones(repairedOps);
+      saveToLocalStorage(STORAGE_KEYS.OPERACIONES, repairedOps);
+    }
+    if (repairedCuotas && repairedCuotas.length > 0) {
+      setCuotas(repairedCuotas);
+      saveToLocalStorage(STORAGE_KEYS.CUOTAS, repairedCuotas);
+    }
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadAllToFirestore(
+        repairedClientes || clientes,
+        repairedOps || operaciones,
+        repairedCuotas || cuotas,
+        pagos,
+        transacciones,
+        configuracion
+      );
+    }
+  };
+
   const handleClearDatabase = () => {
     setClientes([]);
     setOperaciones([]);
@@ -2709,6 +2738,7 @@ export default function App() {
               onClearDatabase={handleClearDatabase}
               onResetToSeed={handleResetToSeed}
               onRestoreBackup={handleRestoreBackup}
+              onBatchUpdateData={handleBatchUpdateData}
             />
           )}
 

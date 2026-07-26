@@ -9,8 +9,10 @@ import {
   Settings, Calendar, Percent, Plus, Trash2, CheckCircle2, 
   HelpCircle, ShieldCheck, DollarSign, Download, Upload, FileSpreadsheet, Database,
   Cloud, Check, X, Wifi, AlertTriangle, FileText, Lock, Smartphone,
-  TrendingUp, Phone, MessageCircle, UserCheck, UserPlus, Award, Navigation
+  TrendingUp, Phone, MessageCircle, UserCheck, UserPlus, Award, Navigation,
+  RefreshCw, CreditCard, Building2, AlertCircle
 } from 'lucide-react';
+import { reconstructAndRepairData, applyBatchBankUpdates, AuditResult } from '../utils/dataAuditor';
 import { 
   getSavedFirebaseConfig, 
   saveFirebaseConfig, 
@@ -52,6 +54,7 @@ interface ConfiguracionViewProps {
   onClearDatabase: () => void;
   onResetToSeed: () => void;
   onRestoreBackup: (data: any) => void;
+  onBatchUpdateData?: (repairedClientes: Cliente[], repairedOps?: Operacion[], repairedCuotas?: Cuota[]) => void;
 }
 
 export default function ConfiguracionView({
@@ -70,7 +73,13 @@ export default function ConfiguracionView({
   onClearDatabase,
   onResetToSeed,
   onRestoreBackup,
+  onBatchUpdateData,
 }: ConfiguracionViewProps) {
+  
+  // Audit and Bank Account Manager States
+  const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [bankUpdateInput, setBankUpdateInput] = useState('');
+  const [bankStatusMsg, setBankStatusMsg] = useState('');
   
   // Rate edit states
   const [interesDiario, setInteresDiario] = useState(configuracion.interesDiario);
@@ -1571,6 +1580,163 @@ export default function ConfiguracionView({
             </div>
           </div>
 
+        </div>
+      </div>
+
+      {/* SECCIÓN A: MOTOR DE AUDITORÍA Y RECONSTRUCCIÓN FINANCIERA */}
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-600/80 shadow-2xl space-y-5 backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-800 pb-4">
+          <div>
+            <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-emerald-400 animate-spin-slow" />
+              Auditoría y Reconstrucción Financiera Basada en Pagos
+            </h3>
+            <p className="text-xs text-emerald-300/80 mt-1">
+              Escanea y recomputa matemáticamente el 100% de los clientes, préstamos y cuotas contrastando los registros históricos de pago. Corrige saldos, liquidaciones de mora y estados sin perder información.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const res = reconstructAndRepairData(clientes, operaciones, cuotas, pagos);
+              setAuditResult(res);
+            }}
+            className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-200" />
+            <span>AUDITAR Y RECONSTRUIR AHORA</span>
+          </button>
+        </div>
+
+        {/* Audit Results Box */}
+        {auditResult && (
+          <div className="bg-slate-900 border border-emerald-700 rounded-xl p-5 space-y-4 animate-fadeIn">
+            <div className="flex justify-between items-center border-b border-emerald-800/80 pb-3">
+              <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                Resultado de la Auditoría Financiera
+              </span>
+              <button
+                onClick={() => setAuditResult(null)}
+                className="text-emerald-400 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-emerald-950/80 border border-emerald-800 p-3 rounded-lg text-center">
+                <span className="text-[10px] text-emerald-400 uppercase font-bold block">Créditos Finalizados</span>
+                <span className="text-lg font-black text-white">{auditResult.summary.operacionesFinalizadasCorregidas}</span>
+              </div>
+              <div className="bg-emerald-950/80 border border-emerald-800 p-3 rounded-lg text-center">
+                <span className="text-[10px] text-emerald-400 uppercase font-bold block">Cuotas Sincronizadas</span>
+                <span className="text-lg font-black text-white">{auditResult.summary.cuotasAjustadas}</span>
+              </div>
+              <div className="bg-emerald-950/80 border border-emerald-800 p-3 rounded-lg text-center">
+                <span className="text-[10px] text-emerald-400 uppercase font-bold block">Clientes Actualizados</span>
+                <span className="text-lg font-black text-white">{auditResult.summary.clientesActualizados}</span>
+              </div>
+              <div className="bg-emerald-950/80 border border-emerald-800 p-3 rounded-lg text-center">
+                <span className="text-[10px] text-emerald-400 uppercase font-bold block">Pagos Verificados</span>
+                <span className="text-lg font-black text-white">{auditResult.summary.totalPagosProcesados}</span>
+              </div>
+            </div>
+
+            {auditResult.logs.length > 0 && (
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold text-emerald-300 block">Bitácora de Ajustes:</span>
+                <div className="bg-slate-950 border border-emerald-900 rounded-lg p-3 max-h-40 overflow-y-auto text-[11px] font-mono text-emerald-200/90 space-y-1">
+                  {auditResult.logs.map((log, i) => (
+                    <div key={i}>• {log}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onBatchUpdateData) {
+                    onBatchUpdateData(
+                      auditResult.repairedClientes,
+                      auditResult.repairedOperaciones,
+                      auditResult.repairedCuotas
+                    );
+                    alert('✅ ¡Reconstrucción aplicada e ingresada exitosamente en el sistema de CrediCash!');
+                    setAuditResult(null);
+                  }
+                }}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-xs uppercase tracking-wider cursor-pointer transition-all shadow-md"
+              >
+                CONFIRMAR Y APLICAR CORRECCIONES EN CREDICASH
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* SECCIÓN B: CARGA Y EDICIÓN MASIVA DE CUENTAS BANCARIAS */}
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-xl space-y-4 backdrop-blur-md">
+        <h3 className="text-xs font-black text-emerald-300 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-800/80 pb-3">
+          <CreditCard className="w-5 h-5 text-emerald-400" />
+          Carga y Actualización Masiva de Cuentas Bancarias / Alias CBU
+        </h3>
+        <p className="text-xs text-emerald-200/80 leading-relaxed">
+          Para evitar modificar cliente por cliente de forma manual, ingrese o pegue aquí la lista de sus clientes con sus datos bancarios en formato: <code className="bg-slate-950 text-emerald-300 px-1.5 py-0.5 rounded font-mono text-[11px]">DNI o ID, BANCO, ALIAS/CBU</code>
+        </p>
+
+        <div className="space-y-2">
+          <textarea
+            value={bankUpdateInput}
+            onChange={(e) => setBankUpdateInput(e.target.value)}
+            placeholder={`CLI-001, Banco Santander, alias.credicash.mp\n38294012, Banco Galicia, 0000003100010002000300\n41093847, Mercado Pago, cliente.mp.alias`}
+            rows={5}
+            className="w-full p-3 bg-slate-950 text-emerald-200 rounded-xl font-mono text-xs border border-emerald-800/80 focus:outline-none focus:border-emerald-500"
+          />
+
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const sample = clientes.slice(0, 3).map(c => `${c.dni}, Banco de la Nación, ${c.nombre.toLowerCase()}.${c.apellido.toLowerCase()}.mp`).join('\n');
+                setBankUpdateInput(sample);
+              }}
+              className="text-xs text-emerald-400 hover:text-emerald-300 underline font-semibold cursor-pointer"
+            >
+              Cargar plantilla de muestra con clientes actuales
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!bankUpdateInput.trim()) {
+                  alert('Por favor ingrese al menos una línea con datos bancarios.');
+                  return;
+                }
+                const result = applyBatchBankUpdates(clientes, bankUpdateInput);
+                if (result.actualizadosCount > 0) {
+                  if (onBatchUpdateData) {
+                    onBatchUpdateData(result.clientesActualizados);
+                  }
+                  setBankStatusMsg(`✅ ¡Se actualizaron los datos bancarios de ${result.actualizadosCount} clientes!`);
+                  setBankUpdateInput('');
+                } else {
+                  alert(result.errores.join('\n') || 'No se encontraron clientes para los IDs o DNIs indicados.');
+                }
+              }}
+              className="px-5 py-2.5 bg-slate-900 border border-emerald-600 hover:bg-slate-800 text-emerald-300 font-extrabold rounded-lg text-xs uppercase cursor-pointer transition-all shadow-md"
+            >
+              ACTUALIZAR CUENTAS BANCARIAS EN BLOQUE
+            </button>
+          </div>
+
+          {bankStatusMsg && (
+            <div className="p-3 bg-emerald-900/60 border border-emerald-700 text-emerald-200 text-xs font-bold rounded-lg animate-fadeIn">
+              {bankStatusMsg}
+            </div>
+          )}
         </div>
       </div>
 
