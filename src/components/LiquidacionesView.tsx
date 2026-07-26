@@ -11,8 +11,14 @@ import {
 import { 
   FileText, DollarSign, Calendar, CheckCircle2, Clock, Printer, 
   Download, Send, Settings, ShieldCheck, UserCheck, Plus, Trash2, 
-  ChevronRight, Award, Layers, AlertCircle, Edit, Save, Check
+  ChevronRight, Award, Layers, AlertCircle, Edit, Save, Check, Filter,
+  Cloud, Upload, RefreshCw, Smartphone, Monitor, Database
 } from 'lucide-react';
+import { 
+  uploadAllToFirestore, 
+  downloadAllFromFirestore, 
+  isFirebaseEnabled 
+} from '../lib/firebaseSync';
 
 interface LiquidacionesViewProps {
   usuarios: UsuarioRol[];
@@ -48,6 +54,22 @@ export default function LiquidacionesView({
   const [editingConfig, setEditingConfig] = useState<ConfiguracionComisiones>({ ...configComisiones });
   const [configSaveSuccess, setConfigSaveSuccess] = useState<boolean>(false);
 
+  // Date Range and Period Filters for Liquidations / Commissions
+  const todayObj = new Date();
+  const currentYear = todayObj.getFullYear();
+  const currentMonth = String(todayObj.getMonth() + 1).padStart(2, '0');
+  
+  const [fechaDesde, setFechaDesde] = useState<string>(`${currentYear}-${currentMonth}-01`);
+  const [fechaHasta, setFechaHasta] = useState<string>(todayObj.toISOString().split('T')[0]);
+  const [fechaCortePruebas, setFechaCortePruebas] = useState<string>(
+    configComisiones?.fechaProximaLiquidacionMensual || `${currentYear}-${currentMonth}-01`
+  );
+  const [filtroRol, setFiltroRol] = useState<'TODOS' | 'COBRADOR' | 'GESTION_DIARIA' | 'SUPERVISOR'>('TODOS');
+  const [filtroUsuarioId, setFiltroUsuarioId] = useState<string>('TODOS');
+
+  // Cloud sync feedback states inside Liquidaciones View
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<string | null>(null);
+
   // Selected liquidation for Printable Receipt Modal
   const [selectedSemanal, setSelectedSemanal] = useState<LiquidacionSemanal | null>(null);
   const [selectedMensual, setSelectedMensual] = useState<LiquidacionMensual | null>(null);
@@ -55,14 +77,14 @@ export default function LiquidacionesView({
   // Form states to generate new Weekly Liquidation
   const [showNewSemanalModal, setShowNewSemanalModal] = useState<boolean>(false);
   const [semUsuarioId, setSemUsuarioId] = useState<string>(usuarios[0]?.id || '');
-  const [semPeriodo, setSemPeriodo] = useState<string>(`Semana ${getWeekNumber(new Date())}`);
+  const [semPeriodo, setSemPeriodo] = useState<string>(`Semana ${getWeekNumber(new Date())} (${fechaDesde} a ${fechaHasta})`);
   const [semMobility, setSemMobility] = useState<number>(configComisiones?.adicionalMovilidadSemanal || 25000);
   const [semAdicionales, setSemAdicionales] = useState<number>(0);
 
   // Form states to generate new Monthly Liquidation
   const [showNewMensualModal, setShowNewMensualModal] = useState<boolean>(false);
   const [mesUsuarioId, setMesUsuarioId] = useState<string>(usuarios[0]?.id || '');
-  const [mesPeriodo, setMesPeriodo] = useState<string>('Julio 2026');
+  const [mesPeriodo, setMesPeriodo] = useState<string>(`Período ${fechaDesde} al ${fechaHasta}`);
   const [mesBasico, setMesBasico] = useState<number>(configComisiones?.basicoMensual || 450000);
   const [mesDescuentos, setMesDescuentos] = useState<number>(0);
   const [mesFinanciacionBeneficios, setMesFinanciacionBeneficios] = useState<number>(configComisiones?.descuentoBeneficiosFinanciacion || 0);
@@ -74,6 +96,60 @@ export default function LiquidacionesView({
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   }
 
+  // Quick Date Cycle Preset Handler
+  const handleApplyPresetCycle = (tipo: 'MES_ACTUAL' | 'CICLO_25_A_24' | 'CICLO_15_A_14' | 'ULTIMOS_30_DIAS') => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed
+
+    if (tipo === 'MES_ACTUAL') {
+      const start = new Date(year, month, 1).toISOString().split('T')[0];
+      const end = new Date(year, month + 1, 0).toISOString().split('T')[0];
+      setFechaDesde(start);
+      setFechaHasta(end);
+    } else if (tipo === 'CICLO_25_A_24') {
+      // From 25th of previous month to 24th of current month
+      const start = new Date(year, month - 1, 25).toISOString().split('T')[0];
+      const end = new Date(year, month, 24).toISOString().split('T')[0];
+      setFechaDesde(start);
+      setFechaHasta(end);
+    } else if (tipo === 'CICLO_15_A_14') {
+      // From 15th of previous month to 14th of current month
+      const start = new Date(year, month - 1, 15).toISOString().split('T')[0];
+      const end = new Date(year, month, 14).toISOString().split('T')[0];
+      setFechaDesde(start);
+      setFechaHasta(end);
+    } else if (tipo === 'ULTIMOS_30_DIAS') {
+      const end = now.toISOString().split('T')[0];
+      const startObj = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+      setFechaDesde(startObj.toISOString().split('T')[0]);
+      setFechaHasta(end);
+    }
+  };
+
+  // Helper filter for commissions based on date range and cutoff date
+  const getComisionesFiltradas = () => {
+    return comisiones.filter(c => {
+      // Date bounds
+      if (c.fecha < fechaDesde || c.fecha > fechaHasta) return false;
+      // Cutoff for test payments
+      if (fechaCortePruebas && c.fecha < fechaCortePruebas) return false;
+
+      // User filter
+      if (filtroUsuarioId !== 'TODOS' && c.cobradorId !== filtroUsuarioId) return false;
+
+      // Role filter
+      if (filtroRol !== 'TODOS') {
+        const u = usuarios.find(usr => usr.id === c.cobradorId);
+        if (filtroRol === 'COBRADOR' && u?.rolId !== 'COBRADOR') return false;
+        if (filtroRol === 'GESTION_DIARIA' && u?.rolId !== 'OPERADOR' && u?.rolId !== 'SUPERVISOR') return false;
+        if (filtroRol === 'SUPERVISOR' && u?.rolId !== 'SUPERVISOR') return false;
+      }
+
+      return true;
+    });
+  };
+
   // Handle Save Commission Config
   const handleSaveConfig = () => {
     onUpdateConfigComisiones(editingConfig);
@@ -81,23 +157,28 @@ export default function LiquidacionesView({
     setTimeout(() => setConfigSaveSuccess(false), 3000);
   };
 
-  // Generate Weekly Liquidation
+  // Generate Weekly Liquidation with strict date range filtering
   const handleCreateSemanal = () => {
     const user = usuarios.find(u => u.id === semUsuarioId);
     if (!user) return;
 
-    // Calculate verified commissions for this user
-    const verComs = comisiones
-      .filter(c => c.cobradorId === user.id && (c.estado === 'VERIFICADO' || c.estado === 'PENDIENTE'))
-      .reduce((sum, c) => sum + c.montoComision, 0);
+    // Calculate verified commissions strictly within selected date range and cutoff date
+    const comsInPeriod = comisiones.filter(c => 
+      c.cobradorId === user.id && 
+      (c.estado === 'VERIFICADO' || c.estado === 'PENDIENTE') &&
+      c.fecha >= fechaDesde &&
+      c.fecha <= fechaHasta &&
+      (!fechaCortePruebas || c.fecha >= fechaCortePruebas)
+    );
 
+    const verComs = comsInPeriod.reduce((sum, c) => sum + c.montoComision, 0);
     const netTotal = verComs + semMobility + semAdicionales;
 
     const newLiq: LiquidacionSemanal = {
       id: `LIQ-SEM-${Date.now().toString().slice(-5)}`,
       usuarioId: user.id,
       usuarioNombre: user.nombre,
-      rolNombre: 'Cobrador / Operador',
+      rolNombre: user.rolId === 'COBRADOR' ? 'Cobrador de Campo' : 'Gestión Diaria / Operador',
       periodoSemana: semPeriodo,
       fechaGeneracion: new Date().toISOString().split('T')[0],
       comisionesVerificadas: verComs,
@@ -105,30 +186,35 @@ export default function LiquidacionesView({
       otrosAdicionales: semAdicionales,
       totalNetoSemanal: netTotal,
       estado: 'PENDIENTE',
-      observaciones: 'Liquidación semanal generada automáticamente por sistema'
+      observaciones: `Liquidación período ${fechaDesde} al ${fechaHasta}. (${comsInPeriod.length} comisiones registradas en rango)`
     };
 
     onAddLiquidacionSemanal(newLiq);
     setShowNewSemanalModal(false);
   };
 
-  // Generate Monthly Liquidation
+  // Generate Monthly Liquidation with strict date range filtering
   const handleCreateMensual = () => {
     const user = usuarios.find(u => u.id === mesUsuarioId);
     if (!user) return;
 
-    // Calculate pending/unliquidated commissions
-    const pendComs = comisiones
-      .filter(c => c.cobradorId === user.id && c.estado === 'VERIFICADO')
-      .reduce((sum, c) => sum + c.montoComision, 0);
+    // Calculate verified commissions strictly within selected date range and cutoff date
+    const comsInPeriod = comisiones.filter(c => 
+      c.cobradorId === user.id && 
+      (c.estado === 'VERIFICADO' || c.estado === 'PENDIENTE') &&
+      c.fecha >= fechaDesde &&
+      c.fecha <= fechaHasta &&
+      (!fechaCortePruebas || c.fecha >= fechaCortePruebas)
+    );
 
+    const pendComs = comsInPeriod.reduce((sum, c) => sum + c.montoComision, 0);
     const totalNeto = (mesBasico + pendComs) - (mesDescuentos + mesFinanciacionBeneficios);
 
     const newLiq: LiquidacionMensual = {
       id: `LIQ-MES-${Date.now().toString().slice(-5)}`,
       usuarioId: user.id,
       usuarioNombre: user.nombre,
-      rolNombre: 'Empleado / Operador',
+      rolNombre: user.rolId === 'COBRADOR' ? 'Cobrador de Calle' : 'Gestión Diaria / Empleado',
       periodoMes: mesPeriodo,
       fechaGeneracion: new Date().toISOString().split('T')[0],
       sueldoBasico: mesBasico,
@@ -138,11 +224,27 @@ export default function LiquidacionesView({
       descuentoFinanciacionBeneficios: mesFinanciacionBeneficios,
       totalNetoMensual: totalNeto,
       estado: 'PENDIENTE',
-      observaciones: 'Liquidación mensual de sueldo básico y adicionales'
+      observaciones: `Liquidación mensual ciclo ${fechaDesde} al ${fechaHasta}. (${comsInPeriod.length} comisiones liquidadas)`
     };
 
     onAddLiquidacionMensual(newLiq);
     setShowNewMensualModal(false);
+  };
+
+  // Cloud sync trigger directly inside liquidations view
+  const handleSyncCloud = async () => {
+    setCloudSyncStatus('Sincronizando con la nube...');
+    try {
+      const res = await downloadAllFromFirestore();
+      if (res.success && res.data) {
+        setCloudSyncStatus('✅ ¡Información de la empresa descargada con éxito!');
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        setCloudSyncStatus('⚠️ No se encontraron datos en la nube o requiere configurar Firebase en la pestaña Configuración.');
+      }
+    } catch (err: any) {
+      setCloudSyncStatus(`❌ Error de conexión: ${err.message}`);
+    }
   };
 
   // Print Window Trigger for Professional PDF Receipt Format
@@ -228,10 +330,196 @@ export default function LiquidacionesView({
         </div>
       </div>
 
+      {/* Multi-Device Cloud Sync & Database Notice Bar */}
+      <div className="bg-slate-900 border-2 border-indigo-500/50 rounded-3xl p-4 shadow-xl flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 rounded-2xl shrink-0">
+            <Cloud className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-xs font-black uppercase text-indigo-300 tracking-wider flex items-center gap-2">
+              <span>Sincronización Multidispositivo (PC / Celular) y Base de Datos</span>
+            </h3>
+            <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+              Si abre la aplicación desde otro celular o PC, descargue o suba la base de datos de su empresa a la nube para reflejar todos los clientes, créditos y pagos al instante.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={handleSyncCloud}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+            title="Descargar base de datos actualizada desde Firestore"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Descargar de Nube</span>
+          </button>
+          <button
+            onClick={async () => {
+              setCloudSyncStatus('Subiendo base de datos a la nube...');
+              try {
+                const res = await uploadAllToFirestore({
+                  clientes: (window as any).__credicashState?.clientes || [],
+                  operaciones: (window as any).__credicashState?.operaciones || [],
+                  cuotas: (window as any).__credicashState?.cuotas || [],
+                  pagos: (window as any).__credicashState?.pagos || [],
+                  transacciones: (window as any).__credicashState?.transacciones || [],
+                  configuracion: (window as any).__credicashState?.configuracion || {},
+                  feriados: (window as any).__credicashState?.feriados || [],
+                  usuarios,
+                  comisiones
+                });
+                if (res.success) {
+                  setCloudSyncStatus('✅ ¡Toda la información fue subida a la nube exitosamente!');
+                } else {
+                  setCloudSyncStatus(`⚠️ Error al subir: ${res.error}`);
+                }
+              } catch (e: any) {
+                setCloudSyncStatus(`❌ Error de subida: ${e.message}`);
+              }
+            }}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md"
+            title="Subir estado local a Firestore para que otros dispositivos lo descarguen"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Subir Todo a Nube</span>
+          </button>
+        </div>
+      </div>
+
+      {cloudSyncStatus && (
+        <div className="p-3 bg-slate-900 border border-indigo-500/40 text-indigo-300 font-bold text-xs rounded-2xl flex items-center justify-between">
+          <span>{cloudSyncStatus}</span>
+          <button onClick={() => setCloudSyncStatus(null)} className="text-slate-400 hover:text-white font-black text-xs ml-2">✕</button>
+        </div>
+      )}
+
+      {/* RANGO DE FECHAS Y CICLO DE INICIO DE MES PARA COBRADORES Y GESTIÓN */}
+      <div className="bg-slate-900 border-2 border-emerald-500/60 rounded-3xl p-5 shadow-xl space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-3 gap-2">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-emerald-400" />
+            <div>
+              <h3 className="text-sm font-black uppercase text-white tracking-wider">
+                Período de Liquidación y Rango de Fechas
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Configure la fecha de inicio/fin del ciclo mensual o semanal y excluya cobros o comisiones de prueba fuera de fecha.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Preset Buttons */}
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => handleApplyPresetCycle('MES_ACTUAL')}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[11px] font-extrabold rounded-lg border border-slate-700 cursor-pointer"
+            >
+              Mes Actual (1 al 31)
+            </button>
+            <button
+              onClick={() => handleApplyPresetCycle('CICLO_25_A_24')}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-teal-300 text-[11px] font-extrabold rounded-lg border border-slate-700 cursor-pointer"
+            >
+              Ciclo Día 25 al 24
+            </button>
+            <button
+              onClick={() => handleApplyPresetCycle('CICLO_15_A_14')}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] font-extrabold rounded-lg border border-slate-700 cursor-pointer"
+            >
+              Ciclo Día 15 al 14
+            </button>
+            <button
+              onClick={() => handleApplyPresetCycle('ULTIMOS_30_DIAS')}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-extrabold rounded-lg border border-slate-700 cursor-pointer"
+            >
+              Últimos 30 Días
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 text-xs">
+          {/* Fecha Desde */}
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-300 block mb-1">
+              Fecha Desde (Inicio)
+            </label>
+            <input
+              type="date"
+              value={fechaDesde}
+              onChange={e => setFechaDesde(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-emerald-300 font-extrabold"
+            />
+          </div>
+
+          {/* Fecha Hasta */}
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-300 block mb-1">
+              Fecha Hasta (Cierre)
+            </label>
+            <input
+              type="date"
+              value={fechaHasta}
+              onChange={e => setFechaHasta(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-emerald-300 font-extrabold"
+            />
+          </div>
+
+          {/* Fecha Corte / Omitir Cobros de Prueba */}
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-wider text-amber-400 block mb-1">
+              Omitir Cobros de Prueba Ant. a
+            </label>
+            <input
+              type="date"
+              value={fechaCortePruebas}
+              onChange={e => setFechaCortePruebas(e.target.value)}
+              className="w-full bg-slate-950 border border-amber-500/50 rounded-xl px-3 py-2 text-amber-300 font-extrabold"
+            />
+          </div>
+
+          {/* Filtrar por Rol / Tipo de Gestión */}
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-300 block mb-1">
+              Filtrar por Rol
+            </label>
+            <select
+              value={filtroRol}
+              onChange={e => setFiltroRol(e.target.value as any)}
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold"
+            >
+              <option value="TODOS">Todos los Roles</option>
+              <option value="COBRADOR">Cobrador de Calle</option>
+              <option value="GESTION_DIARIA">Gestión Diaria / Operador</option>
+              <option value="SUPERVISOR">Supervisor / Admin</option>
+            </select>
+          </div>
+
+          {/* Filtrar por Usuario Específico */}
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-300 block mb-1">
+              Filtrar por Empleado
+            </label>
+            <select
+              value={filtroUsuarioId}
+              onChange={e => setFiltroUsuarioId(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold"
+            >
+              <option value="TODOS">Todos los Empleados</option>
+              {usuarios.map(u => (
+                <option key={u.id} value={u.id}>{u.nombre} ({u.rolId})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Performance & Commission Metrics Summary Panel */}
       {(() => {
         const todayStr = new Date().toISOString().split('T')[0];
-        const myComisiones = comisiones.filter(c => !activeUser || activeUser.rolId !== 'COBRADOR' || c.cobradorId === activeUser.id);
+        const comisionesFiltradas = getComisionesFiltradas();
+        const myComisiones = comisionesFiltradas.filter(c => !activeUser || activeUser.rolId !== 'COBRADOR' || c.cobradorId === activeUser.id);
         const myComisionesHoy = myComisiones.filter(c => c.fecha === todayStr);
         const comisionesGanadasHoy = myComisionesHoy.reduce((sum, c) => sum + c.montoComision, 0);
         const totalComisionesAcumuladas = myComisiones.reduce((sum, c) => sum + c.montoComision, 0);
@@ -243,9 +531,9 @@ export default function LiquidacionesView({
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <span className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-2">
                 <Award className="w-4 h-4 text-emerald-400" />
-                Resumen Real en Vivo: Comisiones y Efectividad
+                Resumen Real en Vivo del Período ({fechaDesde} al {fechaHasta})
               </span>
-              <span className="text-[10px] font-bold text-slate-400">Actualizado en Tiempo Real</span>
+              <span className="text-[10px] font-bold text-slate-400">{comisionesFiltradas.length} Comisiones en Rango</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -674,6 +962,37 @@ export default function LiquidacionesView({
                   onChange={e => setEditingConfig({ ...editingConfig, limiteSemanalReintegroDesayuno: parseFloat(e.target.value) || 0 })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-black"
                 />
+              </div>
+            </div>
+
+            {/* Box 6: Configuración de Día de Inicio y Cobros de Prueba */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <span className="text-xs font-black uppercase text-emerald-400 block border-b border-slate-800 pb-2">
+                6. Día de Inicio de Ciclo & Exclusión de Pruebas
+              </span>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-300 block mb-1">Día de Inicio de Mes Predeterminado</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Día 25, Día 1, Día 15"
+                  value={editingConfig.fechaProximaLiquidacionMensual || 'Día 1 de cada mes'}
+                  onChange={e => setEditingConfig({ ...editingConfig, fechaProximaLiquidacionMensual: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-emerald-300 font-extrabold"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-amber-400 block mb-1">Excluir Cobros/Comisiones de Prueba Ant. a</label>
+                <input
+                  type="date"
+                  value={fechaCortePruebas}
+                  onChange={e => setFechaCortePruebas(e.target.value)}
+                  className="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-amber-300 font-extrabold"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Todos los registros con fecha anterior a este corte no se sumarán a las ganancias reales de los cobradores.
+                </p>
               </div>
             </div>
 

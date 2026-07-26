@@ -695,6 +695,23 @@ export default function App() {
     return () => window.removeEventListener('storage', handleStorageEvent);
   }, []);
 
+  // Sync state to global window reference for cloud backup helpers
+  useEffect(() => {
+    (window as any).__credicashState = {
+      clientes,
+      operaciones,
+      cuotas,
+      pagos,
+      transacciones,
+      configuracion,
+      feriados,
+      usuarios,
+      comisiones,
+      liquidacionesSemanales,
+      liquidacionesMensuales
+    };
+  }, [clientes, operaciones, cuotas, pagos, transacciones, configuracion, feriados, usuarios, comisiones, liquidacionesSemanales, liquidacionesMensuales]);
+
   // Load state from local storage on mount
   useEffect(() => {
     const getOrSeed = <T,>(key: string, seed: T): T => {
