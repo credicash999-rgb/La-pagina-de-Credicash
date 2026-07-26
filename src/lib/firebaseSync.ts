@@ -439,16 +439,17 @@ export function subscribeToFirestore(onDataChange: (data: any) => void): () => v
   const collectionsToListen = ['clientes', 'operaciones', 'cuotas', 'pagos', 'transacciones', 'usuarios', 'comisiones'];
   const unsubscribes: (() => void)[] = [];
 
-  let isFirstLoad = true;
   collectionsToListen.forEach((colName) => {
+    let collectionFirstLoad = true;
     try {
       const unsub = onSnapshot(collection(db, colName), (snapshot) => {
-        // Skip triggering full download on initial empty query unless changes occur
-        if (isFirstLoad) {
-          isFirstLoad = false;
+        // Skip triggering download on initial snapshot load for this specific collection
+        if (collectionFirstLoad) {
+          collectionFirstLoad = false;
           return;
         }
-        if (!snapshot.empty) {
+        // Only trigger download if there are actual document changes in snapshot
+        if (snapshot.docChanges().length > 0) {
           downloadAllFromFirestore().then(res => {
             if (res.success && res.data) {
               onDataChange(res.data);

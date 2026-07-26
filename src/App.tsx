@@ -1491,6 +1491,16 @@ export default function App() {
 
     setComisiones(updatedComsList);
     saveToLocalStorage(STORAGE_KEYS.COMISIONES, updatedComsList);
+
+    // Remove payment visit entry from visitasHistory so client returns to pending daily route list
+    if (targetPago) {
+      const updatedVisitasList = visitasHistory.filter(v => 
+        !(v.idCliente === targetPago.idCliente && v.fecha === targetPago.fechaPago && v.tipoAccion === 'PAGO_REGISTRADO') &&
+        !(v.montoCobrado && v.montoCobrado === targetPago.importe && v.fecha === targetPago.fechaPago)
+      );
+      setVisitasHistory(updatedVisitasList);
+      saveToLocalStorage(STORAGE_KEYS.VISITAS_HISTORY, updatedVisitasList);
+    }
   };
 
 

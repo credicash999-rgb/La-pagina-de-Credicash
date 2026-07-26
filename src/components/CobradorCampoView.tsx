@@ -9,7 +9,7 @@ import {
   ComisionCobrador, VisitaDomicilio, VisitaReprogramada, 
   ConfiguracionComisiones, ConfiguracionRecorrido, TransaccionTesoreria, SolicitudReintegroDesayuno 
 } from '../types';
-import { sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
+import { sortCuotasByPaymentPriority, generarPlanCuotas } from '../utils/cuotasGenerator';
 import { exportDailyRoutePDF } from '../utils/pdfExportRoute';
 import { optimizeRouteNearestNeighbor, buildGoogleMapsRouteUrl } from '../utils/routeOptimizer';
 import { 
@@ -158,13 +158,19 @@ export default function CobradorCampoView({
 
   // Filter clients assigned strictly to active collector or selected supervisor employee
   const isCobrador = activeUser?.rolId === 'COBRADOR';
+  const activeUserNameLower = activeUser?.nombre ? activeUser.nombre.toLowerCase().trim() : '';
+  const activeUserFirstName = activeUserNameLower.split(' ')[0] || '';
+
   let rawAssigned = clientes.filter(c => {
     if (isUserAdmin && selectedSupervisorUserId !== 'TODOS') {
       const selectedUser = usuarios.find(u => u.id === selectedSupervisorUserId);
       if (selectedUser) {
+        const selNameLower = selectedUser.nombre.toLowerCase().trim();
+        const selFirstName = selNameLower.split(' ')[0] || '';
         return (
           c.cobradorAsignadoId === selectedUser.id ||
           c.cobradorAsignadoNombre === selectedUser.nombre ||
+          (c.cobradorAsignadoNombre && selFirstName && c.cobradorAsignadoNombre.toLowerCase().includes(selFirstName)) ||
           c.operadorAsignadoId === selectedUser.id ||
           c.captador === selectedUser.nombre
         );
@@ -175,6 +181,8 @@ export default function CobradorCampoView({
       !c.cobradorAsignadoId ||
       c.cobradorAsignadoId === activeUser?.id ||
       c.cobradorAsignadoNombre === activeUser?.nombre ||
+      (c.cobradorAsignadoNombre && activeUserFirstName && c.cobradorAsignadoNombre.toLowerCase().includes(activeUserFirstName)) ||
+      (c.cobradorAsignadoNombre && activeUserNameLower && activeUserNameLower.includes(c.cobradorAsignadoNombre.toLowerCase().trim())) ||
       c.operadorAsignadoId === activeUser?.id ||
       c.captador === activeUser?.nombre ||
       c.analista === activeUser?.nombre ||
@@ -226,27 +234,42 @@ export default function CobradorCampoView({
     let totalExigible = 0;
     let cuotasDebeCount = 0;
     let totalDeudaCuotas = 0;
+    let totalSaldoRestanteCredito = 0;
     let cuotasDiariasCount = 0;
     let cuotasSemanalesCount = 0;
     let cuotasOtrasCount = 0;
 
     ops.forEach(op => {
-      const opCuotas = cuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
+      let opCuotas = cuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
+
+      // FALLBACK: If cuotas array is empty for this active operation (e.g., pending cloud sync),
+      // synthesize cuotas on the fly so values are NEVER $0 or missing!
+      if (opCuotas.length === 0 && op.estado === 'ACTIVA') {
+        opCuotas = generarPlanCuotas(op, []).filter(c => c.estado !== 'PAGADA');
+      }
+
+      const sumAllCuotas = opCuotas.reduce((s, c) => s + (c.saldoPendiente > 0 ? c.saldoPendiente : c.valorTotalCuota || op.valorCuota || 0), 0);
+      totalSaldoRestanteCredito += sumAllCuotas;
+
       const overdue = opCuotas.filter(c => c.fechaVencimiento < todayStr);
       const dueToday = opCuotas.filter(c => c.fechaVencimiento === todayStr);
 
-      const activeDebts = (overdue.length > 0 || dueToday.length > 0) 
-        ? [...overdue, ...dueToday] 
-        : opCuotas;
+      let activeDebts: Cuota[] = [];
+      if (overdue.length > 0 || dueToday.length > 0) {
+        activeDebts = [...overdue, ...dueToday];
+      } else if (opCuotas.length > 0) {
+        // Next upcoming single cuota due for today's collection route!
+        activeDebts = [opCuotas[0]];
+      }
 
       const count = activeDebts.length;
-      const sum = activeDebts.reduce((s, c) => s + c.saldoPendiente, 0);
+      const sum = activeDebts.reduce((s, c) => s + (c.saldoPendiente > 0 ? c.saldoPendiente : c.valorTotalCuota || op.valorCuota || 0), 0);
 
       totalExigible += sum;
       cuotasDebeCount += count;
       totalDeudaCuotas += sum;
 
-      if (op.frecuencia === 'DIARIA') {
+      if (op.frecuencia === 'DIARIA' || op.frecuencia === 'DIARIO') {
         cuotasDiariasCount += count;
       } else if (op.frecuencia === 'SEMANAL') {
         cuotasSemanalesCount += count;
@@ -254,6 +277,19 @@ export default function CobradorCampoView({
         cuotasOtrasCount += count;
       }
     });
+
+    // Fallback if totalDeudaCuotas computed 0 but client has active loan
+    if (totalDeudaCuotas === 0 && ops.length > 0) {
+      const activeOp = ops.find(o => o.estado === 'ACTIVA');
+      if (activeOp) {
+        totalDeudaCuotas = activeOp.valorCuota || Math.round((activeOp.montoTotalDevolver || 10000) / (activeOp.cantidadCuotas || 10));
+        totalSaldoRestanteCredito = activeOp.totalPendiente || activeOp.montoTotalDevolver || totalDeudaCuotas;
+        if (cuotasDiariasCount === 0 && cuotasSemanalesCount === 0) {
+          if (activeOp.frecuencia === 'DIARIA' || activeOp.frecuencia === 'DIARIO') cuotasDiariasCount = 1;
+          else cuotasSemanalesCount = 1;
+        }
+      }
+    }
 
     // Calculate Monto Minimo Exigible and Total Deuda
     let montoMinimoExigible = 0;
@@ -286,6 +322,7 @@ export default function CobradorCampoView({
       montoMinimoExigible,
       cuotasDebeCount,
       totalDeudaCuotas,
+      totalSaldoRestanteCredito,
       cuotasDiariasCount,
       cuotasSemanalesCount,
       cuotasOtrasCount,
@@ -345,9 +382,17 @@ export default function CobradorCampoView({
     };
   };
 
-  // Check visited today
+  // Check visited today: Client is visited by payment ONLY if active payment exists in pagos today!
   const isVisitedToday = (idCliente: string) => {
-    return visitasHistory.some(v => v.idCliente === idCliente && v.fecha === todayStr);
+    const hasActivePagoToday = pagos.some(p => p.idCliente === idCliente && p.fechaPago === todayStr);
+    if (hasActivePagoToday) return true;
+
+    const hasNonPaymentVisit = visitasHistory.some(v => 
+      v.idCliente === idCliente && 
+      v.fecha === todayStr && 
+      v.tipoAccion !== 'PAGO_REGISTRADO'
+    );
+    return hasNonPaymentVisit;
   };
 
   // Check rescheduled today
@@ -1184,6 +1229,11 @@ export default function CobradorCampoView({
                             <span className="text-xl font-black text-yellow-300 tracking-tight block">
                               ${totalDeudaCuotas.toLocaleString('es-AR')}
                             </span>
+                            {totalSaldoRestanteCredito > totalDeudaCuotas && (
+                              <span className="text-[9px] font-semibold text-slate-400 block pt-0.5">
+                                Saldo Total Crédito: ${totalSaldoRestanteCredito.toLocaleString('es-AR')}
+                              </span>
+                            )}
                           </div>
                         )}
 
@@ -1692,6 +1742,7 @@ export default function CobradorCampoView({
           montoMinimoExigible, 
           cuotasDebeCount, 
           totalDeudaCuotas,
+          totalSaldoRestanteCredito,
           cuotasDiariasCount,
           cuotasSemanalesCount,
           diaGestion 
@@ -1803,6 +1854,11 @@ export default function CobradorCampoView({
                     <span className="text-2xl font-black text-yellow-300 tracking-tight block">
                       ${totalDeudaCuotas.toLocaleString('es-AR')}
                     </span>
+                    {totalSaldoRestanteCredito > totalDeudaCuotas && (
+                      <span className="text-[10px] font-semibold text-slate-400 block pt-0.5">
+                        Saldo Total Crédito: ${totalSaldoRestanteCredito.toLocaleString('es-AR')}
+                      </span>
+                    )}
                   </div>
                 )}
 
