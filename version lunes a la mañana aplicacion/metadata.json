@@ -1,0 +1,6 @@
+{
+  "name": "Gestión Financiera",
+  "description": "Sistema de gestión financiera con módulo de ingreso de pagos para administradores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
