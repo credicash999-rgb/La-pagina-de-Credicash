@@ -7,7 +7,8 @@ import React, { useState } from 'react';
 import { 
   Operacion, Cuota, Pago, Cliente, UsuarioRol, 
   ComisionCobrador, VisitaDomicilio, VisitaReprogramada, 
-  ConfiguracionComisiones, ConfiguracionRecorrido, TransaccionTesoreria, SolicitudReintegroDesayuno 
+  ConfiguracionComisiones, ConfiguracionRecorrido, TransaccionTesoreria, SolicitudReintegroDesayuno,
+  Configuracion
 } from '../types';
 import { sortCuotasByPaymentPriority, generarPlanCuotas } from '../utils/cuotasGenerator';
 import { exportDailyRoutePDF } from '../utils/pdfExportRoute';
@@ -28,6 +29,7 @@ interface CobradorCampoViewProps {
   activeUser: UsuarioRol | null;
   configComisiones: ConfiguracionComisiones;
   configRecorrido: ConfiguracionRecorrido;
+  configuracion?: Configuracion;
   comisiones: ComisionCobrador[];
   visitasHistory: VisitaDomicilio[];
   visitasReprogramadas: VisitaReprogramada[];
@@ -60,6 +62,7 @@ export default function CobradorCampoView({
   activeUser,
   configComisiones,
   configRecorrido,
+  configuracion,
   comisiones,
   visitasHistory,
   visitasReprogramadas,
@@ -238,25 +241,63 @@ export default function CobradorCampoView({
     return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA' && c.fechaVencimiento <= todayStr);
   };
 
-  // Helper: check if a client has cuotas en mora (vencidas) or pendientes (vencen hoy o anterior)
-  const clienteTieneCuotasEnMoraOPendientes = (cliente: Cliente): boolean => {
+  // Helper to determine threshold days for field collector routing based on payment frequency
+  const getThresholdForFrecuencia = (frecuencia?: string): number => {
+    const freq = (frecuencia || 'DIARIA').toUpperCase();
+    if (freq.includes('DIAR')) {
+      return configuracion?.moraDiarioCobradorDias ?? 6;
+    }
+    if (freq.includes('SEMAN')) {
+      return configuracion?.moraSemanalCobradorDias ?? 7;
+    }
+    if (freq.includes('QUINCEN')) {
+      return configuracion?.moraQuincenalCobradorDias ?? 8;
+    }
+    if (freq.includes('MENSUAL')) {
+      return configuracion?.moraMensualCobradorDias ?? 2;
+    }
+    return configuracion?.moraDiarioCobradorDias ?? 6;
+  };
+
+  // Helper: check if a client reaches or exceeds the configured mora threshold for field collector assignment (or is EVASIVO/EN_MORA/INACTIVO)
+  const clienteSuperaUmbralCobrador = (cliente: Cliente): boolean => {
+    if (cliente.estado === 'EVASIVO' || cliente.estado === 'EN_MORA') {
+      return true;
+    }
+    if (cliente.estado === 'INACTIVO' && cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0) {
+      return true;
+    }
+
     const clientOps = operaciones.filter(
       o => o.idCliente === cliente.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA'
     );
 
     if (clientOps.length === 0) {
-      return (
-        (cliente.estado === 'EN_MORA' || cliente.estado === 'EVASIVO' || cliente.estado === 'INACTIVO') &&
-        Boolean(cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0)
-      );
+      return false;
     }
 
+    const todayTime = new Date(todayStr + 'T00:00:00').getTime();
+
     return clientOps.some(op => {
+      const umbral = getThresholdForFrecuencia(op.frecuencia);
+
+      if (op.diasMora && op.diasMora >= umbral) return true;
+      if (cliente.diasMora && cliente.diasMora >= umbral) return true;
+
       let opCuotas = cuotas.filter(cu => cu.idOperacion === op.id && cu.estado !== 'PAGADA');
       if (opCuotas.length === 0) {
         opCuotas = generarPlanCuotas(op, []).filter(cu => cu.estado !== 'PAGADA');
       }
-      return opCuotas.some(cu => cu.estado !== 'PAGADA' && cu.fechaVencimiento <= todayStr);
+
+      // Overdue cuotas: strictly due BEFORE todayStr
+      const overdueCuotas = opCuotas.filter(cu => cu.estado !== 'PAGADA' && cu.fechaVencimiento < todayStr);
+      if (overdueCuotas.length === 0) return false;
+
+      return overdueCuotas.some(cu => {
+        const vencTime = new Date(cu.fechaVencimiento + 'T00:00:00').getTime();
+        const diasAtraso = Math.max(0, Math.floor((todayTime - vencTime) / (1000 * 60 * 60 * 24)));
+        return diasAtraso >= umbral;
+      });
     });
   };
 
@@ -267,14 +308,14 @@ export default function CobradorCampoView({
     return isAssigned;
   });
 
-  // Filter clients to show ONLY assigned clients with CUOTAS EN MORA (vencidas o pendientes)
+  // Filter clients to show ONLY assigned clients reaching/exceeding configured mora thresholds (or EVASIVO/EN_MORA/INACTIVO)
   // or those already visited/rescheduled today
   const myAssignedClients = rawAssigned.filter(c => {
     const isVisited = isVisitedToday(c.id);
     const isRescheduled = Boolean(getRescheduledToday(c.id));
-    const hasCuotasMoraOPendientes = clienteTieneCuotasEnMoraOPendientes(c);
+    const superaUmbral = clienteSuperaUmbralCobrador(c);
 
-    return hasCuotasMoraOPendientes || isVisited || isRescheduled;
+    return superaUmbral || isVisited || isRescheduled;
   });
 
   // Group operations by client

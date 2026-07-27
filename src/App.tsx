@@ -2686,6 +2686,7 @@ export default function App() {
               activeUser={activeUser}
               configComisiones={configComisiones}
               configRecorrido={configRecorrido}
+              configuracion={configuracion}
               comisiones={comisiones}
               visitasHistory={visitasHistory}
               visitasReprogramadas={visitasReprogramadas}
