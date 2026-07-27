@@ -4,11 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { Cliente, Operacion, UsuarioRol } from '../types';
+import { Cliente, Operacion, UsuarioRol, Cuota, Pago, TransaccionTesoreria } from '../types';
 import { 
   Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, ShieldCheck, FileText, MapPin, 
   Briefcase, Eye, X, Download, Calendar, ArrowLeft, AlertTriangle, Info, 
-  Printer, ArrowRight, RefreshCw, ChevronRight, PauseCircle, Lock, Upload
+  Printer, ArrowRight, RefreshCw, ChevronRight, PauseCircle, Lock, Upload,
+  DollarSign, CheckCircle2, Send, Clock, CreditCard
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { parseClientesCSV } from '../utils/importHelper';
@@ -16,29 +17,39 @@ import { parseClientesCSV } from '../utils/importHelper';
 interface ClientesViewProps {
   clientes: Cliente[];
   operaciones?: Operacion[];
+  cuotas?: Cuota[];
+  pagos?: Pago[];
   usuarios?: UsuarioRol[];
+  activeUser?: UsuarioRol | null;
   onAddCliente: (cliente: Cliente) => void;
   onUpdateCliente: (cliente: Cliente) => void;
+  onAddPago?: (pago: Pago, updatedCuotas: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
   canManage?: boolean;
   isAdmin?: boolean;
   verTelefonoCliente?: boolean;
   verDniCliente?: boolean;
   verDireccionCliente?: boolean;
   verIngresosCliente?: boolean;
+  onNavigateTo?: (tab: string) => void;
 }
 
 export default function ClientesView({ 
   clientes, 
   operaciones = [],
+  cuotas = [],
+  pagos = [],
   usuarios = [],
+  activeUser = null,
   onAddCliente, 
   onUpdateCliente,
+  onAddPago,
   canManage = true,
   isAdmin = false,
   verTelefonoCliente = true,
   verDniCliente = true,
   verDireccionCliente = true,
-  verIngresosCliente = true
+  verIngresosCliente = true,
+  onNavigateTo
 }: ClientesViewProps) {
   const [mainTab, setMainTab] = useState<'directorio' | 'asignacion_cartera'>('directorio');
 
@@ -57,6 +68,276 @@ export default function ClientesView({
   const [viewingCliente, setViewingCliente] = useState<Cliente | null>(null);
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
   const [includeTotalInPDF, setIncludeTotalInPDF] = useState<boolean>(false);
+
+  // Ingresar Pago Modal States & Handlers
+  const [pagoModalCliente, setPagoModalCliente] = useState<Cliente | null>(null);
+  const [pagoModalOperaciones, setPagoModalOperaciones] = useState<Operacion[]>([]);
+  const [selectedOpId, setSelectedOpId] = useState<string>('');
+  const [pagoMonto, setPagoMonto] = useState<string>('');
+  const [pagoMedio, setPagoMedio] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO'>('EFECTIVO');
+  const [pagoFecha, setPagoFecha] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [pagoHora, setPagoHora] = useState<string>(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }));
+  const [pagoCobrador, setPagoCobrador] = useState<string>('');
+  const [pagoObservaciones, setPagoObservaciones] = useState<string>('');
+  const [pagoComprobanteRef, setPagoComprobanteRef] = useState<string>('');
+  const [pagoSelectedCuotaId, setPagoSelectedCuotaId] = useState<string>('');
+
+  // Generated Recibo Modal State
+  const [generatedRecibo, setGeneratedRecibo] = useState<{
+    pagoId: string;
+    clienteNombre: string;
+    clienteDni: string;
+    clienteTel: string;
+    monto: number;
+    fecha: string;
+    hora: string;
+    medioPago: string;
+    cobrador: string;
+    operacionId: string;
+    cuotasAfectadas: string;
+    ref: string;
+    observaciones: string;
+  } | null>(null);
+
+  const handleOpenPagoModal = (cliente: Cliente) => {
+    const clientOps = (operaciones || []).filter(o => o.idCliente === cliente.id);
+    const activeOrAllOps = clientOps.filter(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
+    const targetOps = activeOrAllOps.length > 0 ? activeOrAllOps : clientOps;
+    const initialOp = targetOps[0];
+
+    setPagoModalCliente(cliente);
+    setPagoModalOperaciones(targetOps);
+    setSelectedOpId(initialOp ? initialOp.id : '');
+
+    const opCuotas = (cuotas || []).filter(c => c.idOperacion === (initialOp?.id || '') && c.estado !== 'PAGADA');
+    const firstUnpaid = opCuotas.sort((a, b) => a.numeroCuota - b.numeroCuota)[0];
+    setPagoMonto(firstUnpaid ? String(firstUnpaid.saldoPendiente) : (initialOp ? String(initialOp.valorCuota) : '0'));
+    setPagoSelectedCuotaId(firstUnpaid ? firstUnpaid.id : '');
+
+    setPagoMedio('EFECTIVO');
+    setPagoFecha(new Date().toISOString().split('T')[0]);
+    setPagoHora(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }));
+    setPagoCobrador(activeUser?.nombre || 'Agente / Cobrador Central');
+    setPagoObservaciones('');
+    setPagoComprobanteRef('');
+  };
+
+  const handleOpChangeInModal = (opId: string) => {
+    setSelectedOpId(opId);
+    const opCuotas = (cuotas || []).filter(c => c.idOperacion === opId && c.estado !== 'PAGADA');
+    const firstUnpaid = opCuotas.sort((a, b) => a.numeroCuota - b.numeroCuota)[0];
+    const targetOp = pagoModalOperaciones.find(o => o.id === opId);
+    setPagoMonto(firstUnpaid ? String(firstUnpaid.saldoPendiente) : (targetOp ? String(targetOp.valorCuota) : '0'));
+    setPagoSelectedCuotaId(firstUnpaid ? firstUnpaid.id : '');
+  };
+
+  const handleExecutePagoInClientesView = () => {
+    if (!pagoModalCliente) return;
+    const monto = parseFloat(pagoMonto);
+    if (isNaN(monto) || monto <= 0) {
+      alert('Por favor ingrese un monto válido cobrado.');
+      return;
+    }
+
+    const targetOp = pagoModalOperaciones.find(o => o.id === selectedOpId) || {
+      id: `OP-${pagoModalCliente.id}`,
+      idCliente: pagoModalCliente.id,
+      montoPrestamo: 10000,
+      montoTotalDevolver: 10000,
+      cuotasTotales: 10,
+      cuotasPagadas: 0,
+      cuotasPendientes: 10,
+      valorCuota: 1000,
+      frecuencia: 'DIARIO',
+      fechaInicio: pagoFecha,
+      estado: 'ACTIVA',
+      diasMora: 0,
+      capitalRecuperado: 0,
+      totalPendiente: 10000,
+      metodoPagoPref: 'EFECTIVO'
+    } as unknown as Operacion;
+
+    let opCuotas = (cuotas || []).filter(c => c.idOperacion === targetOp.id);
+    if (opCuotas.length === 0) {
+      opCuotas = (cuotas || []).filter(c => c.idCliente === pagoModalCliente.id && c.estado !== 'PAGADA');
+    }
+
+    const cuotasToProcess = [...opCuotas].sort((a, b) => {
+      if (a.id === pagoSelectedCuotaId) return -1;
+      if (b.id === pagoSelectedCuotaId) return 1;
+      return a.numeroCuota - b.numeroCuota;
+    });
+
+    let remPago = monto;
+    const affectedCuotaNums: number[] = [];
+    const cuotaUpdatesMap = new Map<string, Cuota>();
+
+    cuotasToProcess.forEach(c => {
+      if (c.estado === 'PAGADA' || remPago <= 0) {
+        if (!cuotaUpdatesMap.has(c.id)) cuotaUpdatesMap.set(c.id, c);
+        return;
+      }
+
+      const cCopy = { ...c };
+      affectedCuotaNums.push(cCopy.numeroCuota);
+
+      if (remPago >= cCopy.saldoPendiente) {
+        const paidThis = cCopy.saldoPendiente;
+        remPago = parseFloat((remPago - paidThis).toFixed(2));
+        cCopy.importePagado = cCopy.valorTotalCuota;
+        cCopy.saldoPendiente = 0;
+        cCopy.estado = 'PAGADA';
+        cCopy.fechaPago = pagoFecha;
+        cCopy.cobrador = pagoCobrador || activeUser?.nombre || 'Cobrador Central';
+      } else {
+        const paidThis = remPago;
+        remPago = 0;
+        cCopy.importePagado = parseFloat((cCopy.importePagado + paidThis).toFixed(2));
+        cCopy.saldoPendiente = parseFloat((cCopy.saldoPendiente - paidThis).toFixed(2));
+        cCopy.estado = 'PAGO_PARCIAL';
+        cCopy.fechaPago = pagoFecha;
+        cCopy.cobrador = pagoCobrador || activeUser?.nombre || 'Cobrador Central';
+      }
+      cuotaUpdatesMap.set(cCopy.id, cCopy);
+    });
+
+    const updatedCuotas = opCuotas.map(c => cuotaUpdatesMap.get(c.id) || c);
+    const pagadasNow = updatedCuotas.filter(c => c.estado === 'PAGADA').length;
+
+    const affectedText = affectedCuotaNums.length > 0
+      ? `Cuotas N° ${affectedCuotaNums.sort((a, b) => a - b).join(', ')}`
+      : `Cuota ${targetOp.cuotasPagadas + 1}`;
+
+    const newPago: Pago = {
+      id: `PAG-${Date.now().toString().slice(-6)}`,
+      idOperacion: targetOp.id,
+      idCliente: pagoModalCliente.id,
+      nombreCliente: `${pagoModalCliente.nombre} ${pagoModalCliente.apellido}`,
+      fechaPago: pagoFecha,
+      horaPago: pagoHora,
+      importe: monto,
+      cobrador: pagoCobrador || activeUser?.nombre || 'Agente CrediCash',
+      metodoPago: pagoMedio,
+      modalidad: 'PAGO_REGULAR',
+      cuotasAfectadas: affectedText,
+      observaciones: `${pagoObservaciones || 'Cobro registrado en Ficha de Cliente'}${pagoComprobanteRef ? ` (Comprobante/Ref: ${pagoComprobanteRef})` : ''}`
+    };
+
+    const updatedOperacion: Operacion = {
+      ...targetOp,
+      capitalRecuperado: targetOp.capitalRecuperado + monto,
+      totalPendiente: Math.max(0, targetOp.totalPendiente - monto),
+      cuotasPagadas: pagadasNow,
+      cuotasPendientes: Math.max(0, (targetOp.cantidadCuotas || targetOp.cuotasTotales || 10) - pagadasNow),
+      ultimoPago: pagoFecha
+    };
+
+    const tesoreriaTrx: TransaccionTesoreria = {
+      id: `TRX-${Date.now().toString().slice(-6)}`,
+      fecha: pagoFecha,
+      tipo: 'INGRESO',
+      concepto: `Ingreso de Cobro - Cliente ${pagoModalCliente.nombre} ${pagoModalCliente.apellido} (${affectedText})`,
+      monto: monto,
+      referenciaId: newPago.id
+    };
+
+    if (onAddPago) {
+      onAddPago(newPago, updatedCuotas, updatedOperacion, tesoreriaTrx);
+    }
+
+    if (pagoModalCliente.estado === 'EN_MORA' || pagoModalCliente.estado === 'SOLICITANTE') {
+      onUpdateCliente({ ...pagoModalCliente, estado: 'ACTIVO' });
+    }
+
+    setGeneratedRecibo({
+      pagoId: newPago.id,
+      clienteNombre: `${pagoModalCliente.nombre} ${pagoModalCliente.apellido}`,
+      clienteDni: pagoModalCliente.dni,
+      clienteTel: pagoModalCliente.telefono || '',
+      monto: monto,
+      fecha: pagoFecha,
+      hora: pagoHora,
+      medioPago: pagoMedio === 'EFECTIVO' ? 'Efectivo en Mano' : pagoMedio === 'TRANSFERENCIA' ? 'Transferencia Bancaria' : 'Billetera Virtual / Mercado Pago',
+      cobrador: newPago.cobrador,
+      operacionId: targetOp.id,
+      cuotasAfectadas: affectedText,
+      ref: pagoComprobanteRef,
+      observaciones: newPago.observaciones
+    });
+
+    setPagoModalCliente(null);
+  };
+
+  const handleDownloadReciboPDF = () => {
+    if (!generatedRecibo) return;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' });
+
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 148, 25, 'F');
+
+    doc.setTextColor(16, 185, 129);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.text('CrediCash - Comprobante de Pago', 10, 12);
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.text(`Recibo: ${generatedRecibo.pagoId}`, 10, 19);
+    doc.text(`Fecha: ${generatedRecibo.fecha} ${generatedRecibo.hora} hs`, 85, 19);
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(11);
+    doc.text('DATOS DEL CLIENTE', 10, 35);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Cliente: ${generatedRecibo.clienteNombre}`, 10, 42);
+    doc.text(`DNI: ${generatedRecibo.clienteDni}`, 10, 48);
+    doc.text(`Teléfono: ${generatedRecibo.clienteTel || 'N/I'}`, 10, 54);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DETALLE DEL COBRO', 10, 66);
+
+    doc.setFillColor(241, 245, 249);
+    doc.rect(10, 70, 128, 42, 'F');
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`MONTO ABONADO: $${generatedRecibo.monto.toLocaleString('es-AR')}`, 15, 78);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Operación Ref: ${generatedRecibo.operacionId}`, 15, 85);
+    doc.text(`Imputación: ${generatedRecibo.cuotasAfectadas}`, 15, 92);
+    doc.text(`Medio de Pago: ${generatedRecibo.medioPago}`, 15, 99);
+    if (generatedRecibo.ref) {
+      doc.text(`N° Comprobante / Ref: ${generatedRecibo.ref}`, 15, 105);
+    }
+
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.text(`Cobrado por: ${generatedRecibo.cobrador}`, 10, 122);
+    doc.text('Gracias por su pago. CrediCash Sistema de Gestión Financiera.', 10, 127);
+
+    doc.save(`Recibo-${generatedRecibo.pagoId}-${generatedRecibo.clienteNombre.replace(/\s+/g, '_')}.pdf`);
+  };
+
+  const handleSendReciboWhatsApp = () => {
+    if (!generatedRecibo) return;
+    const cleanPhone = generatedRecibo.clienteTel.replace(/\D/g, '');
+    const mensaje = `Hola ${generatedRecibo.clienteNombre}, le confirmamos la recepción de su pago en *CrediCash* 📄%0A%0A` +
+      `*Recibo N°:* ${generatedRecibo.pagoId}%0A` +
+      `*Monto Abonado:* $${generatedRecibo.monto.toLocaleString('es-AR')}%0A` +
+      `*Imputación:* ${generatedRecibo.cuotasAfectadas}%0A` +
+      `*Fecha:* ${generatedRecibo.fecha} ${generatedRecibo.hora} hs%0A` +
+      `*Medio de Pago:* ${generatedRecibo.medioPago}%0A` +
+      `*Cobrador:* ${generatedRecibo.cobrador}%0A%0A` +
+      `¡Muchas gracias por su cumplimiento!`;
+
+    if (cleanPhone) {
+      window.open(`https://wa.me/549${cleanPhone}?text=${mensaje}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${mensaje}`, '_blank');
+    }
+  };
 
   // Batch CSV/Excel Client Import States
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -1696,21 +1977,35 @@ export default function ClientesView({
                           </div>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <div className="text-right">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              c.estado === 'ACTIVO' 
-                                ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' 
-                                : c.estado === 'EN_MORA'
-                                ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                                : 'bg-slate-900 text-slate-300 border border-slate-700'
-                            }`}>
-                              {c.estado}
-                            </span>
-                            {activeOp && (
-                              <div className="text-[9px] text-emerald-300 font-extrabold mt-1">
-                                {activeOp.id} - ${activeOp.valorCuota.toLocaleString('es-AR')}/C
-                              </div>
-                            )}
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                c.estado === 'ACTIVO' 
+                                  ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' 
+                                  : c.estado === 'EN_MORA'
+                                  ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                  : 'bg-slate-900 text-slate-300 border border-slate-700'
+                              }`}>
+                                {c.estado}
+                              </span>
+                              {activeOp && (
+                                <div className="text-[9px] text-emerald-300 font-extrabold mt-1">
+                                  {activeOp.id} - ${activeOp.valorCuota.toLocaleString('es-AR')}/C
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenPagoModal(c);
+                              }}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] rounded-lg flex items-center gap-1 shadow-xs cursor-pointer border border-emerald-400/80 transition-colors"
+                              title="Ingresar Pago / Cobrar Cuota"
+                            >
+                              <DollarSign className="w-3.5 h-3.5 text-emerald-200" />
+                              <span>Ingresar Pago</span>
+                            </button>
                           </div>
                           <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:text-emerald-200 group-hover:translate-x-0.5 transition-all" />
                         </div>
@@ -2010,6 +2305,15 @@ export default function ClientesView({
             </button>
             
             <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => handleOpenPagoModal(selectedClient)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-xs transition-colors cursor-pointer shadow-md border border-emerald-400/80"
+              >
+                <DollarSign className="w-4 h-4 text-emerald-100" />
+                <span>Ingresar Pago / Cobrar</span>
+              </button>
+
               {canManage && (
                 <button
                   onClick={() => handleOpenEdit(selectedClient)}
@@ -2229,6 +2533,14 @@ export default function ClientesView({
                         }`}>
                           {presentLoan.estado}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPagoModal(selectedClient)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg shadow-md transition-colors flex items-center gap-1 cursor-pointer border border-emerald-400/80"
+                        >
+                          <DollarSign className="w-3.5 h-3.5 text-emerald-100" />
+                          <span>Ingresar Pago</span>
+                        </button>
                       </div>
                     </div>
 
@@ -2710,10 +3022,23 @@ export default function ClientesView({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-emerald-800/80 flex justify-end gap-3 bg-slate-900">
+            <div className="p-6 border-t border-emerald-800/80 flex justify-between items-center gap-3 bg-slate-900">
+              <button
+                type="button"
+                onClick={() => {
+                  const targetClient = viewingCliente;
+                  setViewingCliente(null);
+                  handleOpenPagoModal(targetClient);
+                }}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black transition-all text-xs cursor-pointer shadow-md flex items-center gap-1.5 border border-emerald-400/80"
+              >
+                <DollarSign className="w-4 h-4 text-emerald-100" />
+                <span>INGRESAR PAGO (COBRAR)</span>
+              </button>
+
               <button
                 onClick={() => setViewingCliente(null)}
-                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-500 hover:to-teal-500 font-bold transition-all text-xs cursor-pointer shadow-md"
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold transition-all text-xs cursor-pointer border border-slate-700"
               >
                 CERRAR EXPEDIENTE
               </button>
@@ -2832,6 +3157,272 @@ export default function ClientesView({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL INGRESAR PAGO (COBRAR CUOTA) DESDE CLIENTES VIEW */}
+      {pagoModalCliente && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col my-8">
+            {/* Header */}
+            <div className="p-4 bg-emerald-950 border-b border-emerald-800 flex justify-between items-center">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black shadow-md">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">Ingresar Pago / Cobrar Cuota</h3>
+                  <p className="text-xs text-emerald-300 font-bold">{pagoModalCliente.nombre} {pagoModalCliente.apellido} (DNI: {pagoModalCliente.dni})</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPagoModalCliente(null)}
+                className="p-1.5 hover:bg-emerald-900 rounded-full text-emerald-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs text-white">
+              {/* Operation Selector */}
+              <div>
+                <label className="text-[11px] font-bold text-emerald-300 block mb-1">Operación / Crédito Afectado</label>
+                {pagoModalOperaciones.length === 0 ? (
+                  <div className="p-2.5 bg-slate-950 rounded-xl border border-amber-800/80 text-amber-300 text-xs">
+                    ⚠️ Sin operaciones registradas. Se creará un registro directo de cobro.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedOpId}
+                    onChange={(e) => handleOpChangeInModal(e.target.value)}
+                    className="w-full bg-slate-950 border border-emerald-700/80 rounded-xl px-3 py-2.5 text-white font-bold focus:outline-hidden focus:border-emerald-400"
+                  >
+                    {pagoModalOperaciones.map(op => (
+                      <option key={op.id} value={op.id}>
+                        {op.id} - ${op.valorCuota.toLocaleString('es-AR')}/cuota ({op.cuotasPagadas}/{op.cantidadCuotas || op.cuotasTotales} pagadas)
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Pending Cuotas Breakdown */}
+              {(() => {
+                const targetOp = pagoModalOperaciones.find(o => o.id === selectedOpId);
+                const opCuotas = (cuotas || []).filter(c => c.idOperacion === (targetOp?.id || '') && c.estado !== 'PAGADA');
+                if (opCuotas.length === 0) return null;
+
+                return (
+                  <div>
+                    <label className="text-[11px] font-bold text-emerald-300 block mb-1">Cuotas Pendientes de Imputación</label>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 bg-slate-950 p-2 rounded-xl border border-emerald-900">
+                      {opCuotas.sort((a,b)=>a.numeroCuota-b.numeroCuota).map(c => (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setPagoSelectedCuotaId(c.id);
+                            setPagoMonto(String(c.saldoPendiente));
+                          }}
+                          className={`p-2 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
+                            pagoSelectedCuotaId === c.id
+                              ? 'bg-emerald-900/80 border-emerald-400 shadow-xs'
+                              : 'bg-slate-900 border-slate-800 hover:border-emerald-700'
+                          }`}
+                        >
+                          <div>
+                            <span className="font-bold text-white">Cuota #{c.numeroCuota}</span>
+                            <span className="text-[10px] text-emerald-300/70 ml-2">Vence: {c.fechaVencimiento}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-extrabold text-emerald-300">${c.saldoPendiente.toLocaleString('es-AR')}</span>
+                            {c.estado === 'PAGO_PARCIAL' && (
+                              <span className="block text-[8px] text-amber-400 font-bold uppercase">Pago Parcial</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Monto A Ingresar */}
+              <div>
+                <label className="text-[11px] font-bold text-emerald-300 block mb-1">Monto a Cobrar / Abonar ($)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-emerald-400 font-bold text-base">$</span>
+                  <input
+                    type="number"
+                    value={pagoMonto}
+                    onChange={(e) => setPagoMonto(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full pl-8 pr-3 py-2.5 bg-slate-950 border border-emerald-500 rounded-xl text-lg font-black text-yellow-300 focus:outline-hidden focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+
+              {/* Fecha y Hora */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-emerald-300 block mb-1">Fecha de Cobro</label>
+                  <input
+                    type="date"
+                    value={pagoFecha}
+                    onChange={(e) => setPagoFecha(e.target.value)}
+                    className="w-full bg-slate-950 border border-emerald-800 rounded-xl px-3 py-2 text-white font-bold focus:outline-hidden focus:border-emerald-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-emerald-300 block mb-1">Hora de Cobro</label>
+                  <input
+                    type="time"
+                    value={pagoHora}
+                    onChange={(e) => setPagoHora(e.target.value)}
+                    className="w-full bg-slate-950 border border-emerald-800 rounded-xl px-3 py-2 text-white font-bold focus:outline-hidden focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+
+              {/* Medio de Pago */}
+              <div>
+                <label className="text-[11px] font-bold text-emerald-300 block mb-1">Medio de Pago</label>
+                <select
+                  value={pagoMedio}
+                  onChange={(e) => setPagoMedio(e.target.value as any)}
+                  className="w-full bg-slate-950 border border-emerald-800 rounded-xl px-3 py-2.5 text-white font-bold focus:outline-hidden focus:border-emerald-400 cursor-pointer"
+                >
+                  <option value="EFECTIVO">💵 Efectivo en Mano</option>
+                  <option value="TRANSFERENCIA">🏦 Transferencia Bancaria</option>
+                  <option value="DEPOSITO">💳 Billetera Virtual / Mercado Pago</option>
+                </select>
+              </div>
+
+              {/* Cobrador / Agente */}
+              <div>
+                <label className="text-[11px] font-bold text-emerald-300 block mb-1">Nombre del Cobrador / Operador</label>
+                <input
+                  type="text"
+                  value={pagoCobrador}
+                  onChange={(e) => setPagoCobrador(e.target.value)}
+                  placeholder="Nombre de quien recibe el dinero..."
+                  className="w-full bg-slate-950 border border-emerald-800 rounded-xl px-3 py-2 text-white font-bold focus:outline-hidden focus:border-emerald-400"
+                />
+              </div>
+
+              {/* Comprobante / Ref */}
+              <div>
+                <label className="text-[11px] font-bold text-emerald-300 block mb-1">N° Comprobante / Referencia de Transferencia (Opcional)</label>
+                <input
+                  type="text"
+                  value={pagoComprobanteRef}
+                  onChange={(e) => setPagoComprobanteRef(e.target.value)}
+                  placeholder="Ej. TRX-98234 / MP-102938"
+                  className="w-full bg-slate-950 border border-emerald-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-hidden focus:border-emerald-400"
+                />
+              </div>
+
+              {/* Observaciones */}
+              <div>
+                <label className="text-[11px] font-bold text-emerald-300 block mb-1">Observaciones / Notas</label>
+                <textarea
+                  value={pagoObservaciones}
+                  onChange={(e) => setPagoObservaciones(e.target.value)}
+                  placeholder="Detalles sobre la cobranza..."
+                  rows={2}
+                  className="w-full bg-slate-950 border border-emerald-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-hidden focus:border-emerald-400"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-950 border-t border-emerald-800 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPagoModalCliente(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleExecutePagoInClientesView}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-xs cursor-pointer transition-colors shadow-lg flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                <span>Confirmar e Ingresar Pago ($)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE RECIBO GENERADO */}
+      {generatedRecibo && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col text-white">
+            <div className="p-5 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-b border-emerald-800 text-center space-y-1">
+              <div className="w-12 h-12 bg-emerald-500 text-slate-950 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                <CheckCircle2 className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-black text-white">¡Pago Ingresado Con Éxito!</h3>
+              <p className="text-xs text-emerald-300 font-bold">Comprobante N° {generatedRecibo.pagoId}</p>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="bg-slate-950 p-4 rounded-xl border border-emerald-800 space-y-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-emerald-300/80 font-medium">Cliente:</span>
+                  <span className="font-bold text-white text-sm">{generatedRecibo.clienteNombre}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-emerald-300/80 font-medium">Monto Abonado:</span>
+                  <span className="font-black text-yellow-300 text-base">${generatedRecibo.monto.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-emerald-300/80 font-medium">Imputación:</span>
+                  <span className="font-bold text-emerald-300">{generatedRecibo.cuotasAfectadas}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <span className="text-emerald-300/80 font-medium">Fecha y Hora:</span>
+                  <span className="font-bold text-white">{generatedRecibo.fecha} {generatedRecibo.hora} hs</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-emerald-300/80 font-medium">Medio de Pago:</span>
+                  <span className="font-bold text-white">{generatedRecibo.medioPago}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSendReciboWhatsApp}
+                  className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Enviar WhatsApp</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadReciboPDF}
+                  className="p-3 bg-slate-800 hover:bg-slate-700 text-emerald-200 border border-emerald-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Descargar PDF</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-950 border-t border-emerald-800 text-center">
+              <button
+                type="button"
+                onClick={() => setGeneratedRecibo(null)}
+                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white font-black rounded-xl text-xs cursor-pointer transition-colors shadow-md"
+              >
+                Aceptar y Finalizar
+              </button>
+            </div>
           </div>
         </div>
       )}

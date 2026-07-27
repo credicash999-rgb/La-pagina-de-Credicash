@@ -2593,15 +2593,20 @@ export default function App() {
             <ClientesView
               clientes={filteredClientes}
               operaciones={operaciones}
+              cuotas={cuotas}
+              pagos={pagos}
               usuarios={usuarios}
+              activeUser={activeUser}
               onAddCliente={handleAddCliente}
               onUpdateCliente={handleUpdateCliente}
+              onAddPago={handleAddPago}
               canManage={activeUserRole.crearClientes}
               isAdmin={activeUser?.rolId === 'ADMIN'}
               verTelefonoCliente={activeUserRole.verTelefonoCliente}
               verDniCliente={activeUserRole.verDniCliente}
               verDireccionCliente={activeUserRole.verDireccionCliente}
               verIngresosCliente={activeUserRole.verIngresosCliente}
+              onNavigateTo={(tab) => setActiveTab(tab)}
             />
           )}
 

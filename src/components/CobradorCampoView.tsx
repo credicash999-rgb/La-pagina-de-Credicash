@@ -1294,8 +1294,8 @@ export default function CobradorCampoView({
                           }}
                           className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-colors"
                         >
-                          <span>Registrar / Gestionar</span>
-                          <ChevronRight className="w-4 h-4" />
+                          <DollarSign className="w-4 h-4 text-yellow-300" />
+                          <span>Ingresar Pago / Cobrar</span>
                         </button>
                       </div>
 
