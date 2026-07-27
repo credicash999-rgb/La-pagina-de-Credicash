@@ -16,7 +16,7 @@ import {
   MapPin, DollarSign, Calendar, Clock, CheckCircle2, 
   Phone, MessageCircle, Navigation, TrendingUp, 
   Camera, ChevronRight, UserX, RefreshCw, Check, 
-  X, UserCheck, Play, Compass, Coffee, Send, PhoneCall, Home, AlertTriangle, FileText
+  X, UserCheck, Play, Compass, Coffee, Send, PhoneCall, Home, AlertTriangle, FileText, Search
 } from 'lucide-react';
 
 interface CobradorCampoViewProps {
@@ -34,6 +34,15 @@ interface CobradorCampoViewProps {
   reintegrosDesayuno?: SolicitudReintegroDesayuno[];
   initialSubTab?: 'gestion_diaria' | 'gestion_telefonica' | 'mi_recorrido' | 'reintegro_desayuno';
   onAddPago: (pago: Pago, updatedCuotas: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
+  onReorganizePago?: (
+    pagoId: string,
+    newCuotaId: string,
+    newMetodoPago?: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO',
+    newFechaPago?: string,
+    newImporte?: number,
+    newObservaciones?: string
+  ) => void;
+  onDeletePago?: (pagoId: string) => void;
   onRegistrarVisita: (visita: VisitaDomicilio) => void;
   onReprogramarVisita: (reprogramacion: VisitaReprogramada) => void;
   onRegistrarContactoRecuperado: (idCliente: string, cobradorId: string) => void;
@@ -57,6 +66,8 @@ export default function CobradorCampoView({
   reintegrosDesayuno = [],
   initialSubTab,
   onAddPago,
+  onReorganizePago,
+  onDeletePago,
   onRegistrarVisita,
   onReprogramarVisita,
   onRegistrarContactoRecuperado,
@@ -100,6 +111,10 @@ export default function CobradorCampoView({
   const [showPhoneCallModal, setShowPhoneCallModal] = useState<boolean>(false);
   const [showCancelConfirmModal, setShowCancelConfirmModal] = useState<boolean>(false);
   const [showComisionesModal, setShowComisionesModal] = useState<boolean>(false);
+  
+  // Quick Pago Modal (Direct Payment Entry / Search for Admin & Collector)
+  const [showQuickPagoModal, setShowQuickPagoModal] = useState<boolean>(false);
+  const [quickPagoSearch, setQuickPagoSearch] = useState<string>('');
 
   // Form states for Breakfast Reimbursement Request
   const [lugarDesayuno, setLugarDesayuno] = useState<string>('Café Martinez - Shopping Abasto');
@@ -969,8 +984,20 @@ export default function CobradorCampoView({
             </div>
           </div>
 
-          {/* Action Buttons for Earnings Modal & Admin PDF Export */}
+          {/* Action Buttons for Earnings Modal & Admin PDF Export & Ingresar Pago Directo */}
           <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            <button
+              onClick={() => {
+                setShowQuickPagoModal(true);
+                setQuickPagoSearch('');
+              }}
+              className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs px-4 py-3 rounded-2xl flex items-center justify-center gap-2 shadow-xl hover:shadow-emerald-500/30 cursor-pointer transition-all uppercase tracking-wider shrink-0 border-2 border-yellow-400 ring-2 ring-emerald-500/40"
+              title="Ingresar o registrar un cobro directamente para cualquier cliente"
+            >
+              <DollarSign className="w-5 h-5 text-yellow-300 stroke-[3] animate-bounce" />
+              <span>INGRESAR PAGO (COBRAR)</span>
+            </button>
+
             {isUserAdmin && (
               <button
                 onClick={handleExportarPDFHojaRuta}
@@ -2422,6 +2449,141 @@ export default function CobradorCampoView({
                 className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs py-3 rounded-xl cursor-pointer"
               >
                 Cerrar Ventana
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BÚSQUEDA RÁPIDA DE CLIENTE PARA INGRESAR PAGO DIRECTO */}
+      {showQuickPagoModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col my-8 text-white">
+            <div className="p-4 bg-emerald-950 border-b border-emerald-800 flex justify-between items-center">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black shadow-md">
+                  <DollarSign className="w-6 h-6 text-yellow-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Ingresar Pago Directo</h3>
+                  <p className="text-xs text-emerald-300 font-medium">Seleccione el cliente al cual le cobrará la cuota</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowQuickPagoModal(false)}
+                className="p-1.5 hover:bg-emerald-900 rounded-full text-emerald-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              <div>
+                <label className="text-[11px] font-bold text-emerald-300 block mb-1">Buscar Cliente por Nombre, DNI, Teléfono o ID</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                  <input
+                    type="text"
+                    value={quickPagoSearch}
+                    onChange={(e) => setQuickPagoSearch(e.target.value)}
+                    placeholder="Escriba el nombre, apellido, DNI o ID del cliente..."
+                    autoFocus
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-emerald-700/80 rounded-xl text-white font-bold placeholder:text-slate-500 focus:outline-hidden focus:border-emerald-400 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Matching Clients List */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                  Resultados ({
+                    clientes.filter(c => {
+                      if (!quickPagoSearch.trim()) return true;
+                      const q = quickPagoSearch.toLowerCase().trim();
+                      return (
+                        c.nombre.toLowerCase().includes(q) ||
+                        c.apellido.toLowerCase().includes(q) ||
+                        (c.dni && c.dni.includes(q)) ||
+                        (c.telefono && c.telefono.includes(q)) ||
+                        c.id.toLowerCase().includes(q)
+                      );
+                    }).length
+                  } Clientes)
+                </span>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {clientes
+                    .filter(c => {
+                      if (!quickPagoSearch.trim()) return true;
+                      const q = quickPagoSearch.toLowerCase().trim();
+                      return (
+                        c.nombre.toLowerCase().includes(q) ||
+                        c.apellido.toLowerCase().includes(q) ||
+                        (c.dni && c.dni.includes(q)) ||
+                        (c.telefono && c.telefono.includes(q)) ||
+                        c.id.toLowerCase().includes(q)
+                      );
+                    })
+                    .slice(0, 30)
+                    .map(c => {
+                      const clientOps = operaciones.filter(o => o.idCliente === c.id && o.estado !== 'FINALIZADA');
+                      const primaryOp = clientOps[0] || null;
+
+                      return (
+                        <div
+                          key={c.id}
+                          className="bg-slate-950 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/80 flex items-center justify-between gap-3 transition-all group cursor-pointer"
+                          onClick={() => {
+                            setSelectedCliente(c);
+                            setSelectedOperacion(primaryOp);
+                            setActionType('pago');
+                            setShowQuickPagoModal(false);
+                          }}
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-white text-sm group-hover:text-emerald-300 transition-colors">
+                                {c.nombre} {c.apellido}
+                              </span>
+                              <span className={`px-2 py-0.5 text-[9px] font-black rounded-md uppercase ${
+                                c.estado === 'ACTIVO' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' :
+                                c.estado === 'EN_MORA' ? 'bg-rose-950 text-rose-300 border border-rose-800' :
+                                'bg-slate-900 text-slate-400 border border-slate-700'
+                              }`}>
+                                {c.estado}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              DNI: {c.dni || 'Sin DNI'} • Tel: {c.telefono || 'S/N'} • Dir: {c.direccion || `${c.calle || ''} ${c.numero || ''}`}
+                            </p>
+                            {primaryOp && (
+                              <p className="text-[10px] text-emerald-400 font-bold mt-1">
+                                Op: {primaryOp.id} — Valor Cuota: ${primaryOp.valorCuota.toLocaleString('es-AR')}
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            className="px-3 py-2 bg-emerald-600 group-hover:bg-emerald-500 text-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md cursor-pointer shrink-0 border border-emerald-400/80"
+                          >
+                            <DollarSign className="w-4 h-4 text-yellow-300" />
+                            <span>Cobrar</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-950 border-t border-emerald-800 text-right">
+              <button
+                type="button"
+                onClick={() => setShowQuickPagoModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                Cancelar
               </button>
             </div>
           </div>

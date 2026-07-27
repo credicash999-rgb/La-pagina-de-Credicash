@@ -2691,6 +2691,8 @@ export default function App() {
               visitasReprogramadas={visitasReprogramadas}
               initialSubTab={cobradorSubTab}
               onAddPago={handleAddPago}
+              onReorganizePago={handleReorganizePagoAllocation}
+              onDeletePago={handleDeletePago}
               onRegistrarVisita={handleRegistrarVisita}
               onReprogramarVisita={handleReprogramarVisita}
               onRegistrarContactoRecuperado={handleRegistrarContactoRecuperado}
