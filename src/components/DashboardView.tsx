@@ -49,6 +49,7 @@ export default function DashboardView({
     const groups: Record<string, { monthLabel: string, capitalEntregado: number, gananciaEstimada: number, totalFinanciado: number, count: number }> = {};
     
     filterOps.forEach(op => {
+      if (!op || !op.fechaOtorgamiento) return;
       const dateParts = op.fechaOtorgamiento.split('-');
       if (dateParts.length < 2) return;
       const key = `${dateParts[0]}-${dateParts[1]}`; // e.g. "2026-06"

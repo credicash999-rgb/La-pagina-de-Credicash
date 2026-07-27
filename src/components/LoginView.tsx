@@ -209,7 +209,7 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
       </div>
 
       {/* RIGHT COLUMN: LOGIN BOX (Shows at top on mobile, right on desktop) */}
-      <div className="w-full lg:w-[45%] bg-slate-950 p-4 sm:p-6 md:p-10 flex flex-col items-center justify-center min-h-screen order-1 lg:order-2 z-20">
+      <div className="w-full lg:w-[45%] bg-slate-950 p-4 sm:p-6 md:p-10 flex flex-col items-center justify-center min-h-screen lg:min-h-screen order-1 lg:order-2 z-20 shrink-0">
         
         <div className="w-full max-w-[420px] bg-slate-900 rounded-[28px] shadow-2xl border border-slate-800 p-6 sm:p-8 space-y-5 relative z-10 text-left backdrop-blur-md my-auto">
           
