@@ -2767,6 +2767,57 @@ export default function App() {
               onAddRole={handleAddRole}
             />
           )}
+
+          {/* Fallback default render if activeTab does not match any valid view */}
+          {(![
+            'dashboard', 'clientes', 'clientes-inactivos', 'nuevo-cliente',
+            'operaciones', 'pagos', 'pagos-whatsapp', 'pagos-telefono',
+            'pagos-calle', 'cobrador-campo', 'liquidaciones', 'tesoreria',
+            'configuracion', 'usuarios'
+          ].includes(activeTab) ||
+            (activeTab === 'dashboard' && !activeUserRole.verDashboard) ||
+            (activeTab === 'clientes' && !activeUserRole.verClientes) ||
+            (activeTab === 'nuevo-cliente' && !activeUserRole.crearClientes) ||
+            (activeTab === 'operaciones' && !activeUserRole.verPrestamos) ||
+            ((activeTab === 'pagos' || activeTab === 'pagos-whatsapp' || activeTab === 'pagos-telefono') && !activeUserRole.verPagos) ||
+            (activeTab === 'tesoreria' && !activeUserRole.verTesoreria) ||
+            (activeTab === 'configuracion' && !activeUserRole.verConfiguracion) ||
+            (activeTab === 'usuarios' && activeUser?.rolId !== 'ADMIN')
+          ) && (
+            activeUser?.rolId === 'COBRADOR' ? (
+              <CobradorCampoView
+                operaciones={filteredOperaciones}
+                cuotas={filteredCuotas}
+                pagos={filteredPagos}
+                clientes={clientes}
+                usuarios={usuarios}
+                activeUser={activeUser}
+                configComisiones={configComisiones}
+                configRecorrido={configRecorrido}
+                configuracion={configuracion}
+                comisiones={comisiones}
+                visitasHistory={visitasHistory}
+                visitasReprogramadas={visitasReprogramadas}
+                initialSubTab={cobradorSubTab}
+                onAddPago={handleAddPago}
+                onReorganizePago={handleReorganizePagoAllocation}
+                onDeletePago={handleDeletePago}
+                onRegistrarVisita={handleRegistrarVisita}
+                onReprogramarVisita={handleReprogramarVisita}
+                onRegistrarContactoRecuperado={handleRegistrarContactoRecuperado}
+                onUpdateCliente={handleUpdateCliente}
+              />
+            ) : (
+              <DashboardView
+                clientes={filteredClientes}
+                operaciones={filteredOperaciones}
+                cuotas={filteredCuotas}
+                pagos={filteredPagos}
+                configuracion={configuracion}
+                onNavigateTo={(tab) => setActiveTab(tab)}
+              />
+            )
+          )}
         </main>
       </div>
 

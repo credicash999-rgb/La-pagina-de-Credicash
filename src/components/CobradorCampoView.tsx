@@ -218,15 +218,21 @@ export default function CobradorCampoView({
   // Check visited today
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Check visited today: Client is visited by payment ONLY if active payment exists in pagos today!
+  // Check visited today: Client is visited by payment ONLY if active payment exists in pagos today and no pending overdue debt remains!
   const isVisitedToday = (idCliente: string) => {
     const hasActivePagoToday = pagos.some(p => p.idCliente === idCliente && p.fechaPago === todayStr);
     const targetCliente = clientes.find(c => c.id === idCliente);
 
-    // If client made a payment today BUT still exceeds/meets the threshold for collector mora,
-    // they are NOT considered fully visited/done for today -> they must remain in pending route!
-    if (hasActivePagoToday && targetCliente && clienteSuperaUmbralCobrador(targetCliente)) {
-      return false;
+    if (hasActivePagoToday && targetCliente) {
+      // Partial payment check: if client still has overdue cuotas or exceeds collector mora threshold,
+      // they MUST remain in pending collection route!
+      const targetOps = operaciones.filter(o => o.idCliente === idCliente && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
+      const targetCuotas = cuotas.filter(cu => targetOps.some(o => o.id === cu.idOperacion) && cu.estado !== 'PAGADA');
+      const hasPendingOverdue = targetCuotas.some(cu => cu.fechaVencimiento < todayStr);
+
+      if (clienteSuperaUmbralCobrador(targetCliente) || hasPendingOverdue) {
+        return false;
+      }
     }
 
     if (hasActivePagoToday) return true;
