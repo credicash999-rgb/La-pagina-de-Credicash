@@ -55,9 +55,11 @@ export default function DashboardView({
       const key = `${dateParts[0]}-${dateParts[1]}`; // e.g. "2026-06"
       
       const dateObj = new Date(op.fechaOtorgamiento + 'T12:00:00');
-      const monthLabel = dateObj.toLocaleDateString('es-AR', { year: 'numeric', month: 'long' });
+      const monthLabel = isNaN(dateObj.getTime()) ? 'Mes Actual' : dateObj.toLocaleDateString('es-AR', { year: 'numeric', month: 'long' });
       
-      const interes = op.totalFinanciado - op.capitalEntregado;
+      const capEntregado = Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0;
+      const totalFinan = Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0;
+      const interes = Math.max(0, totalFinan - capEntregado);
       
       if (!groups[key]) {
         groups[key] = {
@@ -69,9 +71,9 @@ export default function DashboardView({
         };
       }
       
-      groups[key].capitalEntregado += op.capitalEntregado;
+      groups[key].capitalEntregado += capEntregado;
       groups[key].gananciaEstimada += interes;
-      groups[key].totalFinanciado += op.totalFinanciado;
+      groups[key].totalFinanciado += totalFinan;
       groups[key].count += 1;
     });
     
@@ -91,12 +93,24 @@ export default function DashboardView({
       return true;
     });
 
-    const totalCap = filterOps.reduce((acc, o) => acc + o.capitalEntregado, 0);
-    const totalFin = filterOps.reduce((acc, o) => acc + o.totalFinanciado, 0);
-    const totalInt = totalFin - totalCap;
+    let totalCap = 0;
+    let totalFin = 0;
+    filterOps.forEach(o => {
+      const cap = Number(o.capitalEntregado) || Number(o.montoPrestamo) || 0;
+      const fin = Number(o.totalFinanciado) || Number(o.montoTotalDevolver) || 0;
+      totalCap += cap;
+      totalFin += fin;
+    });
+
+    const totalInt = Math.max(0, totalFin - totalCap);
     const countOps = filterOps.length;
 
-    return { totalCap, totalFin, totalInt, countOps };
+    return { 
+      totalCap: isNaN(totalCap) ? 0 : totalCap, 
+      totalFin: isNaN(totalFin) ? 0 : totalFin, 
+      totalInt: isNaN(totalInt) ? 0 : totalInt, 
+      countOps 
+    };
   }, [operaciones, clientMap, estimateFilter]);
 
   // 1. KPI Calculations
@@ -112,7 +126,7 @@ export default function DashboardView({
       return sum + c.montoDeudaInactivo;
     }
     const clientOps = operaciones.filter(o => o.idCliente === c.id);
-    return sum + clientOps.reduce((s, o) => s + o.totalPendiente, 0);
+    return sum + clientOps.reduce((s, o) => s + (Number(o.totalPendiente) || 0), 0);
   }, 0);
 
   const pagoInicialRefinanciacionTotal = clientesInactivos.reduce((sum, c) => {
@@ -123,19 +137,19 @@ export default function DashboardView({
     return sum + Math.round(debt * 0.3);
   }, 0);
 
-  const totalFinanciado = operaciones.reduce((acc, op) => acc + op.totalFinanciado, 0);
-  const capitalEntregado = operaciones.reduce((acc, op) => acc + op.capitalEntregado, 0);
-  const capitalRecuperado = operaciones.reduce((acc, op) => acc + op.capitalRecuperado, 0);
-  const interesTotal = totalFinanciado - capitalEntregado;
-  const interesCobrado = operaciones.reduce((acc, op) => acc + op.interesCobrado, 0);
+  const totalFinanciado = operaciones.reduce((acc, op) => acc + (Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0), 0);
+  const capitalEntregado = operaciones.reduce((acc, op) => acc + (Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0), 0);
+  const capitalRecuperado = operaciones.reduce((acc, op) => acc + (Number(op.capitalRecuperado) || 0), 0);
+  const interesTotal = Math.max(0, totalFinanciado - capitalEntregado);
+  const interesCobrado = operaciones.reduce((acc, op) => acc + (Number(op.interesCobrado) || 0), 0);
   
-  const totalCobrado = pagos.reduce((acc, p) => acc + p.importe, 0);
-  const carteraPendienteTotal = operaciones.reduce((acc, op) => acc + op.totalPendiente, 0);
+  const totalCobrado = pagos.reduce((acc, p) => acc + (Number(p.importe) || 0), 0);
+  const carteraPendienteTotal = operaciones.reduce((acc, op) => acc + (Number(op.totalPendiente) || 0), 0);
 
   // Delinquency calculator: Cuotas that are pending and whose vencimiento is older than today
   const hoyStr = new Date().toISOString().split('T')[0];
   const cuotasMora = cuotas.filter(c => c.estado !== 'PAGADA' && c.fechaVencimiento < hoyStr);
-  const capitalEnMora = cuotasMora.reduce((acc, c) => acc + c.saldoPendiente, 0);
+  const capitalEnMora = cuotasMora.reduce((acc, c) => acc + (Number(c.saldoPendiente) || 0), 0);
 
   // 2. Performance metrics
   const tasaRecuperacion = totalFinanciado > 0 ? (totalCobrado / totalFinanciado) * 100 : 0;
@@ -160,19 +174,23 @@ export default function DashboardView({
   // A. Working capital currently in circulation (Dinero que se está trabajando, sin el interés)
   const capitalEnCirculacion = operaciones
     .filter(op => op.estado === 'ACTIVA')
-    .reduce((acc, op) => acc + op.capitalPendiente, 0);
+    .reduce((acc, op) => acc + (Number(op.capitalPendiente) || Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0), 0);
 
   // B. Interest expected to return (Interés que tiene que retornar de operaciones activas)
   const interesEsperadoRetorno = operaciones
     .filter(op => op.estado === 'ACTIVA')
-    .reduce((acc, op) => acc + (op.totalPendiente - op.capitalPendiente), 0);
+    .reduce((acc, op) => {
+      const totP = Number(op.totalPendiente) || 0;
+      const capP = Number(op.capitalPendiente) || 0;
+      return acc + Math.max(0, totP - capP);
+    }, 0);
 
   // C. Expected collections up to today (Lo esperado por vencimiento de cuotas)
   const cuotasHastaHoy = cuotas.filter(c => c.fechaVencimiento <= hoyStr);
-  const totalCobrosEsperados = cuotasHastaHoy.reduce((acc, c) => acc + c.valorTotalCuota, 0);
+  const totalCobrosEsperados = cuotasHastaHoy.reduce((acc, c) => acc + (Number(c.valorTotalCuota) || 0), 0);
 
   // D. Real collections collected (Lo real recaudado de lo que están pagando)
-  const totalCobrosReales = pagos.reduce((acc, p) => acc + p.importe, 0);
+  const totalCobrosReales = pagos.reduce((acc, p) => acc + (Number(p.importe) || 0), 0);
 
   // E. Expected vs Real ratio
   const brechaCobro = Math.max(0, totalCobrosEsperados - totalCobrosReales);
@@ -180,13 +198,13 @@ export default function DashboardView({
 
   // F. Stats by Frequency (Count, total financed, and total capital)
   const statsPorFrecuencia = operaciones.reduce((acc, op) => {
-    const f = op.frecuencia;
+    const f = op.frecuencia || 'DIARIA';
     if (!acc[f]) {
       acc[f] = { count: 0, totalFinanciado: 0, capitalEntregado: 0 };
     }
     acc[f].count += 1;
-    acc[f].totalFinanciado += op.totalFinanciado;
-    acc[f].capitalEntregado += op.capitalEntregado;
+    acc[f].totalFinanciado += Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0;
+    acc[f].capitalEntregado += Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0;
     return acc;
   }, {} as Record<string, { count: number; totalFinanciado: number; capitalEntregado: number }>);
 

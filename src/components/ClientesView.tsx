@@ -9,7 +9,7 @@ import {
   Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, ShieldCheck, FileText, MapPin, 
   Briefcase, Eye, X, Download, Calendar, ArrowLeft, AlertTriangle, Info, 
   Printer, ArrowRight, RefreshCw, ChevronRight, PauseCircle, Lock, Upload,
-  DollarSign, CheckCircle2, Send, Clock, CreditCard
+  DollarSign, CheckCircle2, Send, Clock, CreditCard, Trash2
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { parseClientesCSV } from '../utils/importHelper';
@@ -24,6 +24,8 @@ interface ClientesViewProps {
   onAddCliente: (cliente: Cliente) => void;
   onUpdateCliente: (cliente: Cliente) => void;
   onAddPago?: (pago: Pago, updatedCuotas: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
+  onUpdateOperacion?: (operacion: Operacion, cuotasActualizadas?: Cuota[]) => void;
+  onDeleteOperacion?: (idOperacion: string) => void;
   canManage?: boolean;
   isAdmin?: boolean;
   verTelefonoCliente?: boolean;
@@ -43,6 +45,8 @@ export default function ClientesView({
   onAddCliente, 
   onUpdateCliente,
   onAddPago,
+  onUpdateOperacion,
+  onDeleteOperacion,
   canManage = true,
   isAdmin = false,
   verTelefonoCliente = true,
@@ -98,6 +102,76 @@ export default function ClientesView({
     ref: string;
     observaciones: string;
   } | null>(null);
+
+  // Editing & Deleting Loan Modal States
+  const [editingLoan, setEditingLoan] = useState<Operacion | null>(null);
+  const [editMontoPrestamo, setEditMontoPrestamo] = useState<string>('');
+  const [editMontoTotal, setEditMontoTotal] = useState<string>('');
+  const [editValorCuota, setEditValorCuota] = useState<string>('');
+  const [editCantidadCuotas, setEditCantidadCuotas] = useState<string>('');
+  const [editFrecuencia, setEditFrecuencia] = useState<'DIARIO' | 'SEMANAL' | 'QUINCENAL' | 'MENSUAL'>('DIARIO');
+  const [editEstado, setEditEstado] = useState<'ACTIVA' | 'FINALIZADA' | 'VENCIDA' | 'CONGELADA'>('ACTIVA');
+
+  const handleStartEditLoan = (loan: Operacion) => {
+    setEditingLoan(loan);
+    setEditMontoPrestamo(String(loan.capitalEntregado || loan.montoPrestamo || 0));
+    setEditMontoTotal(String(loan.totalFinanciado || loan.montoTotalDevolver || 0));
+    setEditValorCuota(String(loan.valorCuota || 0));
+    setEditCantidadCuotas(String(loan.cantidadCuotas || loan.cuotasTotales || 0));
+    setEditFrecuencia((loan.frecuencia as any) || 'DIARIO');
+    setEditEstado((loan.estado as any) || 'ACTIVA');
+  };
+
+  const handleSaveEditedLoan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLoan) return;
+
+    const capitalEntregado = parseFloat(editMontoPrestamo) || 0;
+    const totalFinanciado = parseFloat(editMontoTotal) || 0;
+    const valorCuota = parseFloat(editValorCuota) || 0;
+    const cantidadCuotas = parseInt(editCantidadCuotas, 10) || 1;
+
+    const updatedLoan: Operacion = {
+      ...editingLoan,
+      capitalEntregado,
+      montoPrestamo: capitalEntregado,
+      totalFinanciado,
+      montoTotalDevolver: totalFinanciado,
+      valorCuota,
+      cantidadCuotas,
+      cuotasTotales: cantidadCuotas,
+      cuotasPendientes: Math.max(0, cantidadCuotas - (editingLoan.cuotasPagadas || 0)),
+      frecuencia: editFrecuencia as any,
+      estado: editEstado as any,
+      totalPendiente: Math.max(0, totalFinanciado - (editingLoan.capitalRecuperado || 0)),
+    };
+
+    // Update remaining cuotas
+    const opCuotas = (cuotas || []).filter(c => c.idOperacion === editingLoan.id);
+    const updatedCuotasList = opCuotas.map(c => {
+      if (c.estado !== 'PAGADA') {
+        return {
+          ...c,
+          valorTotalCuota: valorCuota,
+          saldoPendiente: c.estado === 'PAGO_PARCIAL' ? Math.max(0, valorCuota - c.importePagado) : valorCuota
+        };
+      }
+      return c;
+    });
+
+    if (onUpdateOperacion) {
+      onUpdateOperacion(updatedLoan, updatedCuotasList);
+    }
+    setEditingLoan(null);
+  };
+
+  const handleDeleteLoan = (loan: Operacion) => {
+    if (confirm(`⚠️ ¿Está seguro de ELIMINAR el crédito #${loan.id}? Se borrará la operación y sus cuotas asociadas.`)) {
+      if (onDeleteOperacion) {
+        onDeleteOperacion(loan.id);
+      }
+    }
+  };
 
   const handleOpenPagoModal = (cliente: Cliente) => {
     const clientOps = (operaciones || []).filter(o => o.idCliente === cliente.id);
@@ -2649,6 +2723,7 @@ export default function ClientesView({
                         <th className="py-2.5 px-4 text-center">Estado de Mora</th>
                         <th className="py-2.5 px-4 text-center">Cuotas</th>
                         <th className="py-2.5 px-4 text-center">Estado</th>
+                        <th className="py-2.5 px-4 text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-emerald-900/60 text-emerald-100">
@@ -2659,7 +2734,7 @@ export default function ClientesView({
                         if (sortedLoans.length === 0) {
                           return (
                             <tr>
-                              <td colSpan={verIngresosCliente ? 8 : 7} className="py-6 text-center text-emerald-300/60 font-medium">
+                              <td colSpan={verIngresosCliente ? 9 : 8} className="py-6 text-center text-emerald-300/60 font-medium">
                                 No registra operaciones de crédito históricas.
                               </td>
                             </tr>
@@ -2670,8 +2745,8 @@ export default function ClientesView({
                           <tr key={loan.id} className="hover:bg-emerald-900/40 transition-colors">
                             <td className="py-3 px-4 font-bold font-mono text-white">{loan.id}</td>
                             <td className="py-3 px-4 text-emerald-200/80">{loan.fechaOtorgamiento}</td>
-                            <td className="py-3 px-4 font-semibold text-white">${loan.capitalEntregado.toLocaleString('es-AR')}</td>
-                            {verIngresosCliente && <td className="py-3 px-4 font-semibold text-white">${loan.totalFinanciado.toLocaleString('es-AR')}</td>}
+                            <td className="py-3 px-4 font-semibold text-white">${(Number(loan.capitalEntregado) || Number(loan.montoPrestamo) || 0).toLocaleString('es-AR')}</td>
+                            {verIngresosCliente && <td className="py-3 px-4 font-semibold text-white">${(Number(loan.totalFinanciado) || Number(loan.montoTotalDevolver) || 0).toLocaleString('es-AR')}</td>}
                             <td className="py-3 px-4 text-emerald-200/70 uppercase tracking-wide text-[10px]">{loan.frecuencia}</td>
                             <td className="py-3 px-4 text-center font-bold">
                               {loan.estado === 'FINALIZADA' ? (
@@ -2699,6 +2774,26 @@ export default function ClientesView({
                               }`}>
                                 {loan.estado}
                               </span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditLoan(loan)}
+                                  title="Editar Crédito"
+                                  className="p-1.5 bg-slate-900 hover:bg-emerald-900 text-emerald-300 rounded-lg border border-emerald-800 transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteLoan(loan)}
+                                  title="Eliminar Crédito"
+                                  className="p-1.5 bg-slate-900 hover:bg-rose-950 text-rose-400 hover:text-rose-300 rounded-lg border border-emerald-800 hover:border-rose-800 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ));
@@ -3423,6 +3518,124 @@ export default function ClientesView({
                 Aceptar y Finalizar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CREDIT MODAL */}
+      {editingLoan && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-emerald-950 rounded-2xl border border-emerald-800/80 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-scaleIn">
+            <div className="flex justify-between items-center border-b border-emerald-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-base font-bold text-white">Editar Crédito #{editingLoan.id}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingLoan(null)}
+                className="text-emerald-300/70 hover:text-white p-1 rounded-full cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedLoan} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-emerald-300 mb-1">Monto Capital ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editMontoPrestamo}
+                    onChange={(e) => setEditMontoPrestamo(e.target.value)}
+                    className="w-full bg-slate-900 border border-emerald-800 rounded-xl p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-emerald-300 mb-1">Total Financiado ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editMontoTotal}
+                    onChange={(e) => setEditMontoTotal(e.target.value)}
+                    className="w-full bg-slate-900 border border-emerald-800 rounded-xl p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-emerald-300 mb-1">Valor de Cuota ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editValorCuota}
+                    onChange={(e) => setEditValorCuota(e.target.value)}
+                    className="w-full bg-slate-900 border border-emerald-800 rounded-xl p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-emerald-300 mb-1">Cantidad de Cuotas / Plan</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editCantidadCuotas}
+                    onChange={(e) => setEditCantidadCuotas(e.target.value)}
+                    className="w-full bg-slate-900 border border-emerald-800 rounded-xl p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-emerald-300 mb-1">Frecuencia</label>
+                  <select
+                    value={editFrecuencia}
+                    onChange={(e) => setEditFrecuencia(e.target.value as any)}
+                    className="w-full bg-slate-900 border border-emerald-800 rounded-xl p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="DIARIO">DIARIO</option>
+                    <option value="SEMANAL">SEMANAL</option>
+                    <option value="QUINCENAL">QUINCENAL</option>
+                    <option value="MENSUAL">MENSUAL</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-emerald-300 mb-1">Estado del Crédito</label>
+                  <select
+                    value={editEstado}
+                    onChange={(e) => setEditEstado(e.target.value as any)}
+                    className="w-full bg-slate-900 border border-emerald-800 rounded-xl p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="ACTIVA">ACTIVA</option>
+                    <option value="FINALIZADA">FINALIZADA</option>
+                    <option value="VENCIDA">VENCIDA</option>
+                    <option value="CONGELADA">CONGELADA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-emerald-800/80">
+                <button
+                  type="button"
+                  onClick={() => setEditingLoan(null)}
+                  className="px-4 py-2.5 bg-slate-900 text-slate-300 rounded-xl font-bold cursor-pointer hover:bg-slate-800 border border-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black cursor-pointer shadow-md transition-all"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

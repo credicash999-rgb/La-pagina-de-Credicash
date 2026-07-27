@@ -599,6 +599,10 @@ export default function App() {
       setActiveTab('pagos-calle');
     } else if (user.rolId === 'OPERADOR') {
       setActiveTab('pagos-whatsapp');
+    } else if (user.rolId === 'ADMIN') {
+      setActiveTab('dashboard');
+    } else {
+      setActiveTab('dashboard');
     }
 
     // Dynamic registration of login user to prevent stale local storage login lockout
@@ -1077,6 +1081,44 @@ export default function App() {
 
     if (isFirebaseEnabled() && isAutoSyncEnabled()) {
       uploadDocToFirestore('operaciones', updated.id, updated);
+    }
+  };
+
+  const handleUpdateOperacionWithCuotas = (updated: Operacion, updatedCuotasList?: Cuota[]) => {
+    handleUpdateOperacion(updated);
+
+    if (updatedCuotasList && updatedCuotasList.length > 0) {
+      const updatedCuotaIds = new Set(updatedCuotasList.map(c => c.id));
+      const newCuotasList = cuotas.map(c => {
+        if (updatedCuotaIds.has(c.id)) {
+          return updatedCuotasList.find(uc => uc.id === c.id) || c;
+        }
+        return c;
+      });
+      setCuotas(newCuotasList);
+      saveToLocalStorage(STORAGE_KEYS.CUOTAS, newCuotasList);
+
+      if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+        updatedCuotasList.forEach(c => uploadDocToFirestore('cuotas', c.id, c));
+      }
+    }
+  };
+
+  const handleDeleteOperacion = (idOperacion: string) => {
+    const newOps = operaciones.filter(o => o.id !== idOperacion);
+    const newCuotas = cuotas.filter(c => c.idOperacion !== idOperacion);
+    const newPagos = pagos.filter(p => p.idOperacion !== idOperacion);
+
+    setOperaciones(newOps);
+    setCuotas(newCuotas);
+    setPagos(newPagos);
+
+    saveToLocalStorage(STORAGE_KEYS.OPERACIONES, newOps);
+    saveToLocalStorage(STORAGE_KEYS.CUOTAS, newCuotas);
+    saveToLocalStorage(STORAGE_KEYS.PAGOS, newPagos);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      deleteDocFromFirestore('operaciones', idOperacion);
     }
   };
 
@@ -2600,6 +2642,8 @@ export default function App() {
               onAddCliente={handleAddCliente}
               onUpdateCliente={handleUpdateCliente}
               onAddPago={handleAddPago}
+              onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onDeleteOperacion={handleDeleteOperacion}
               canManage={activeUserRole.crearClientes}
               isAdmin={activeUser?.rolId === 'ADMIN'}
               verTelefonoCliente={activeUserRole.verTelefonoCliente}
