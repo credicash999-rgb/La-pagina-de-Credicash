@@ -215,9 +215,49 @@ export default function CobradorCampoView({
   // Check visited today
   const todayStr = new Date().toISOString().split('T')[0];
 
+  // Check visited today: Client is visited by payment ONLY if active payment exists in pagos today!
+  const isVisitedToday = (idCliente: string) => {
+    const hasActivePagoToday = pagos.some(p => p.idCliente === idCliente && p.fechaPago === todayStr);
+    if (hasActivePagoToday) return true;
+
+    const hasNonPaymentVisit = visitasHistory.some(v => 
+      v.idCliente === idCliente && 
+      v.fecha === todayStr && 
+      v.tipoAccion !== 'PAGO_REGISTRADO'
+    );
+    return hasNonPaymentVisit;
+  };
+
+  // Check rescheduled today
+  const getRescheduledToday = (idCliente: string) => {
+    return visitasReprogramadas.find(r => r.idCliente === idCliente && r.fechaReprogramada === todayStr && !r.completada);
+  };
+
   // Helper: check if an operation has unpaid cuotas due today or overdue
   const hasCuotaDueTodayOrOverdue = (opId: string) => {
     return cuotas.some(c => c.idOperacion === opId && c.estado !== 'PAGADA' && c.fechaVencimiento <= todayStr);
+  };
+
+  // Helper: check if a client has cuotas en mora (vencidas) or pendientes (vencen hoy o anterior)
+  const clienteTieneCuotasEnMoraOPendientes = (cliente: Cliente): boolean => {
+    const clientOps = operaciones.filter(
+      o => o.idCliente === cliente.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA'
+    );
+
+    if (clientOps.length === 0) {
+      return (
+        (cliente.estado === 'EN_MORA' || cliente.estado === 'EVASIVO' || cliente.estado === 'INACTIVO') &&
+        Boolean(cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0)
+      );
+    }
+
+    return clientOps.some(op => {
+      let opCuotas = cuotas.filter(cu => cu.idOperacion === op.id && cu.estado !== 'PAGADA');
+      if (opCuotas.length === 0) {
+        opCuotas = generarPlanCuotas(op, []).filter(cu => cu.estado !== 'PAGADA');
+      }
+      return opCuotas.some(cu => cu.estado !== 'PAGADA' && cu.fechaVencimiento <= todayStr);
+    });
   };
 
   // Get active loans for assigned clients (including operations in mora/vencidas)
@@ -227,13 +267,14 @@ export default function CobradorCampoView({
     return isAssigned;
   });
 
-  // Filter clients to show all assigned active clients with active operations, mora, evasivos, or inactivos
+  // Filter clients to show ONLY assigned clients with CUOTAS EN MORA (vencidas o pendientes)
+  // or those already visited/rescheduled today
   const myAssignedClients = rawAssigned.filter(c => {
-    if (c.estado === 'EVASIVO' || c.estado === 'EN_MORA' || c.estado === 'ACTIVO') return true;
-    if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) return true;
-    const clientOps = myAssignedOperations.filter(o => o.idCliente === c.id);
-    const isRescheduledToday = visitasReprogramadas.some(r => r.idCliente === c.id && r.fechaReprogramada === todayStr && !r.completada);
-    return clientOps.length > 0 || isRescheduledToday || rawAssigned.length <= 10;
+    const isVisited = isVisitedToday(c.id);
+    const isRescheduled = Boolean(getRescheduledToday(c.id));
+    const hasCuotasMoraOPendientes = clienteTieneCuotasEnMoraOPendientes(c);
+
+    return hasCuotasMoraOPendientes || isVisited || isRescheduled;
   });
 
   // Group operations by client
@@ -419,24 +460,6 @@ export default function CobradorCampoView({
       label: 'Cobrar Cuota del Día',
       badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
     };
-  };
-
-  // Check visited today: Client is visited by payment ONLY if active payment exists in pagos today!
-  const isVisitedToday = (idCliente: string) => {
-    const hasActivePagoToday = pagos.some(p => p.idCliente === idCliente && p.fechaPago === todayStr);
-    if (hasActivePagoToday) return true;
-
-    const hasNonPaymentVisit = visitasHistory.some(v => 
-      v.idCliente === idCliente && 
-      v.fecha === todayStr && 
-      v.tipoAccion !== 'PAGO_REGISTRADO'
-    );
-    return hasNonPaymentVisit;
-  };
-
-  // Check rescheduled today
-  const getRescheduledToday = (idCliente: string) => {
-    return visitasReprogramadas.find(r => r.idCliente === idCliente && r.fechaReprogramada === todayStr && !r.completada);
   };
 
   // Pending vs Managed
