@@ -221,6 +221,14 @@ export default function CobradorCampoView({
   // Check visited today: Client is visited by payment ONLY if active payment exists in pagos today!
   const isVisitedToday = (idCliente: string) => {
     const hasActivePagoToday = pagos.some(p => p.idCliente === idCliente && p.fechaPago === todayStr);
+    const targetCliente = clientes.find(c => c.id === idCliente);
+
+    // If client made a payment today BUT still exceeds/meets the threshold for collector mora,
+    // they are NOT considered fully visited/done for today -> they must remain in pending route!
+    if (hasActivePagoToday && targetCliente && clienteSuperaUmbralCobrador(targetCliente)) {
+      return false;
+    }
+
     if (hasActivePagoToday) return true;
 
     const hasNonPaymentVisit = visitasHistory.some(v => 
@@ -335,6 +343,10 @@ export default function CobradorCampoView({
     let cuotasDiariasCount = 0;
     let cuotasSemanalesCount = 0;
     let cuotasOtrasCount = 0;
+    let cuotasDiariasMoraCount = 0;
+    let cuotasSemanalesMoraCount = 0;
+    let cuotasQuincenalesMoraCount = 0;
+    let cuotasMensualesMoraCount = 0;
     let diasMoraMax = 0;
     let cuotasVencidasCount = 0;
     let cuotasHoyCount = 0;
@@ -356,6 +368,19 @@ export default function CobradorCampoView({
 
       cuotasVencidasCount += overdue.length;
       cuotasHoyCount += dueToday.length;
+
+      const freqUpper = (op.frecuencia || 'DIARIA').toUpperCase();
+      if (freqUpper.includes('DIAR')) {
+        cuotasDiariasMoraCount += overdue.length;
+      } else if (freqUpper.includes('SEMAN')) {
+        cuotasSemanalesMoraCount += overdue.length;
+      } else if (freqUpper.includes('QUINCEN')) {
+        cuotasQuincenalesMoraCount += overdue.length;
+      } else if (freqUpper.includes('MENSUAL')) {
+        cuotasMensualesMoraCount += overdue.length;
+      } else {
+        cuotasDiariasMoraCount += overdue.length;
+      }
 
       if (overdue.length > 0) {
         const oldestStr = overdue.map(c => c.fechaVencimiento).sort()[0];
@@ -444,6 +469,10 @@ export default function CobradorCampoView({
       cuotasDiariasCount,
       cuotasSemanalesCount,
       cuotasOtrasCount,
+      cuotasDiariasMoraCount,
+      cuotasSemanalesMoraCount,
+      cuotasQuincenalesMoraCount,
+      cuotasMensualesMoraCount,
       diaGestion,
       diasMoraMax,
       cuotasVencidasCount,
@@ -1243,6 +1272,10 @@ export default function CobradorCampoView({
                     totalSaldoRestanteCredito,
                     cuotasDiariasCount,
                     cuotasSemanalesCount,
+                    cuotasDiariasMoraCount,
+                    cuotasSemanalesMoraCount,
+                    cuotasQuincenalesMoraCount,
+                    cuotasMensualesMoraCount,
                     diaGestion,
                     diasMoraMax,
                     cuotasVencidasCount,
@@ -1330,6 +1363,23 @@ export default function CobradorCampoView({
                             <span className="text-slate-400 uppercase font-black block text-[9px]">Cuota Día de Hoy</span>
                             <span className="font-black text-amber-300 text-sm">{cuotasHoyCount > 0 ? `${cuotasHoyCount} Hoy` : (cuotasDebeCount > 0 ? '1 Exigible' : '0')}</span>
                           </div>
+                        </div>
+
+                        {/* Desglose de Cuotas en Mora por Frecuencia */}
+                        <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800 text-[10px] font-bold text-center text-slate-300 flex items-center justify-around gap-1">
+                          <span className="text-rose-300">
+                            <strong className="text-slate-400 font-extrabold uppercase text-[9px]">Diarias:</strong> {cuotasDiariasMoraCount}
+                          </span>
+                          <span className="text-slate-600">|</span>
+                          <span className="text-amber-300">
+                            <strong className="text-slate-400 font-extrabold uppercase text-[9px]">Semanales:</strong> {cuotasSemanalesMoraCount}
+                          </span>
+                          <span className="text-slate-600">|</span>
+                          <span className="text-teal-300">
+                            <strong className="text-slate-400 font-extrabold uppercase text-[9px]">
+                              {cuotasQuincenalesMoraCount > 0 ? 'Quincenales:' : 'Mensuales:'}
+                            </strong> {cuotasQuincenalesMoraCount > 0 ? cuotasQuincenalesMoraCount : cuotasMensualesMoraCount}
+                          </span>
                         </div>
 
                         {/* FINANCIAL SUMMARY BOX */}
@@ -1866,6 +1916,10 @@ export default function CobradorCampoView({
           totalSaldoRestanteCredito,
           cuotasDiariasCount,
           cuotasSemanalesCount,
+          cuotasDiariasMoraCount,
+          cuotasSemanalesMoraCount,
+          cuotasQuincenalesMoraCount,
+          cuotasMensualesMoraCount,
           diaGestion,
           diasMoraMax,
           cuotasVencidasCount,
@@ -1960,6 +2014,23 @@ export default function CobradorCampoView({
                     <span className="text-slate-400 uppercase font-black block text-[9px]">Cuota Día de Hoy</span>
                     <span className="font-black text-amber-300 text-sm">{cuotasHoyCount > 0 ? `${cuotasHoyCount} Hoy` : (cuotasDebeCount > 0 ? '1 Exigible' : '0')}</span>
                   </div>
+                </div>
+
+                {/* Desglose de Cuotas en Mora por Frecuencia */}
+                <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-800 text-[10px] font-bold text-center text-slate-300 flex items-center justify-around gap-1">
+                  <span className="text-rose-300">
+                    <strong className="text-slate-400 font-extrabold uppercase text-[9px]">Diarias:</strong> {cuotasDiariasMoraCount}
+                  </span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-amber-300">
+                    <strong className="text-slate-400 font-extrabold uppercase text-[9px]">Semanales:</strong> {cuotasSemanalesMoraCount}
+                  </span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-teal-300">
+                    <strong className="text-slate-400 font-extrabold uppercase text-[9px]">
+                      {cuotasQuincenalesMoraCount > 0 ? 'Quincenales:' : 'Mensuales:'}
+                    </strong> {cuotasQuincenalesMoraCount > 0 ? cuotasQuincenalesMoraCount : cuotasMensualesMoraCount}
+                  </span>
                 </div>
 
                 {/* FINANCIAL SUMMARY BOX */}
