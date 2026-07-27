@@ -19,6 +19,7 @@ import {
   isFirebaseEnabled, 
   isAutoSyncEnabled,
   uploadDocToFirestore, 
+  uploadAllToFirestore,
   deleteDocFromFirestore,
   downloadAllFromFirestore,
   subscribeToFirestore,
@@ -1599,14 +1600,15 @@ export default function App() {
       saveToLocalStorage(STORAGE_KEYS.CUOTAS, repairedCuotas);
     }
     if (isFirebaseEnabled() && isAutoSyncEnabled()) {
-      uploadAllToFirestore(
-        repairedClientes || clientes,
-        repairedOps || operaciones,
-        repairedCuotas || cuotas,
+      uploadAllToFirestore({
+        clientes: repairedClientes || clientes,
+        operaciones: repairedOps || operaciones,
+        cuotas: repairedCuotas || cuotas,
         pagos,
         transacciones,
-        configuracion
-      );
+        configuracion,
+        feriados
+      });
     }
   };
 

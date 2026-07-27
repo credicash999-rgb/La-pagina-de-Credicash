@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Cliente, Operacion, UsuarioRol } from '../types';
 import { 
-  Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, FileText, MapPin, 
+  Users, Plus, Search, Edit2, Check, UserPlus, Phone, Shield, ShieldCheck, FileText, MapPin, 
   Briefcase, Eye, X, Download, Calendar, ArrowLeft, AlertTriangle, Info, 
   Printer, ArrowRight, RefreshCw, ChevronRight, PauseCircle, Lock, Upload
 } from 'lucide-react';
