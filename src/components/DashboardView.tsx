@@ -32,50 +32,138 @@ export default function DashboardView({
   const [subTab, setSubTab] = useState<'kpis' | 'estimates'>('estimates');
   const [estimateFilter, setEstimateFilter] = useState<'activos' | 'inactivos' | 'combinado'>('activos');
 
-  // Date range for Proyección Contable de Ganancia (default: current month)
+  // Selected Month state for Análisis Contable y Financiero Mensual (default: current month)
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
-  const defaultDesde = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-  const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const defaultHasta = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const defaultMesStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+  
+  const [mesAnalisis, setMesAnalisis] = useState<string>(defaultMesStr);
 
-  const [proyeccionDesde, setProyeccionDesde] = useState<string>(defaultDesde);
-  const [proyeccionHasta, setProyeccionHasta] = useState<string>(defaultHasta);
+  // Calculation for "Análisis Contable y Financiero Mensual"
+  const analisisMensual = React.useMemo(() => {
+    const [yStr, mStr] = mesAnalisis.split('-');
+    const yearNum = parseInt(yStr, 10) || currentYear;
+    const monthNum = parseInt(mStr, 10) || (currentMonth + 1);
 
-  // Calculation for Proyección Contable de Ganancia
-  const proyeccionGanancia = React.useMemo(() => {
-    const cuotasEnRango = cuotas.filter(c => {
+    const startDateStr = `${yearNum}-${String(monthNum).padStart(2, '0')}-01`;
+    const daysInM = new Date(yearNum, monthNum, 0).getDate();
+    const endDateStr = `${yearNum}-${String(monthNum).padStart(2, '0')}-${String(daysInM).padStart(2, '0')}`;
+
+    // Filter ONLY active credits
+    const opsActivas = operaciones.filter(op => op.estado === 'ACTIVA');
+
+    // 1. Capital Activo Colocado Original: Suma del monto prestado de todos los créditos actualmente activos
+    const capitalActivoColocadoOriginal = opsActivas.reduce((acc, op) => {
+      const mp = Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0;
+      return acc + mp;
+    }, 0);
+
+    // Build map for active credits for per-cuota calculation
+    const opActivaMap = new Map<string, {
+      id: string;
+      montoPrestamo: number;
+      totalFinanciado: number;
+      cantidadCuotas: number;
+      capitalPorCuota: number;
+      gananciaPorCuota: number;
+    }>();
+
+    opsActivas.forEach(op => {
+      const mp = Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0;
+      const tf = Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0;
+      const cc = Number(op.cantidadCuotas) || Number(op.cuotasTotales) || 1;
+      const cantCuotasValid = cc > 0 ? cc : 1;
+
+      const capitalPorCuota = mp / cantCuotasValid;
+      const gananciaPorCuota = Math.max(0, tf - mp) / cantCuotasValid;
+
+      opActivaMap.set(op.id, {
+        id: op.id,
+        montoPrestamo: mp,
+        totalFinanciado: tf,
+        cantidadCuotas: cantCuotasValid,
+        capitalPorCuota: isNaN(capitalPorCuota) ? 0 : capitalPorCuota,
+        gananciaPorCuota: isNaN(gananciaPorCuota) ? 0 : gananciaPorCuota,
+      });
+    });
+
+    // MEDIDOR 1: Cuotas de créditos activos con vencimiento en el mes en curso
+    const cuotasMesActivas = cuotas.filter(c => {
       if (!c || !c.fechaVencimiento) return false;
-      return c.fechaVencimiento >= proyeccionDesde && c.fechaVencimiento <= proyeccionHasta;
+      if (!opActivaMap.has(c.idOperacion)) return false;
+      return c.fechaVencimiento >= startDateStr && c.fechaVencimiento <= endDateStr;
     });
 
-    let gananciaEstimadaTotal = 0;
-    let capitalTotalProyectado = 0;
-    let cobroTotalProyectado = 0;
+    let retornoCapitalEstimadoMes = 0;
+    let gananciaEstimadaMes = 0;
 
-    cuotasEnRango.forEach(c => {
-      const op = operaciones.find(o => o.id === c.idOperacion);
-      const montoCuota = Number(c.valorTotalCuota) || 0;
-      
-      const capitalOperacion = Number(op?.capitalEntregado) || Number(op?.montoPrestamo) || 0;
-      const cantidadTotalCuotas = Number(op?.cantidadCuotas) || Number(op?.cuotasTotales) || 1;
-      
-      const capitalPorCuota = cantidadTotalCuotas > 0 ? (capitalOperacion / cantidadTotalCuotas) : 0;
-      const gananciaCuota = Math.max(0, montoCuota - capitalPorCuota);
-
-      cobroTotalProyectado += montoCuota;
-      capitalTotalProyectado += capitalPorCuota;
-      gananciaEstimadaTotal += gananciaCuota;
+    cuotasMesActivas.forEach(c => {
+      const info = opActivaMap.get(c.idOperacion);
+      if (info) {
+        retornoCapitalEstimadoMes += info.capitalPorCuota || 0;
+        gananciaEstimadaMes += info.gananciaPorCuota || 0;
+      }
     });
+
+    const totalProyectadoRecaudarMes = retornoCapitalEstimadoMes + gananciaEstimadaMes;
+
+    // MEDIDOR 2:
+    // A. Capital Neto Vivo en Calle (No recuperado aún): Suma de (Monto Prestado Original - Capital ya amortizado por cuotas pagadas hasta la fecha)
+    let capitalNetoVivoEnCalle = 0;
+
+    opsActivas.forEach(op => {
+      const info = opActivaMap.get(op.id);
+      if (info) {
+        const cuotasPagadasCount = cuotas.filter(c => c.idOperacion === op.id && c.estado === 'PAGADA').length;
+        const capitalAmortizado = info.capitalPorCuota * cuotasPagadasCount;
+        const capitalVivoOp = Math.max(0, info.montoPrestamo - capitalAmortizado);
+        capitalNetoVivoEnCalle += capitalVivoOp;
+      }
+    });
+
+    // B. Ganancia Pendiente del Mes: Porción de ganancia de las cuotas del mes que aún no han sido cobradas (c.estado !== 'PAGADA')
+    const cuotasMesPendientes = cuotasMesActivas.filter(c => c.estado !== 'PAGADA');
+
+    let gananciaPendienteMes = 0;
+    let retornoCapitalPendienteMes = 0;
+
+    cuotasMesPendientes.forEach(c => {
+      const info = opActivaMap.get(c.idOperacion);
+      if (info) {
+        gananciaPendienteMes += info.gananciaPorCuota || 0;
+        retornoCapitalPendienteMes += info.capitalPorCuota || 0;
+      }
+    });
+
+    // C. Total Neto Pendiente del Mes = Recuperación de capital vivo restante del mes + ganancia pendiente del mes
+    const totalNetoPendienteMes = retornoCapitalPendienteMes + gananciaPendienteMes;
+
+    // Month Label
+    const dateObj = new Date(yearNum, monthNum - 1, 1);
+    const monthLabel = isNaN(dateObj.getTime())
+      ? mesAnalisis
+      : dateObj.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    const formattedMonthLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
     return {
-      cuotasCount: cuotasEnRango.length,
-      cobroTotalProyectado: isNaN(cobroTotalProyectado) ? 0 : cobroTotalProyectado,
-      capitalTotalProyectado: isNaN(capitalTotalProyectado) ? 0 : capitalTotalProyectado,
-      gananciaEstimadaTotal: isNaN(gananciaEstimadaTotal) ? 0 : gananciaEstimadaTotal,
+      mesLabel: formattedMonthLabel,
+      startDateStr,
+      endDateStr,
+      cuotasMesCount: cuotasMesActivas.length,
+      cuotasPendientesCount: cuotasMesPendientes.length,
+      // Medidor 1
+      capitalActivoColocadoOriginal: isNaN(capitalActivoColocadoOriginal) ? 0 : capitalActivoColocadoOriginal,
+      retornoCapitalEstimadoMes: isNaN(retornoCapitalEstimadoMes) ? 0 : retornoCapitalEstimadoMes,
+      gananciaEstimadaMes: isNaN(gananciaEstimadaMes) ? 0 : gananciaEstimadaMes,
+      totalProyectadoRecaudarMes: isNaN(totalProyectadoRecaudarMes) ? 0 : totalProyectadoRecaudarMes,
+      // Medidor 2
+      capitalNetoVivoEnCalle: isNaN(capitalNetoVivoEnCalle) ? 0 : capitalNetoVivoEnCalle,
+      gananciaPendienteMes: isNaN(gananciaPendienteMes) ? 0 : gananciaPendienteMes,
+      retornoCapitalPendienteMes: isNaN(retornoCapitalPendienteMes) ? 0 : retornoCapitalPendienteMes,
+      totalNetoPendienteMes: isNaN(totalNetoPendienteMes) ? 0 : totalNetoPendienteMes,
     };
-  }, [cuotas, operaciones, proyeccionDesde, proyeccionHasta]);
+  }, [cuotas, operaciones, mesAnalisis, currentYear, currentMonth]);
 
   // Map clients for quick lookup
   const clientMap = React.useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
