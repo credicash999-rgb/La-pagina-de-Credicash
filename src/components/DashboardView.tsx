@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { Cliente, Operacion, Cuota, Pago, Configuracion } from '../types';
 import { 
   TrendingUp, Users, DollarSign, Percent, AlertTriangle, 
-  Calendar, CheckCircle, ArrowUpRight, ArrowDownRight, Award, Target
+  Calendar, CheckCircle, ArrowUpRight, ArrowDownRight, Award, Target, Calculator
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -31,6 +31,51 @@ export default function DashboardView({
   // Default to 'estimates' as requested by administrator
   const [subTab, setSubTab] = useState<'kpis' | 'estimates'>('estimates');
   const [estimateFilter, setEstimateFilter] = useState<'activos' | 'inactivos' | 'combinado'>('activos');
+
+  // Date range for Proyección Contable de Ganancia (default: current month)
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const defaultDesde = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const defaultHasta = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  const [proyeccionDesde, setProyeccionDesde] = useState<string>(defaultDesde);
+  const [proyeccionHasta, setProyeccionHasta] = useState<string>(defaultHasta);
+
+  // Calculation for Proyección Contable de Ganancia
+  const proyeccionGanancia = React.useMemo(() => {
+    const cuotasEnRango = cuotas.filter(c => {
+      if (!c || !c.fechaVencimiento) return false;
+      return c.fechaVencimiento >= proyeccionDesde && c.fechaVencimiento <= proyeccionHasta;
+    });
+
+    let gananciaEstimadaTotal = 0;
+    let capitalTotalProyectado = 0;
+    let cobroTotalProyectado = 0;
+
+    cuotasEnRango.forEach(c => {
+      const op = operaciones.find(o => o.id === c.idOperacion);
+      const montoCuota = Number(c.valorTotalCuota) || 0;
+      
+      const capitalOperacion = Number(op?.capitalEntregado) || Number(op?.montoPrestamo) || 0;
+      const cantidadTotalCuotas = Number(op?.cantidadCuotas) || Number(op?.cuotasTotales) || 1;
+      
+      const capitalPorCuota = cantidadTotalCuotas > 0 ? (capitalOperacion / cantidadTotalCuotas) : 0;
+      const gananciaCuota = Math.max(0, montoCuota - capitalPorCuota);
+
+      cobroTotalProyectado += montoCuota;
+      capitalTotalProyectado += capitalPorCuota;
+      gananciaEstimadaTotal += gananciaCuota;
+    });
+
+    return {
+      cuotasCount: cuotasEnRango.length,
+      cobroTotalProyectado: isNaN(cobroTotalProyectado) ? 0 : cobroTotalProyectado,
+      capitalTotalProyectado: isNaN(capitalTotalProyectado) ? 0 : capitalTotalProyectado,
+      gananciaEstimadaTotal: isNaN(gananciaEstimadaTotal) ? 0 : gananciaEstimadaTotal,
+    };
+  }, [cuotas, operaciones, proyeccionDesde, proyeccionHasta]);
 
   // Map clients for quick lookup
   const clientMap = React.useMemo(() => new Map(clientes.map(c => [c.id, c])), [clientes]);
@@ -138,7 +183,9 @@ export default function DashboardView({
   }, 0);
 
   const totalFinanciado = operaciones.reduce((acc, op) => acc + (Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0), 0);
-  const capitalEntregado = operaciones.reduce((acc, op) => acc + (Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0), 0);
+  const capitalEntregado = operaciones
+    .filter(op => op.estado === 'ACTIVA' || op.estado === 'VENCIDA')
+    .reduce((acc, op) => acc + (Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0), 0);
   const capitalRecuperado = operaciones.reduce((acc, op) => acc + (Number(op.capitalRecuperado) || 0), 0);
   const interesTotal = Math.max(0, totalFinanciado - capitalEntregado);
   const interesCobrado = operaciones.reduce((acc, op) => acc + (Number(op.interesCobrado) || 0), 0);
@@ -752,7 +799,106 @@ export default function DashboardView({
       </div>
     </>
   ) : (
-        <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-md space-y-6">
+    <div className="space-y-6">
+      {/* Panel de Proyección Contable de Ganancia */}
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-md space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-emerald-800/60 pb-4">
+          <div>
+            <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-emerald-400" />
+              Proyección Contable de Ganancia
+            </h3>
+            <p className="text-xs text-emerald-200/80 mt-1">
+              Cálculo estimativo por vencimiento de cuotas en el período seleccionado: <span className="font-mono text-emerald-300 font-bold">(Monto Cuota - (Capital Operación / Total Cuotas))</span>.
+            </p>
+          </div>
+
+          {/* Selector de Rango de Fechas */}
+          <div className="flex flex-wrap items-center gap-2 bg-slate-900 p-2 rounded-xl border border-emerald-800/80">
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">Desde:</label>
+              <input
+                type="date"
+                value={proyeccionDesde}
+                onChange={(e) => setProyeccionDesde(e.target.value)}
+                className="bg-emerald-950 border border-emerald-800 rounded-lg p-1.5 text-xs text-white font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">Hasta:</label>
+              <input
+                type="date"
+                value={proyeccionHasta}
+                onChange={(e) => setProyeccionHasta(e.target.value)}
+                className="bg-emerald-950 border border-emerald-800 rounded-lg p-1.5 text-xs text-white font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setProyeccionDesde(defaultDesde);
+                setProyeccionHasta(defaultHasta);
+              }}
+              className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              Mes Actual
+            </button>
+          </div>
+        </div>
+
+        {/* Tarjetas de Resultados */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block mb-1">
+              Ganancia Estimada Total
+            </span>
+            <div className="text-2xl font-black text-emerald-300">
+              ${proyeccionGanancia.gananciaEstimadaTotal.toLocaleString('es-AR')}
+            </div>
+            <p className="text-[10px] text-emerald-200/70 mt-1 font-medium">
+              Interés estimativo en el período
+            </p>
+          </div>
+
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block mb-1">
+              Recaudación Estimada
+            </span>
+            <div className="text-xl font-extrabold text-white">
+              ${proyeccionGanancia.cobroTotalProyectado.toLocaleString('es-AR')}
+            </div>
+            <p className="text-[10px] text-emerald-200/70 mt-1 font-medium">
+              Suma del valor de cuotas a vencer
+            </p>
+          </div>
+
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block mb-1">
+              Capital Retornado
+            </span>
+            <div className="text-xl font-extrabold text-white">
+              ${proyeccionGanancia.capitalTotalProyectado.toLocaleString('es-AR')}
+            </div>
+            <p className="text-[10px] text-emerald-200/70 mt-1 font-medium">
+              Recuperación del capital principal
+            </p>
+          </div>
+
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block mb-1">
+              Cuotas en Rango
+            </span>
+            <div className="text-xl font-extrabold text-white">
+              {proyeccionGanancia.cuotasCount} cuotas
+            </div>
+            <p className="text-[10px] text-emerald-200/70 mt-1 font-medium">
+              Con vencimiento entre las fechas elegidas
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-md space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-800/60 pb-4">
             <div>
               <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
@@ -926,7 +1072,8 @@ export default function DashboardView({
             )}
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 }
