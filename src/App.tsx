@@ -41,6 +41,7 @@ import CrediCashLogo from './components/CrediCashLogo';
 import CobradorCampoView from './components/CobradorCampoView';
 import LiquidacionesView from './components/LiquidacionesView';
 import ClientesInactivosView from './components/ClientesInactivosView';
+import ClientesTodosView from './components/ClientesTodosView';
 
 // Icons
 import { 
@@ -2239,6 +2240,23 @@ export default function App() {
 
                 {activeUserRole.verClientes && (
                   <button
+                    onClick={() => setActiveTab('clientes-todos')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                      activeTab === 'clientes-todos'
+                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 shrink-0 text-amber-400" />
+                    <div className="flex flex-col min-w-0 leading-tight">
+                      <span>Clientes (todos)</span>
+                      <span className="text-[10px] font-medium text-amber-300/80 mt-0.5">(Diario, Semanal, Mensual, Inactivos)</span>
+                    </div>
+                  </button>
+                )}
+
+                {activeUserRole.verClientes && (
+                  <button
                     onClick={() => setActiveTab('clientes-inactivos')}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
                       activeTab === 'clientes-inactivos'
@@ -2661,6 +2679,21 @@ export default function App() {
               verDireccionCliente={activeUserRole.verDireccionCliente}
               verIngresosCliente={activeUserRole.verIngresosCliente}
               onNavigateTo={(tab) => setActiveTab(tab)}
+            />
+          )}
+
+          {activeTab === 'clientes-todos' && (
+            <ClientesTodosView
+              clientes={clientes}
+              operaciones={operaciones}
+              cuotas={cuotas}
+              pagos={pagos}
+              usuarios={usuarios}
+              activeUser={activeUser}
+              onAddPago={handleAddPago}
+              onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onDeleteOperacion={handleDeleteOperacion}
+              onUpdateCliente={handleUpdateCliente}
             />
           )}
 

@@ -53,8 +53,8 @@ export function exportDailyRoutePDF(
   doc.text('N°', 12, y + 5);
   doc.text('CLIENTE / DNI / TEL', 20, y + 5);
   doc.text('DIRECCIÓN DOMICILIO', 75, y + 5);
-  doc.text('ESTADO', 125, y + 5);
-  doc.text('A PAGAR / MIN', 150, y + 5);
+  doc.text('CUOTAS / MORA', 120, y + 5);
+  doc.text('TOTAL ABONAR / MÍNIMO', 152, y + 5);
   doc.text('FIRMA / COBRO ($)', 178, y + 5);
 
   y += 9;
@@ -71,8 +71,8 @@ export function exportDailyRoutePDF(
       doc.text('N°', 12, y + 5);
       doc.text('CLIENTE / DNI / TEL', 20, y + 5);
       doc.text('DIRECCIÓN DOMICILIO', 75, y + 5);
-      doc.text('ESTADO', 125, y + 5);
-      doc.text('A PAGAR / MIN', 150, y + 5);
+      doc.text('CUOTAS / MORA', 120, y + 5);
+      doc.text('TOTAL ABONAR / MÍNIMO', 152, y + 5);
       doc.text('FIRMA / COBRO ($)', 178, y + 5);
       y += 9;
     }
@@ -80,6 +80,9 @@ export function exportDailyRoutePDF(
     const cOps = operaciones.filter(o => o.idCliente === cli.id && o.estado === 'ACTIVA');
     const cCuotas = cuotas.filter(cu => cOps.some(o => o.id === cu.idOperacion) && cu.estado !== 'PAGADA');
     const totalDeudaCuotas = cCuotas.reduce((sum, cu) => sum + cu.saldoPendiente, 0);
+
+    const cuotasMora = cCuotas.filter(cu => cu.fechaVencimiento < fechaStr);
+    const maxDiasMora = cOps.reduce((max, o) => Math.max(max, o.diasMora || 0), 0);
 
     let montoAPagar = totalDeudaCuotas;
     let montoMinimo = Math.round(totalDeudaCuotas * 0.5);
@@ -100,12 +103,12 @@ export function exportDailyRoutePDF(
     doc.setFontSize(8);
     doc.text(String(idx + 1), 12, y + 6);
 
-    doc.text(`${cli.nombre} ${cli.apellido}`.slice(0, 28), 20, y + 5);
+    doc.text(`${cli.nombre} ${cli.apellido}`.slice(0, 26), 20, y + 5);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.text(`DNI: ${cli.dni || 'N/A'} | Tel: ${cli.telefono || cli.whatsapp || 'N/A'}`, 20, y + 10);
 
-    const dirStr = (cli.direccion || `${cli.calle || ''} ${cli.numero || ''}`).slice(0, 32);
+    const dirStr = (cli.direccion || `${cli.calle || ''} ${cli.numero || ''}`).slice(0, 28);
     doc.setFontSize(8);
     doc.text(dirStr, 75, y + 5);
     doc.setFontSize(7);
@@ -115,14 +118,18 @@ export function exportDailyRoutePDF(
     doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(cli.estado, 125, y + 6);
+    doc.text(`${cCuotas.length} cuotas pend.`, 120, y + 5);
+    doc.setFontSize(7);
+    doc.setTextColor(cuotasMora.length > 0 ? 225 : 100, cuotasMora.length > 0 ? 29 : 116, cuotasMora.length > 0 ? 72 : 139);
+    doc.text(cuotasMora.length > 0 ? `Mora: ${maxDiasMora} días` : `Al día (${cli.estado})`, 120, y + 10);
 
     doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
     doc.setTextColor(16, 185, 129); // emerald-600
-    doc.text(`$${montoAPagar.toLocaleString('es-AR')}`, 150, y + 5);
+    doc.text(`Total: $${montoAPagar.toLocaleString('es-AR')}`, 152, y + 5);
     doc.setFontSize(7);
     doc.setTextColor(217, 119, 6); // amber-600
-    doc.text(`Mín: $${montoMinimo.toLocaleString('es-AR')}`, 150, y + 10);
+    doc.text(`Mín. Exig: $${montoMinimo.toLocaleString('es-AR')}`, 152, y + 10);
 
     // Box for collector signature / cash collected
     doc.setDrawColor(148, 163, 184);
