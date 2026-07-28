@@ -888,45 +888,38 @@ export default function DashboardView({
     </>
   ) : (
     <div className="space-y-6">
-      {/* Panel de Proyección Contable de Ganancia */}
+      {/* MÓDULO: ANÁLISIS CONTABLE Y FINANCIERO MENSUAL */}
+      
+      {/* MEDIDOR 1: Proyección y Flujo de Fondos del Mes Actual */}
       <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-md space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-emerald-800/60 pb-4">
           <div>
-            <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <Calculator className="w-5 h-5 text-emerald-400" />
-              Proyección Contable de Ganancia
-            </h3>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Medidor 1: Proyección y Flujo de Fondos ({analisisMensual.mesLabel})
+              </h3>
+              <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-900/90 text-emerald-300 border border-emerald-700 rounded-md">
+                Capital vs. Interés
+              </span>
+            </div>
             <p className="text-xs text-emerald-200/80 mt-1">
-              Cálculo estimativo por vencimiento de cuotas en el período seleccionado: <span className="font-mono text-emerald-300 font-bold">(Monto Cuota - (Capital Operación / Total Cuotas))</span>.
+              Desglose de retorno de capital y ganancia por cuotas de créditos activos con vencimiento en el mes auditado.
             </p>
           </div>
 
-          {/* Selector de Rango de Fechas */}
-          <div className="flex flex-wrap items-center gap-2 bg-slate-900 p-2 rounded-xl border border-emerald-800/80">
-            <div className="flex items-center gap-1.5">
-              <label className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">Desde:</label>
-              <input
-                type="date"
-                value={proyeccionDesde}
-                onChange={(e) => setProyeccionDesde(e.target.value)}
-                className="bg-emerald-950 border border-emerald-800 rounded-lg p-1.5 text-xs text-white font-bold focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <label className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">Hasta:</label>
-              <input
-                type="date"
-                value={proyeccionHasta}
-                onChange={(e) => setProyeccionHasta(e.target.value)}
-                className="bg-emerald-950 border border-emerald-800 rounded-lg p-1.5 text-xs text-white font-bold focus:outline-none focus:border-emerald-500"
-              />
-            </div>
+          {/* Selector de Mes Opcional */}
+          <div className="flex items-center gap-2 bg-slate-900 p-2 rounded-xl border border-emerald-800/80 shrink-0">
+            <label className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">Período Auditado:</label>
+            <input
+              type="month"
+              value={mesAnalisis}
+              onChange={(e) => setMesAnalisis(e.target.value)}
+              className="bg-emerald-950 border border-emerald-800 rounded-lg p-1.5 text-xs text-white font-bold focus:outline-none focus:border-emerald-500 cursor-pointer"
+            />
             <button
               type="button"
-              onClick={() => {
-                setProyeccionDesde(defaultDesde);
-                setProyeccionHasta(defaultHasta);
-              }}
+              onClick={() => setMesAnalisis(defaultMesStr)}
               className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer"
             >
               Mes Actual
@@ -934,53 +927,112 @@ export default function DashboardView({
           </div>
         </div>
 
-        {/* Tarjetas de Resultados */}
+        {/* Tarjetas del Medidor 1 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80">
-            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block mb-1">
-              Ganancia Estimada Total
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80 space-y-1">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block">
+              Capital Activo Colocado Original
+            </span>
+            <div className="text-2xl font-black text-white">
+              ${analisisMensual.capitalActivoColocadoOriginal.toLocaleString('es-AR')}
+            </div>
+            <p className="text-[10px] text-emerald-200/70 font-medium">
+              Suma de monto prestado en créditos activos
+            </p>
+          </div>
+
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80 space-y-1">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block">
+              Retorno de Capital Estimado del Mes
+            </span>
+            <div className="text-xl font-extrabold text-emerald-200">
+              ${analisisMensual.retornoCapitalEstimadoMes.toLocaleString('es-AR')}
+            </div>
+            <p className="text-[10px] text-emerald-200/70 font-medium">
+              Amortización principal de cuotas del mes
+            </p>
+          </div>
+
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80 space-y-1">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block">
+              Ganancia Estimada del Mes
             </span>
             <div className="text-2xl font-black text-emerald-300">
-              ${proyeccionGanancia.gananciaEstimadaTotal.toLocaleString('es-AR')}
+              ${analisisMensual.gananciaEstimadaMes.toLocaleString('es-AR')}
             </div>
-            <p className="text-[10px] text-emerald-200/70 mt-1 font-medium">
-              Interés estimativo en el período
+            <p className="text-[10px] text-emerald-400 font-bold">
+              Intereses proyectados a retornar en el mes
             </p>
           </div>
 
-          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80">
-            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block mb-1">
-              Recaudación Estimada
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80 space-y-1">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block">
+              Total Proyectado a Recaudar
             </span>
             <div className="text-xl font-extrabold text-white">
-              ${proyeccionGanancia.cobroTotalProyectado.toLocaleString('es-AR')}
+              ${analisisMensual.totalProyectadoRecaudarMes.toLocaleString('es-AR')}
             </div>
-            <p className="text-[10px] text-emerald-200/70 mt-1 font-medium">
-              Suma del valor de cuotas a vencer
+            <p className="text-[10px] text-emerald-200/70 font-medium">
+              Retorno de Capital + Ganancia ({analisisMensual.cuotasMesCount} cuotas)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* MEDIDOR 2: Capital Vivo Trabajándose y Retorno Neto */}
+      <div className="bg-emerald-950/90 p-6 rounded-2xl border border-emerald-800/80 shadow-md space-y-5">
+        <div className="flex items-center justify-between border-b border-emerald-800/60 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-emerald-400" />
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Medidor 2: Capital Vivo Trabajándose y Retorno Neto
+              </h3>
+              <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-900/90 text-emerald-300 border border-emerald-700 rounded-md">
+                Neto Pendiente
+              </span>
+            </div>
+            <p className="text-xs text-emerald-200/80 mt-1">
+              Monitoreo de capital vivo circulante no amortizado y ganancias pendientes por cobrar.
+            </p>
+          </div>
+        </div>
+
+        {/* Tarjetas del Medidor 2 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80 space-y-1">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block">
+              Capital Neto Vivo en Calle (No recuperado aún)
+            </span>
+            <div className="text-2xl font-black text-white">
+              ${analisisMensual.capitalNetoVivoEnCalle.toLocaleString('es-AR')}
+            </div>
+            <p className="text-[10px] text-emerald-200/70 font-medium">
+              Monto prestado original - Amortización por cuotas ya pagadas
             </p>
           </div>
 
-          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80">
-            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block mb-1">
-              Capital Retornado
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80 space-y-1">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block">
+              Ganancia Pendiente del Mes
             </span>
-            <div className="text-xl font-extrabold text-white">
-              ${proyeccionGanancia.capitalTotalProyectado.toLocaleString('es-AR')}
+            <div className="text-2xl font-black text-emerald-300">
+              ${analisisMensual.gananciaPendienteMes.toLocaleString('es-AR')}
             </div>
-            <p className="text-[10px] text-emerald-200/70 mt-1 font-medium">
-              Recuperación del capital principal
+            <p className="text-[10px] text-emerald-400 font-bold">
+              Intereses del mes pendientes de cobro ({analisisMensual.cuotasPendientesCount} cuotas sin pagar)
             </p>
           </div>
 
-          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80">
-            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block mb-1">
-              Cuotas en Rango
+          <div className="bg-slate-900 p-4 rounded-xl border border-emerald-800/80 space-y-1">
+            <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider block">
+              Total Neto Pendiente del Mes
             </span>
-            <div className="text-xl font-extrabold text-white">
-              {proyeccionGanancia.cuotasCount} cuotas
+            <div className="text-2xl font-black text-white">
+              ${analisisMensual.totalNetoPendienteMes.toLocaleString('es-AR')}
             </div>
-            <p className="text-[10px] text-emerald-200/70 mt-1 font-medium">
-              Con vencimiento entre las fechas elegidas
+            <p className="text-[10px] text-emerald-200/70 font-medium">
+              Recuperación de capital restante del mes + ganancia pendiente
             </p>
           </div>
         </div>
