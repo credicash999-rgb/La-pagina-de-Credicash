@@ -77,7 +77,7 @@ export function exportDailyRoutePDF(
       y += 9;
     }
 
-    const cOps = operaciones.filter(o => o.idCliente === cli.id && o.estado === 'ACTIVA');
+    const cOps = operaciones.filter(o => o.idCliente === cli.id && (o.estado === 'ACTIVA' || o.estado === 'VENCIDA'));
     const cCuotas = cuotas.filter(cu => cOps.some(o => o.id === cu.idOperacion) && cu.estado !== 'PAGADA');
     const totalDeudaCuotas = cCuotas.reduce((sum, cu) => sum + cu.saldoPendiente, 0);
 

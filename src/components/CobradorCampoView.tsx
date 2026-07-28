@@ -78,7 +78,13 @@ export default function CobradorCampoView({
   onSolicitarReintegroDesayuno,
   onUpdateCliente
 }: CobradorCampoViewProps) {
-  const isUserAdmin = activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN';
+  const isUserAdmin = 
+    !activeUser ||
+    activeUser?.rolId === 'ADMIN' ||
+    activeUser?.rolId === 'SUPERADMIN' ||
+    activeUser?.rolId?.toUpperCase().includes('ADMIN') ||
+    activeUser?.email?.toLowerCase() === 'credicash999@gmail.com' ||
+    activeUser?.email?.toLowerCase().includes('admin');
   const [selectedSupervisorUserId, setSelectedSupervisorUserId] = useState<string>('TODOS');
 
   // Navigation tabs (4 clean field collector tabs)
@@ -1097,16 +1103,14 @@ export default function CobradorCampoView({
               <span>INGRESAR PAGO (COBRAR)</span>
             </button>
 
-            {isUserAdmin && (
-              <button
-                onClick={handleExportarPDFHojaRuta}
-                className="bg-red-700 hover:bg-red-600 text-white font-black text-xs px-3.5 py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-red-500/20 cursor-pointer transition-all uppercase tracking-wider shrink-0 border border-red-400"
-                title="Exportar Hoja de Ruta en PDF para el cobrador en caso de falla del sistema"
-              >
-                <FileText className="w-4 h-4 text-white shrink-0" />
-                <span>Exportar PDF Hoja de Ruta (Admin)</span>
-              </button>
-            )}
+            <button
+              onClick={handleExportarPDFHojaRuta}
+              className="bg-rose-700 hover:bg-rose-600 text-white font-black text-xs px-3.5 py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-rose-500/30 cursor-pointer transition-all uppercase tracking-wider shrink-0 border border-rose-400"
+              title="Exportar Hoja de Ruta en PDF para el cobrador (Nombre, Dirección, Mora, Total y Mínimo)"
+            >
+              <FileText className="w-4 h-4 text-white shrink-0" />
+              <span>Exportar PDF Hoja de Ruta</span>
+            </button>
 
             <button
               onClick={() => setShowComisionesModal(true)}
