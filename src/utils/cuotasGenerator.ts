@@ -183,22 +183,25 @@ export function generarPlanCuotas(
     sumaInteres += int;
     sumaTotal += tot;
 
+    const cuotaNumero = i + 1;
+    const esPagada = cuotaNumero <= (operacion.cuotasPagadas || 0);
+
     cuotas.push({
-      id: `${idOperacion}-CUO-${String(i + 1).padStart(2, '0')}`,
+      id: `${idOperacion}-CUO-${String(cuotaNumero).padStart(2, '0')}`,
       idOperacion,
       idCliente,
       nombreCliente,
       numeroCredito,
-      numeroCuota: i + 1,
+      numeroCuota: cuotaNumero,
       frecuencia,
       fechaVencimiento: fechasVencimiento[i],
       capitalCuota: cap,
       interesCuota: int,
       valorTotalCuota: tot,
-      estado: 'PENDIENTE',
-      fechaPago: '',
-      importePagado: 0,
-      saldoPendiente: tot,
+      estado: esPagada ? 'PAGADA' : 'PENDIENTE',
+      fechaPago: esPagada ? (operacion.ultimoPago || (operacion as any).fechaEntrega || operacion.fechaOtorgamiento || '') : '',
+      importePagado: esPagada ? tot : 0,
+      saldoPendiente: esPagada ? 0 : tot,
       diasAtraso: 0,
       cobrador: operacion.cobrador,
       observaciones: '',

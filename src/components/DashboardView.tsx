@@ -55,7 +55,7 @@ export default function DashboardView({
 
     // 1. Capital Activo Colocado Original: Suma del monto prestado de todos los créditos actualmente activos
     const capitalActivoColocadoOriginal = opsActivas.reduce((acc, op) => {
-      const mp = Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0;
+      const mp = Number(op.capitalEntregado) || Number((op as any).montoPrestamo) || 0;
       return acc + mp;
     }, 0);
 
@@ -70,9 +70,9 @@ export default function DashboardView({
     }>();
 
     opsActivas.forEach(op => {
-      const mp = Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0;
-      const tf = Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0;
-      const cc = Number(op.cantidadCuotas) || Number(op.cuotasTotales) || 1;
+      const mp = Number(op.capitalEntregado) || Number((op as any).montoPrestamo) || 0;
+      const tf = Number(op.totalFinanciado) || Number((op as any).montoTotalDevolver) || 0;
+      const cc = Number(op.cantidadCuotas) || Number((op as any).cuotasTotales) || 1;
       const cantCuotasValid = cc > 0 ? cc : 1;
 
       const capitalPorCuota = mp / cantCuotasValid;
@@ -190,8 +190,8 @@ export default function DashboardView({
       const dateObj = new Date(op.fechaOtorgamiento + 'T12:00:00');
       const monthLabel = isNaN(dateObj.getTime()) ? 'Mes Actual' : dateObj.toLocaleDateString('es-AR', { year: 'numeric', month: 'long' });
       
-      const capEntregado = Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0;
-      const totalFinan = Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0;
+      const capEntregado = Number(op.capitalEntregado) || Number((op as any).montoPrestamo) || 0;
+      const totalFinan = Number(op.totalFinanciado) || Number((op as any).montoTotalDevolver) || 0;
       const interes = Math.max(0, totalFinan - capEntregado);
       
       if (!groups[key]) {
@@ -229,8 +229,8 @@ export default function DashboardView({
     let totalCap = 0;
     let totalFin = 0;
     filterOps.forEach(o => {
-      const cap = Number(o.capitalEntregado) || Number(o.montoPrestamo) || 0;
-      const fin = Number(o.totalFinanciado) || Number(o.montoTotalDevolver) || 0;
+      const cap = Number(o.capitalEntregado) || Number((o as any).montoPrestamo) || 0;
+      const fin = Number(o.totalFinanciado) || Number((o as any).montoTotalDevolver) || 0;
       totalCap += cap;
       totalFin += fin;
     });
@@ -270,10 +270,10 @@ export default function DashboardView({
     return sum + Math.round(debt * 0.3);
   }, 0);
 
-  const totalFinanciado = operaciones.reduce((acc, op) => acc + (Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0), 0);
+  const totalFinanciado = operaciones.reduce((acc, op) => acc + (Number(op.totalFinanciado) || Number((op as any).montoTotalDevolver) || 0), 0);
   const capitalEntregado = operaciones
     .filter(op => op.estado === 'ACTIVA' || op.estado === 'VENCIDA')
-    .reduce((acc, op) => acc + (Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0), 0);
+    .reduce((acc, op) => acc + (Number(op.capitalEntregado) || Number((op as any).montoPrestamo) || 0), 0);
   const capitalRecuperado = operaciones.reduce((acc, op) => acc + (Number(op.capitalRecuperado) || 0), 0);
   const interesTotal = Math.max(0, totalFinanciado - capitalEntregado);
   const interesCobrado = operaciones.reduce((acc, op) => acc + (Number(op.interesCobrado) || 0), 0);
@@ -309,7 +309,7 @@ export default function DashboardView({
   // A. Working capital currently in circulation (Dinero que se está trabajando, sin el interés)
   const capitalEnCirculacion = operaciones
     .filter(op => op.estado === 'ACTIVA')
-    .reduce((acc, op) => acc + (Number(op.capitalPendiente) || Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0), 0);
+    .reduce((acc, op) => acc + (Number(op.capitalPendiente) || Number(op.capitalEntregado) || Number((op as any).montoPrestamo) || 0), 0);
 
   // B. Interest expected to return (Interés que tiene que retornar de operaciones activas)
   const interesEsperadoRetorno = operaciones
@@ -338,8 +338,8 @@ export default function DashboardView({
       acc[f] = { count: 0, totalFinanciado: 0, capitalEntregado: 0 };
     }
     acc[f].count += 1;
-    acc[f].totalFinanciado += Number(op.totalFinanciado) || Number(op.montoTotalDevolver) || 0;
-    acc[f].capitalEntregado += Number(op.capitalEntregado) || Number(op.montoPrestamo) || 0;
+    acc[f].totalFinanciado += Number(op.totalFinanciado) || Number((op as any).montoTotalDevolver) || 0;
+    acc[f].capitalEntregado += Number(op.capitalEntregado) || Number((op as any).montoPrestamo) || 0;
     return acc;
   }, {} as Record<string, { count: number; totalFinanciado: number; capitalEntregado: number }>);
 

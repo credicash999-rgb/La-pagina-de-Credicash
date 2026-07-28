@@ -281,19 +281,27 @@ export default function CobradorCampoView({
 
   // Helper: check if a client reaches or exceeds the configured mora threshold for field collector assignment (or is EVASIVO/EN_MORA/INACTIVO)
   const clienteSuperaUmbralCobrador = (cliente: Cliente): boolean => {
-    if (cliente.estado === 'EVASIVO' || cliente.estado === 'EN_MORA') {
-      return true;
-    }
-    if (cliente.estado === 'INACTIVO' && cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0) {
-      return true;
-    }
-
     const clientOps = operaciones.filter(
       o => o.idCliente === cliente.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA'
     );
 
     if (clientOps.length === 0) {
       return false;
+    }
+
+    const clientCuotas = cuotas.filter(cu => clientOps.some(o => o.id === cu.idOperacion));
+    if (clientCuotas.length > 0) {
+      const pendingCount = clientCuotas.filter(cu => cu.estado !== 'PAGADA').length;
+      if (pendingCount === 0) {
+        return false; // Paid off all cuotas!
+      }
+    }
+
+    if (cliente.estado === 'EVASIVO' || cliente.estado === 'EN_MORA') {
+      return true;
+    }
+    if (cliente.estado === 'INACTIVO' && cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0) {
+      return true;
     }
 
     const todayTime = new Date(todayStr + 'T00:00:00').getTime();
@@ -331,6 +339,15 @@ export default function CobradorCampoView({
   // Filter clients to show ONLY assigned clients reaching/exceeding configured mora thresholds (or EVASIVO/EN_MORA/INACTIVO)
   // or those already visited/rescheduled today
   const myAssignedClients = rawAssigned.filter(c => {
+    // Check if client has active non-finalized operations
+    const activeOps = operaciones.filter(o => o.idCliente === c.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
+    if (activeOps.length === 0) return false; // Never show clients without active loans!
+
+    const activeCuotas = cuotas.filter(cu => activeOps.some(o => o.id === cu.idOperacion));
+    if (activeCuotas.length > 0 && activeCuotas.every(cu => cu.estado === 'PAGADA')) {
+      return false; // Never show clients who have paid all cuotas!
+    }
+
     const isVisited = isVisitedToday(c.id);
     const isRescheduled = Boolean(getRescheduledToday(c.id));
     const superaUmbral = clienteSuperaUmbralCobrador(c);

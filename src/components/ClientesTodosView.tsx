@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { Cliente, Operacion, Cuota, Pago, UsuarioRol, TransaccionTesoreria } from '../types';
+import { generarPlanCuotas } from '../utils/cuotasGenerator';
 import { 
   Users, Search, Calendar, DollarSign, Edit2, Trash2, CheckCircle2, 
   X, Phone, MapPin, CreditCard, Shield, AlertTriangle, Eye, ArrowRight,
@@ -69,7 +70,7 @@ export default function ClientesTodosView({
     const cOps = operaciones.filter(o => o.idCliente === client.id);
     const activeOps = cOps.filter(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
 
-    if (activeOps.length === 0) {
+    if (client.estado === 'INACTIVO' || activeOps.length === 0) {
       if (client.estado === 'INACTIVO' || client.esClienteInactivoRefinanciacion) {
         return '1 Crédito Inactivo (Refinanciación Pendiente)';
       }
@@ -80,9 +81,12 @@ export default function ClientesTodosView({
       return 'Sin créditos registrados';
     }
 
-    const diarios = activeOps.filter(o => o.frecuencia === 'DIARIO').length;
-    const semanales = activeOps.filter(o => o.frecuencia === 'SEMANAL').length;
-    const mensuales = activeOps.filter(o => o.frecuencia === 'MENSUAL' || o.frecuencia === 'QUINCENAL').length;
+    const diarios = activeOps.filter(o => (o.frecuencia || '').toUpperCase().includes('DIAR')).length;
+    const semanales = activeOps.filter(o => (o.frecuencia || '').toUpperCase().includes('SEMAN')).length;
+    const mensuales = activeOps.filter(o => {
+      const freq = (o.frecuencia || '').toUpperCase();
+      return freq.includes('MENSUAL') || freq.includes('QUINCEN');
+    }).length;
 
     const parts: string[] = [];
     if (diarios > 0) parts.push(`${diarios} Diario${diarios > 1 ? 's' : ''}`);
@@ -101,20 +105,34 @@ export default function ClientesTodosView({
     const cOps = operaciones.filter(o => o.idCliente === client.id);
     const activeOps = cOps.filter(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
 
+    const isInactiveClient = 
+      client.estado === 'INACTIVO' || 
+      client.esClienteInactivoRefinanciacion === true ||
+      activeOps.length === 0 || 
+      (cOps.length > 0 && cOps.every(o => o.estado === 'FINALIZADA' || o.estado === 'REFINANCIADA'));
+
     if (tab === 'INACTIVOS') {
-      return client.estado === 'INACTIVO' || activeOps.length === 0 || cOps.every(o => o.estado === 'FINALIZADA' || o.estado === 'REFINANCIADA');
+      return isInactiveClient;
+    }
+
+    // Inactive clients must ONLY appear in INACTIVOS tab
+    if (isInactiveClient) {
+      return false;
     }
 
     if (tab === 'DIARIO') {
-      return activeOps.some(o => o.frecuencia === 'DIARIO');
+      return activeOps.some(o => (o.frecuencia || '').toUpperCase().includes('DIAR'));
     }
 
     if (tab === 'SEMANAL') {
-      return activeOps.some(o => o.frecuencia === 'SEMANAL');
+      return activeOps.some(o => (o.frecuencia || '').toUpperCase().includes('SEMAN'));
     }
 
     if (tab === 'MENSUAL') {
-      return activeOps.some(o => o.frecuencia === 'MENSUAL' || o.frecuencia === 'QUINCENAL');
+      return activeOps.some(o => {
+        const freq = (o.frecuencia || '').toUpperCase();
+        return freq.includes('MENSUAL') || freq.includes('QUINCEN');
+      });
     }
 
     return false;
@@ -130,24 +148,29 @@ export default function ClientesTodosView({
   const filteredClients = clientes
     .filter(c => filterClientByTab(c, activeFrequencyTab))
     .filter(c => {
-      if (!searchTerm.trim()) return true;
-      const term = searchTerm.toLowerCase();
+      if (!searchTerm || !searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase().trim();
+      const nombre = (c.nombre || '').toLowerCase();
+      const apellido = (c.apellido || '').toLowerCase();
+      const dni = (c.dni || '');
+      const telefono = (c.telefono || '');
+      const direccion = (c.direccion || `${c.calle || ''} ${c.numero || ''}`).toLowerCase();
       return (
-        c.nombre.toLowerCase().includes(term) ||
-        c.apellido.toLowerCase().includes(term) ||
-        (c.dni && c.dni.includes(term)) ||
-        (c.telefono && c.telefono.includes(term)) ||
-        (c.direccion && c.direccion.toLowerCase().includes(term))
+        nombre.includes(term) ||
+        apellido.includes(term) ||
+        dni.includes(term) ||
+        telefono.includes(term) ||
+        direccion.includes(term)
       );
     });
 
   // Handlers for Loan Modification
   const handleOpenEditLoan = (loan: Operacion) => {
     setEditingLoan(loan);
-    setEditMontoPrestamo(String(loan.capitalEntregado || loan.montoPrestamo || 0));
-    setEditMontoTotal(String(loan.totalFinanciado || loan.montoTotalDevolver || 0));
+    setEditMontoPrestamo(String(loan.capitalEntregado || (loan as any).montoPrestamo || 0));
+    setEditMontoTotal(String(loan.totalFinanciado || (loan as any).montoTotalDevolver || 0));
     setEditValorCuota(String(loan.valorCuota || 0));
-    setEditCantidadCuotas(String(loan.cantidadCuotas || loan.cuotasTotales || 0));
+    setEditCantidadCuotas(String(loan.cantidadCuotas || (loan as any).cuotasTotales || 0));
     setEditFrecuencia((loan.frecuencia as any) || 'DIARIO');
     setEditEstado((loan.estado as any) || 'ACTIVA');
   };
@@ -233,7 +256,7 @@ export default function ClientesTodosView({
 
       if (remPago >= cCopy.saldoPendiente) {
         remPago -= cCopy.saldoPendiente;
-        cCopy.importePagado = cCopy.montoCuota;
+        cCopy.importePagado = cCopy.valorTotalCuota;
         cCopy.saldoPendiente = 0;
         cCopy.estado = 'PAGADA';
         cCopy.fechaPago = pagoFecha;
@@ -258,13 +281,11 @@ export default function ClientesTodosView({
       idOperacion: opToUse.id,
       idCliente: pagoModalCliente.id,
       nombreCliente: `${pagoModalCliente.nombre} ${pagoModalCliente.apellido}`,
-      monto: monto,
-      montoAbonado: monto,
+      importe: monto,
       fechaPago: pagoFecha,
       horaPago: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
       cobrador: pagoCobrador,
-      medioPago: pagoMedio,
-      referenciaPago: `PAGO_ADMIN_${Date.now().toString().slice(-4)}`,
+      metodoPago: (pagoMedio as any) || 'EFECTIVO',
       observaciones: pagoObservaciones || 'Pago registrado desde Clientes (todos)',
       cuotasAfectadas: affectedCuotaNums.length > 0 ? `Cuotas N° ${affectedCuotaNums.join(', ')}` : `Cuota ${opToUse.cuotasPagadas + 1}`
     };
@@ -272,7 +293,7 @@ export default function ClientesTodosView({
     const updatedOperacion: Operacion = {
       ...opToUse,
       capitalRecuperado: (opToUse.capitalRecuperado || 0) + monto,
-      totalPendiente: Math.max(0, (opToUse.totalPendiente || opToUse.montoTotalDevolver) - monto),
+      totalPendiente: Math.max(0, (opToUse.totalPendiente || (opToUse as any).montoTotalDevolver || 0) - monto),
       cuotasPagadas: pagadasNow,
       cuotasPendientes: Math.max(0, opToUse.cantidadCuotas - pagadasNow),
       ultimoPago: pagoFecha
@@ -450,7 +471,15 @@ export default function ClientesTodosView({
               const creditDesc = getClientCreditDescription(client);
               const clientOps = operaciones.filter(o => o.idCliente === client.id);
               const activeOps = clientOps.filter(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
-              const totalDeuda = activeOps.reduce((sum, o) => sum + (o.totalPendiente || o.montoTotalDevolver || 0), 0);
+              
+              const totalDeuda = activeOps.reduce((sum, o) => {
+                const opCuotas = cuotas.filter(c => c.idOperacion === o.id && c.estado !== 'PAGADA');
+                if (opCuotas.length > 0) {
+                  return sum + opCuotas.reduce((cSum, c) => cSum + (Number(c.saldoPendiente) || Number(c.valorTotalCuota) || Number(o.valorCuota) || 0), 0);
+                }
+                const cuotasRestantes = Math.max(0, (o.cantidadCuotas || (o as any).cuotasTotales || 1) - (o.cuotasPagadas || 0));
+                return sum + (cuotasRestantes * (Number(o.valorCuota) || 0));
+              }, 0);
 
               return (
                 <div 
@@ -460,7 +489,7 @@ export default function ClientesTodosView({
                 >
                   <div className="flex items-start gap-3.5">
                     <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-black text-base shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                      {client.nombre ? client.nombre[0].toUpperCase() : 'C'}
+                      {client.nombre && client.nombre.trim() ? client.nombre.trim()[0].toUpperCase() : 'C'}
                     </div>
 
                     <div className="space-y-1">
@@ -609,7 +638,14 @@ export default function ClientesTodosView({
                   </div>
                 ) : (
                   operaciones.filter(o => o.idCliente === selectedClientFicha.id).map(loan => {
-                    const loanCuotas = cuotas.filter(c => c.idOperacion === loan.id).sort((a,b) => a.numeroCuota - b.numeroCuota);
+                    let loanCuotas = cuotas.filter(c => c.idOperacion === loan.id).sort((a,b) => a.numeroCuota - b.numeroCuota);
+                    if (loanCuotas.length === 0) {
+                      loanCuotas = generarPlanCuotas(loan, []);
+                    }
+
+                    const pendingCuotas = loanCuotas.filter(c => c.estado !== 'PAGADA');
+                    const saldoPendienteReal = pendingCuotas.reduce((sum, c) => sum + (c.saldoPendiente > 0 ? c.saldoPendiente : c.valorTotalCuota || loan.valorCuota || 0), 0);
+                    const cuotasPagadasCount = loanCuotas.filter(c => c.estado === 'PAGADA').length;
 
                     return (
                       <div key={loan.id} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
@@ -632,7 +668,7 @@ export default function ClientesTodosView({
                               </span>
                             </div>
                             <p className="text-xs text-slate-400 mt-1">
-                              Monto Prestado: <strong className="text-white">${(loan.capitalEntregado || loan.montoPrestamo || 0).toLocaleString('es-AR')}</strong> | Total a Devolver: <strong className="text-emerald-300">${(loan.totalFinanciado || loan.montoTotalDevolver || 0).toLocaleString('es-AR')}</strong> | Cuotas: <strong className="text-white">{loan.cantidadCuotas || loan.cuotasTotales}</strong> (Valor Cuota: <strong className="text-white">${(loan.valorCuota || 0).toLocaleString('es-AR')}</strong>)
+                              Monto Prestado: <strong className="text-white">${(loan.capitalEntregado || (loan as any).montoPrestamo || 0).toLocaleString('es-AR')}</strong> | Total Financiado Original: <strong className="text-slate-300">${(loan.totalFinanciado || (loan as any).montoTotalDevolver || 0).toLocaleString('es-AR')}</strong> | Cuotas Pagadas: <strong className="text-emerald-300">{cuotasPagadasCount} / {loan.cantidadCuotas || (loan as any).cuotasTotales}</strong> | Saldo Pendiente Actual: <strong className="text-yellow-400 font-extrabold">${saldoPendienteReal.toLocaleString('es-AR')}</strong> (Valor Cuota: <strong className="text-white">${(loan.valorCuota || 0).toLocaleString('es-AR')}</strong>)
                             </p>
                           </div>
 
@@ -678,7 +714,7 @@ export default function ClientesTodosView({
 
                                   <div className="flex items-center gap-3">
                                     <span className="font-extrabold text-white">
-                                      ${cuota.montoCuota.toLocaleString('es-AR')}
+                                      ${((cuota as any).montoCuota || cuota.valorTotalCuota || 0).toLocaleString('es-AR')}
                                     </span>
 
                                     <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded-md border ${

@@ -114,10 +114,10 @@ export default function ClientesView({
 
   const handleStartEditLoan = (loan: Operacion) => {
     setEditingLoan(loan);
-    setEditMontoPrestamo(String(loan.capitalEntregado || loan.montoPrestamo || 0));
-    setEditMontoTotal(String(loan.totalFinanciado || loan.montoTotalDevolver || 0));
+    setEditMontoPrestamo(String(loan.capitalEntregado || (loan as any).montoPrestamo || 0));
+    setEditMontoTotal(String(loan.totalFinanciado || (loan as any).montoTotalDevolver || 0));
     setEditValorCuota(String(loan.valorCuota || 0));
-    setEditCantidadCuotas(String(loan.cantidadCuotas || loan.cuotasTotales || 0));
+    setEditCantidadCuotas(String(loan.cantidadCuotas || (loan as any).cuotasTotales || 0));
     setEditFrecuencia((loan.frecuencia as any) || 'DIARIO');
     setEditEstado((loan.estado as any) || 'ACTIVA');
   };
@@ -2745,8 +2745,8 @@ export default function ClientesView({
                           <tr key={loan.id} className="hover:bg-emerald-900/40 transition-colors">
                             <td className="py-3 px-4 font-bold font-mono text-white">{loan.id}</td>
                             <td className="py-3 px-4 text-emerald-200/80">{loan.fechaOtorgamiento}</td>
-                            <td className="py-3 px-4 font-semibold text-white">${(Number(loan.capitalEntregado) || Number(loan.montoPrestamo) || 0).toLocaleString('es-AR')}</td>
-                            {verIngresosCliente && <td className="py-3 px-4 font-semibold text-white">${(Number(loan.totalFinanciado) || Number(loan.montoTotalDevolver) || 0).toLocaleString('es-AR')}</td>}
+                            <td className="py-3 px-4 font-semibold text-white">${(Number(loan.capitalEntregado) || Number((loan as any).montoPrestamo) || 0).toLocaleString('es-AR')}</td>
+                            {verIngresosCliente && <td className="py-3 px-4 font-semibold text-white">${(Number(loan.totalFinanciado) || Number((loan as any).montoTotalDevolver) || 0).toLocaleString('es-AR')}</td>}
                             <td className="py-3 px-4 text-emerald-200/70 uppercase tracking-wide text-[10px]">{loan.frecuencia}</td>
                             <td className="py-3 px-4 text-center font-bold">
                               {loan.estado === 'FINALIZADA' ? (
