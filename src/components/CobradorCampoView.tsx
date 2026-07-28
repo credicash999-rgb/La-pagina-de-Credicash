@@ -286,6 +286,9 @@ export default function CobradorCampoView({
     );
 
     if (clientOps.length === 0) {
+      if (cliente.estado === 'INACTIVO' && cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0) {
+        return true;
+      }
       return false;
     }
 
@@ -303,29 +306,21 @@ export default function CobradorCampoView({
     if (cliente.estado === 'INACTIVO' && cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0) {
       return true;
     }
-
-    const todayTime = new Date(todayStr + 'T00:00:00').getTime();
+    if (cliente.diasMora && cliente.diasMora > 0) {
+      return true;
+    }
 
     return clientOps.some(op => {
-      const umbral = getThresholdForFrecuencia(op.frecuencia);
-
-      if (op.diasMora && op.diasMora >= umbral) return true;
-      if (cliente.diasMora && cliente.diasMora >= umbral) return true;
+      if (op.estado === 'VENCIDA' || (op.diasMora && op.diasMora > 0)) return true;
 
       let opCuotas = cuotas.filter(cu => cu.idOperacion === op.id && cu.estado !== 'PAGADA');
       if (opCuotas.length === 0) {
         opCuotas = generarPlanCuotas(op, []).filter(cu => cu.estado !== 'PAGADA');
       }
 
-      // Overdue cuotas: strictly due BEFORE todayStr
-      const overdueCuotas = opCuotas.filter(cu => cu.estado !== 'PAGADA' && cu.fechaVencimiento < todayStr);
-      if (overdueCuotas.length === 0) return false;
-
-      return overdueCuotas.some(cu => {
-        const vencTime = new Date(cu.fechaVencimiento + 'T00:00:00').getTime();
-        const diasAtraso = Math.max(0, Math.floor((todayTime - vencTime) / (1000 * 60 * 60 * 24)));
-        return diasAtraso >= umbral;
-      });
+      // Overdue or due today cuotas
+      const activePendingCuotas = opCuotas.filter(cu => cu.estado !== 'PAGADA' && cu.fechaVencimiento <= todayStr);
+      return activePendingCuotas.length > 0;
     });
   };
 

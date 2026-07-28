@@ -705,36 +705,51 @@ export default function ClientesTodosView({
                                 No hay detalle de cuotas individuales para este crédito.
                               </div>
                             ) : (
-                              loanCuotas.map(cuota => (
-                                <div key={cuota.id} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-800/40 transition-colors">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-white w-20">Cuota N° {cuota.numeroCuota}</span>
-                                    <span className="text-slate-400">Vencimiento: {cuota.fechaVencimiento}</span>
-                                  </div>
+                              loanCuotas.map(cuota => {
+                                const todayStr = new Date().toISOString().split('T')[0];
+                                const isPagada = cuota.estado === 'PAGADA';
+                                const isOverdue = !isPagada && (cuota.estado === 'VENCIDA' || cuota.fechaVencimiento < todayStr);
+                                const isParcial = cuota.estado === 'PAGO_PARCIAL';
 
-                                  <div className="flex items-center gap-3">
-                                    <span className="font-extrabold text-white">
-                                      ${((cuota as any).montoCuota || cuota.valorTotalCuota || 0).toLocaleString('es-AR')}
-                                    </span>
+                                let badgeColor = 'bg-amber-950 text-amber-400 border-amber-800';
+                                let badgeLabel = 'PENDIENTE';
 
-                                    <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded-md border ${
-                                      cuota.estado === 'PAGADA'
-                                        ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                                        : cuota.estado === 'PAGO_PARCIAL'
-                                        ? 'bg-amber-950 text-amber-300 border-amber-800'
-                                        : 'bg-rose-950 text-rose-300 border-rose-800'
-                                    }`}>
-                                      {cuota.estado}
-                                    </span>
+                                if (isPagada) {
+                                  badgeColor = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+                                  badgeLabel = 'PAGADA';
+                                } else if (isOverdue) {
+                                  badgeColor = 'bg-rose-950 text-rose-300 border-rose-700 font-bold';
+                                  badgeLabel = 'EN MORA';
+                                } else if (isParcial) {
+                                  badgeColor = 'bg-amber-950 text-amber-300 border-amber-700';
+                                  badgeLabel = 'PAGO PARCIAL';
+                                }
 
-                                    {cuota.saldoPendiente > 0 && (
-                                      <span className="text-[11px] text-amber-300 font-bold">
-                                        Resta: ${cuota.saldoPendiente.toLocaleString('es-AR')}
+                                return (
+                                  <div key={cuota.id} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-800/40 transition-colors">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-white w-20">Cuota N° {cuota.numeroCuota}</span>
+                                      <span className="text-slate-400">Vencimiento: {cuota.fechaVencimiento}</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                      <span className="font-extrabold text-white">
+                                        ${((cuota as any).montoCuota || cuota.valorTotalCuota || 0).toLocaleString('es-AR')}
                                       </span>
-                                    )}
+
+                                      <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded-md border ${badgeColor}`}>
+                                        {badgeLabel}
+                                      </span>
+
+                                      {cuota.saldoPendiente > 0 && cuota.saldoPendiente < (cuota.valorTotalCuota || 0) && (
+                                        <span className="text-[11px] text-amber-300 font-bold">
+                                          Resta: ${cuota.saldoPendiente.toLocaleString('es-AR')}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ))
+                                );
+                              })
                             )}
                           </div>
                         </div>

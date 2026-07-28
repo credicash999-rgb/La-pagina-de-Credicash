@@ -185,6 +185,9 @@ export function generarPlanCuotas(
 
     const cuotaNumero = i + 1;
     const esPagada = cuotaNumero <= (operacion.cuotasPagadas || 0);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const fechaVenc = fechasVencimiento[i];
+    const esVencida = !esPagada && fechaVenc < todayStr;
 
     cuotas.push({
       id: `${idOperacion}-CUO-${String(cuotaNumero).padStart(2, '0')}`,
@@ -194,15 +197,15 @@ export function generarPlanCuotas(
       numeroCredito,
       numeroCuota: cuotaNumero,
       frecuencia,
-      fechaVencimiento: fechasVencimiento[i],
+      fechaVencimiento: fechaVenc,
       capitalCuota: cap,
       interesCuota: int,
       valorTotalCuota: tot,
-      estado: esPagada ? 'PAGADA' : 'PENDIENTE',
+      estado: esPagada ? 'PAGADA' : (esVencida ? 'VENCIDA' : 'PENDIENTE'),
       fechaPago: esPagada ? (operacion.ultimoPago || (operacion as any).fechaEntrega || operacion.fechaOtorgamiento || '') : '',
       importePagado: esPagada ? tot : 0,
       saldoPendiente: esPagada ? 0 : tot,
-      diasAtraso: 0,
+      diasAtraso: esVencida ? Math.max(1, Math.floor((new Date(todayStr + 'T00:00:00').getTime() - new Date(fechaVenc + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))) : 0,
       cobrador: operacion.cobrador,
       observaciones: '',
     });

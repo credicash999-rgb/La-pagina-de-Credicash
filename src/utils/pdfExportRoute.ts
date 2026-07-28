@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { Cliente, Operacion, Cuota } from '../types';
+import { generarPlanCuotas } from './cuotasGenerator';
 
 export function exportDailyRoutePDF(
   cobradorNombre: string,
@@ -53,8 +54,8 @@ export function exportDailyRoutePDF(
   doc.text('N°', 12, y + 5);
   doc.text('CLIENTE / DNI / TEL', 20, y + 5);
   doc.text('DIRECCIÓN DOMICILIO', 75, y + 5);
-  doc.text('CUOTAS / MORA', 120, y + 5);
-  doc.text('TOTAL ABONAR / MÍNIMO', 152, y + 5);
+  doc.text('CUOTAS EN MORA', 120, y + 5);
+  doc.text('TOTAL DEUDA / MÍNIMO', 152, y + 5);
   doc.text('FIRMA / COBRO ($)', 178, y + 5);
 
   y += 9;
@@ -71,21 +72,33 @@ export function exportDailyRoutePDF(
       doc.text('N°', 12, y + 5);
       doc.text('CLIENTE / DNI / TEL', 20, y + 5);
       doc.text('DIRECCIÓN DOMICILIO', 75, y + 5);
-      doc.text('CUOTAS / MORA', 120, y + 5);
-      doc.text('TOTAL ABONAR / MÍNIMO', 152, y + 5);
+      doc.text('CUOTAS EN MORA', 120, y + 5);
+      doc.text('TOTAL DEUDA / MÍNIMO', 152, y + 5);
       doc.text('FIRMA / COBRO ($)', 178, y + 5);
       y += 9;
     }
 
-    const cOps = operaciones.filter(o => o.idCliente === cli.id && (o.estado === 'ACTIVA' || o.estado === 'VENCIDA'));
-    const cCuotas = cuotas.filter(cu => cOps.some(o => o.id === cu.idOperacion) && cu.estado !== 'PAGADA');
-    const totalDeudaCuotas = cCuotas.reduce((sum, cu) => sum + cu.saldoPendiente, 0);
+    const cOps = operaciones.filter(o => o.idCliente === cli.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
+    let cCuotas = cuotas.filter(cu => cOps.some(o => o.id === cu.idOperacion) && cu.estado !== 'PAGADA');
+    
+    if (cCuotas.length === 0 && cOps.length > 0) {
+      cCuotas = cOps.flatMap(o => generarPlanCuotas(o, []).filter(cu => cu.estado !== 'PAGADA'));
+    }
 
     const cuotasMora = cCuotas.filter(cu => cu.fechaVencimiento < fechaStr);
+    const cuotasHoy = cCuotas.filter(cu => cu.fechaVencimiento === fechaStr);
+    
+    // Only count overdue / due today cuotas for collector total
+    let cuotasExigibles = [...cuotasMora, ...cuotasHoy];
+    if (cuotasExigibles.length === 0 && cCuotas.length > 0) {
+      cuotasExigibles = [cCuotas[0]];
+    }
+
+    const totalDeudaExigible = cuotasExigibles.reduce((sum, cu) => sum + (cu.saldoPendiente > 0 ? cu.saldoPendiente : cu.valorTotalCuota || 0), 0);
     const maxDiasMora = cOps.reduce((max, o) => Math.max(max, o.diasMora || 0), 0);
 
-    let montoAPagar = totalDeudaCuotas;
-    let montoMinimo = Math.round(totalDeudaCuotas * 0.5);
+    let montoAPagar = totalDeudaExigible;
+    let montoMinimo = cuotasExigibles.length > 1 ? Math.round(totalDeudaExigible * 0.5) : totalDeudaExigible;
 
     if (cli.estado === 'INACTIVO' || (cli.montoDeudaInactivo && cli.montoDeudaInactivo > 0)) {
       montoAPagar = cli.montoPagoInicialRefinanciacion || Math.round((cli.montoDeudaInactivo || 150000) * 0.3);
@@ -118,14 +131,14 @@ export function exportDailyRoutePDF(
     doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(`${cCuotas.length} cuotas pend.`, 120, y + 5);
+    doc.text(`${cuotasExigibles.length} cuota(s) en mora/día`, 120, y + 5);
     doc.setFontSize(7);
     doc.setTextColor(cuotasMora.length > 0 ? 225 : 100, cuotasMora.length > 0 ? 29 : 116, cuotasMora.length > 0 ? 72 : 139);
-    doc.text(cuotasMora.length > 0 ? `Mora: ${maxDiasMora} días` : `Al día (${cli.estado})`, 120, y + 10);
+    doc.text(cuotasMora.length > 0 ? `Mora: ${maxDiasMora} días` : `Cuota del Día`, 120, y + 10);
 
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(16, 185, 129); // emerald-600
+    doc.setTextColor(225, 29, 72); // rose-600 for mora debt
     doc.text(`Total: $${montoAPagar.toLocaleString('es-AR')}`, 152, y + 5);
     doc.setFontSize(7);
     doc.setTextColor(217, 119, 6); // amber-600
