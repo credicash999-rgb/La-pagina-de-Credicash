@@ -336,7 +336,15 @@ export default function CobradorCampoView({
   const myAssignedClients = rawAssigned.filter(c => {
     // Check if client has active non-finalized operations
     const activeOps = operaciones.filter(o => o.idCliente === c.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
-    if (activeOps.length === 0) return false; // Never show clients without active loans!
+    if (activeOps.length === 0) {
+      if (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0)) {
+        const isVisited = isVisitedToday(c.id);
+        const isRescheduled = Boolean(getRescheduledToday(c.id));
+        const superaUmbral = clienteSuperaUmbralCobrador(c);
+        return superaUmbral || isVisited || isRescheduled;
+      }
+      return false; // Never show clients without active loans!
+    }
 
     const activeCuotas = cuotas.filter(cu => activeOps.some(o => o.id === cu.idOperacion));
     if (activeCuotas.length > 0 && activeCuotas.every(cu => cu.estado === 'PAGADA')) {
@@ -1406,18 +1414,25 @@ export default function CobradorCampoView({
 
                         {/* FINANCIAL SUMMARY BOX */}
                         {(cliente.estado === 'INACTIVO' || (cliente.montoDeudaInactivo && cliente.montoDeudaInactivo > 0)) ? (
-                          <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 p-2.5 rounded-xl border-2 border-amber-500/80 shadow-lg space-y-1.5 text-center">
-                            <span className="text-[9px] font-black text-amber-300 uppercase tracking-wider block">
-                              PAGO INICIAL PARA REFINANCIAR
-                            </span>
-                            <span className="text-2xl font-black text-yellow-300 tracking-tight block">
-                              ${(cliente.montoPagoInicialRefinanciacion || Math.round((cliente.montoDeudaInactivo || 150000) * 0.3)).toLocaleString('es-AR')}
-                            </span>
-                            {isUserAdmin && (
-                              <div className="pt-1 border-t border-amber-800/60 text-[9px] font-bold text-slate-400">
-                                Total Deuda Registrada (Admin): <span className="text-amber-200">${(cliente.montoDeudaInactivo || totalDeudaCuotas).toLocaleString('es-AR')}</span>
+                          <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 p-2.5 rounded-xl border-2 border-amber-500/80 shadow-lg text-center">
+                            <div className="grid grid-cols-2 gap-2 items-center">
+                              <div>
+                                <span className="text-[9px] font-black text-amber-300 uppercase tracking-wider block">
+                                  PAGO INICIAL REFINANCIACIÓN
+                                </span>
+                                <span className="text-lg font-black text-yellow-300 tracking-tight block">
+                                  ${(cliente.montoPagoInicialRefinanciacion || Math.round((cliente.montoDeudaInactivo || 150000) * 0.3)).toLocaleString('es-AR')}
+                                </span>
                               </div>
-                            )}
+                              <div className="border-l border-amber-800/80 pl-2">
+                                <span className="text-[9px] font-black text-emerald-300 uppercase tracking-wider block">
+                                  MÍNIMO EXIGIBLE
+                                </span>
+                                <span className="text-lg font-black text-emerald-300 tracking-tight block">
+                                  ${montoMinimoExigible.toLocaleString('es-AR')}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         ) : (
                           <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-2.5 rounded-xl border-2 border-emerald-500/80 shadow-lg text-center">
@@ -2057,18 +2072,25 @@ export default function CobradorCampoView({
 
                 {/* FINANCIAL SUMMARY BOX */}
                 {(selectedCliente.estado === 'INACTIVO' || (selectedCliente.montoDeudaInactivo && selectedCliente.montoDeudaInactivo > 0)) ? (
-                  <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 p-3.5 rounded-2xl border-2 border-amber-500/80 shadow-xl space-y-2 text-center">
-                    <span className="text-[10px] font-black text-amber-300 uppercase tracking-wider block">
-                      PAGO INICIAL PARA REFINANCIAR
-                    </span>
-                    <span className="text-3xl font-black text-yellow-300 tracking-tight block">
-                      ${(selectedCliente.montoPagoInicialRefinanciacion || Math.round((selectedCliente.montoDeudaInactivo || 150000) * 0.3)).toLocaleString('es-AR')}
-                    </span>
-                    {isUserAdmin && (
-                      <div className="pt-1.5 border-t border-amber-800/60 text-[10px] font-bold text-slate-400">
-                        Total Deuda Registrada (Sólo Visible a Administrador): <span className="text-amber-200">${(selectedCliente.montoDeudaInactivo || totalDeudaCuotas).toLocaleString('es-AR')}</span>
+                  <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 p-3.5 rounded-2xl border-2 border-amber-500/80 shadow-xl text-center">
+                    <div className="grid grid-cols-2 gap-2 items-center">
+                      <div>
+                        <span className="text-[10px] font-black text-amber-300 uppercase tracking-wider block">
+                          PAGO INICIAL REFINANCIACIÓN
+                        </span>
+                        <span className="text-2xl font-black text-yellow-300 tracking-tight block">
+                          ${(selectedCliente.montoPagoInicialRefinanciacion || Math.round((selectedCliente.montoDeudaInactivo || 150000) * 0.3)).toLocaleString('es-AR')}
+                        </span>
                       </div>
-                    )}
+                      <div className="border-l border-amber-800/80 pl-2">
+                        <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider block">
+                          MÍNIMO EXIGIBLE
+                        </span>
+                        <span className="text-2xl font-black text-emerald-300 tracking-tight block">
+                          ${montoMinimoExigible.toLocaleString('es-AR')}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 p-3 rounded-2xl border-2 border-emerald-500/80 shadow-xl text-center">
