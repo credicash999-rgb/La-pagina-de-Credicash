@@ -51,7 +51,7 @@ export default function DashboardView({
     const endDateStr = `${yearNum}-${String(monthNum).padStart(2, '0')}-${String(daysInM).padStart(2, '0')}`;
 
     // Filter ONLY active credits
-    const opsActivas = operaciones.filter(op => op.estado === 'ACTIVA');
+    const opsActivas = operaciones.filter(op => op.estado === 'ACTIVA' || op.estado === 'VENCIDA');
 
     // 1. Capital Activo Colocado Original: Suma del monto prestado de todos los créditos actualmente activos
     const capitalActivoColocadoOriginal = opsActivas.reduce((acc, op) => {
@@ -270,10 +270,11 @@ export default function DashboardView({
     return sum + Math.round(debt * 0.3);
   }, 0);
 
+  const opsActivasG = operaciones.filter(op => op.estado === 'ACTIVA' || op.estado === 'VENCIDA');
+  const capitalActivoColocado = opsActivasG.reduce((acc, op) => acc + (Number(op.capitalEntregado) || Number((op as any).montoPrestamo) || 0), 0);
+  const totalFinanciadoActivo = opsActivasG.reduce((acc, op) => acc + (Number(op.totalFinanciado) || Number((op as any).montoTotalDevolver) || 0), 0);
   const totalFinanciado = operaciones.reduce((acc, op) => acc + (Number(op.totalFinanciado) || Number((op as any).montoTotalDevolver) || 0), 0);
-  const capitalEntregado = operaciones
-    .filter(op => op.estado === 'ACTIVA' || op.estado === 'VENCIDA')
-    .reduce((acc, op) => acc + (Number(op.capitalEntregado) || Number((op as any).montoPrestamo) || 0), 0);
+  const capitalEntregado = capitalActivoColocado;
   const capitalRecuperado = operaciones.reduce((acc, op) => acc + (Number(op.capitalRecuperado) || 0), 0);
   const interesTotal = Math.max(0, totalFinanciado - capitalEntregado);
   const interesCobrado = operaciones.reduce((acc, op) => acc + (Number(op.interesCobrado) || 0), 0);
@@ -421,13 +422,13 @@ export default function DashboardView({
           {/* Grid Cards KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         
-        {/* Colocado total */}
+        {/* Capital Activo Colocado */}
         <div className="bg-emerald-950/90 p-4 rounded-2xl border border-emerald-800/80 shadow-md flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Total Colocado</span>
-            <h3 className="text-lg font-extrabold text-white">${totalFinanciado.toLocaleString('es-ES')}</h3>
+            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">Capital Activo Colocado</span>
+            <h3 className="text-lg font-extrabold text-white">${capitalActivoColocado.toLocaleString('es-AR')}</h3>
             <p className="text-[9px] text-emerald-200/80">
-              Cap. Entregado: <span className="font-semibold text-white">${capitalEntregado.toLocaleString('es-ES')}</span>
+              Financiado Activo: <span className="font-semibold text-white">${totalFinanciadoActivo.toLocaleString('es-AR')}</span>
             </p>
           </div>
           <div className="p-2.5 bg-emerald-900/80 rounded-lg text-emerald-300 border border-emerald-700 shrink-0">
