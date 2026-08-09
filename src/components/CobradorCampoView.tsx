@@ -802,7 +802,7 @@ export default function CobradorCampoView({
       opCuotas = cuotas.filter(c => c.idCliente === selectedCliente.id && c.estado !== 'PAGADA');
     }
 
-    const cuotasToProcess = sortCuotasByPaymentPriority(opCuotas, todayStr, newPago.modalidad);
+    const cuotasToProcess = sortCuotasByPaymentPriority(opCuotas, newPago.fechaPago || todayStr, newPago.modalidad);
 
     let remPago = monto;
     const affectedCuotaNums: number[] = [];
@@ -2256,7 +2256,7 @@ export default function CobradorCampoView({
                       if (amountToApply <= 0 || !selectedOperacion) return null;
 
                       const opCuotas = cuotas.filter(c => c.idOperacion === selectedOperacion.id);
-                      const cuotasSorted = sortCuotasByPaymentPriority(opCuotas, todayStr, 'PAGO_PARCIAL');
+                      const cuotasSorted = sortCuotasByPaymentPriority(opCuotas, fechaPago || todayStr, 'PAGO_PARCIAL');
 
                       let rem = amountToApply;
                       const breakdown: { num: number; fec: string; monto: number; completo: boolean; saldoRestante: number }[] = [];

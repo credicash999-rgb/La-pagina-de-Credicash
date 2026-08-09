@@ -216,8 +216,8 @@ export function generarPlanCuotas(
 
 /**
  * Ordena las cuotas impagas para imputar un pago según la prioridad de negocio:
- * 1. Cuota de HOY (fechaVencimiento === fechaReferencia)
- * 2. Cuotas VENCIDAS (fechaVencimiento < fechaReferencia), en orden DESCENDENTE de fecha (ayer antes que antes de ayer)
+ * 1. Cuota de la FECHA SELECCIONADA (o la fecha más cercana <= fechaSeleccionada)
+ * 2. Cuotas ANTERIORES / VENCIDAS (fechaVencimiento < fechaReferencia), en orden DESCENDENTE de fecha (de la más reciente hacia atrás)
  * 3. Cuotas FUTURAS (fechaVencimiento > fechaReferencia), en orden ASCENDENTE de fecha
  */
 export function sortCuotasByPaymentPriority(cuotas: Cuota[], referenceDateStr: string, modalidad?: string): Cuota[] {
@@ -230,36 +230,61 @@ export function sortCuotasByPaymentPriority(cuotas: Cuota[], referenceDateStr: s
       .sort((a, b) => b.numeroCuota - a.numeroCuota);
   }
 
-  // Regular / Opción B / Parcial:
-  return currentList.sort((a, b) => {
-    // 1. Unpaid first
-    const aPaid = a.estado === 'PAGADA' ? 1 : 0;
-    const bPaid = b.estado === 'PAGADA' ? 1 : 0;
-    if (aPaid !== bPaid) return aPaid - bPaid;
+  // Normalizador de fecha YYYY-MM-DD
+  const normalizeDate = (d?: string) => {
+    if (!d) return '';
+    const clean = d.split('T')[0].trim();
+    if (clean.includes('/')) {
+      const parts = clean.split('/');
+      if (parts.length === 3) {
+        if (parts[0].length === 4) return clean;
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return clean;
+  };
 
-    if (a.estado === 'PAGADA') return 0;
+  const refDate = normalizeDate(referenceDateStr);
 
-    // 2. Today's cuota (fechaVencimiento === referenceDateStr) gets TOP priority
-    const aIsToday = a.fechaVencimiento === referenceDateStr ? 1 : 0;
-    const bIsToday = b.fechaVencimiento === referenceDateStr ? 1 : 0;
-    if (aIsToday !== bIsToday) return bIsToday - aIsToday;
+  // Filtrar solo cuotas impagas o parcialmente pagadas
+  const unpaid = currentList.filter(c => c.estado !== 'PAGADA' && (c.saldoPendiente === undefined || c.saldoPendiente > 0));
 
-    // 3. Overdue cuotas (fechaVencimiento < referenceDateStr) get second priority,
-    // sorted DESCENDING by date (yesterday before 2 days ago)
-    const aIsOverdue = a.fechaVencimiento < referenceDateStr ? 1 : 0;
-    const bIsOverdue = b.fechaVencimiento < referenceDateStr ? 1 : 0;
-    if (aIsOverdue !== bIsOverdue) return bIsOverdue - aIsOverdue;
+  // Buscar coincidencia exacta de fecha de vencimiento con refDate.
+  // Si no hay coincidencia exacta, buscar la fecha máxima de vencimiento que sea <= refDate (la fecha más cercana hacia atrás).
+  let targetDate = refDate;
+  const hasExact = unpaid.some(c => normalizeDate(c.fechaVencimiento) === refDate);
+  if (!hasExact) {
+    const pastOrCurrentCuotas = unpaid.filter(c => normalizeDate(c.fechaVencimiento) <= refDate);
+    if (pastOrCurrentCuotas.length > 0) {
+      pastOrCurrentCuotas.sort((a, b) => normalizeDate(b.fechaVencimiento).localeCompare(normalizeDate(a.fechaVencimiento)));
+      targetDate = normalizeDate(pastOrCurrentCuotas[0].fechaVencimiento);
+    }
+  }
 
-    if (aIsOverdue && bIsOverdue) {
-      return b.fechaVencimiento.localeCompare(a.fechaVencimiento);
+  return unpaid.sort((a, b) => {
+    const aFec = normalizeDate(a.fechaVencimiento);
+    const bFec = normalizeDate(b.fechaVencimiento);
+
+    // 1. Cuota objetivo (coincide con targetDate)
+    const aIsTarget = aFec === targetDate ? 1 : 0;
+    const bIsTarget = bFec === targetDate ? 1 : 0;
+    if (aIsTarget !== bIsTarget) return bIsTarget - aIsTarget;
+
+    // 2. Cuotas pasadas / vencidas (< targetDate), ordenadas DESCENDENTE por fecha (de la más reciente hacia atrás)
+    const aIsPast = aFec < targetDate ? 1 : 0;
+    const bIsPast = bFec < targetDate ? 1 : 0;
+    if (aIsPast !== bIsPast) return bIsPast - aIsPast;
+
+    if (aIsPast && bIsPast) {
+      return bFec.localeCompare(aFec);
     }
 
-    // 4. Future cuotas (fechaVencimiento > referenceDateStr): sorted ASCENDING (closest future first)
-    if (a.fechaVencimiento !== b.fechaVencimiento) {
-      return a.fechaVencimiento.localeCompare(b.fechaVencimiento);
+    // 3. Cuotas futuras (> targetDate), ordenadas ASCENDENTE por fecha (las más cercanas a vencer primero)
+    if (aFec !== bFec) {
+      return aFec.localeCompare(bFec);
     }
 
-    // 5. Fallback tie-breaker by cuota number
+    // Desempate por número de cuota
     return a.numeroCuota - b.numeroCuota;
   });
 }
