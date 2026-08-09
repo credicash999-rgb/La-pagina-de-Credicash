@@ -126,7 +126,18 @@ export default function GestionAdministracionView({
   const handleOpenPagoModal = (opId?: string) => {
     if (!selectedCliente) return;
 
-    const opToSelect = opId || (clientOperations.length > 0 ? clientOperations[0].id : 'DEUDA_INACTIVO');
+    let opToSelect = opId;
+    if (!opToSelect) {
+      if (selectedCliente.estado === 'INACTIVO' || (selectedCliente.montoDeudaInactivo && selectedCliente.montoDeudaInactivo > 0) || (selectedCliente.montoPagoInicialRefinanciacion && selectedCliente.montoPagoInicialRefinanciacion > 0)) {
+        opToSelect = 'DEUDA_INACTIVO';
+      } else if (clientOperations.length > 0) {
+        const opWithUnpaid = clientOperations.find(op => clientCuotas.some(cu => cu.idOperacion === op.id && cu.estado !== 'PAGADA'));
+        opToSelect = opWithUnpaid ? opWithUnpaid.id : 'DEUDA_INACTIVO';
+      } else {
+        opToSelect = 'DEUDA_INACTIVO';
+      }
+    }
+
     setSelectedOperacionId(opToSelect);
 
     let suggestedMonto = 0;
@@ -172,8 +183,8 @@ export default function GestionAdministracionView({
     const assignedStaffName = cobradorComisionId || selectedCliente.cobradorAsignadoNombre || activeUser?.nombre || 'Administración';
     const newPagoId = `PAG-${String(Date.now())}`;
 
-    // A. DIRECT PAYMENT FOR INACTIVE CLIENT / REFINANCING INITIAL PAYMENT (No active loan)
-    if (selectedOperacionId === 'DEUDA_INACTIVO' || !operaciones.find(o => o.id === selectedOperacionId)) {
+    // Helper for direct inactive debt / refinancing payment execution
+    const processInactiveDebtPayment = () => {
       const currentDeuda = selectedCliente.montoDeudaInactivo !== undefined && selectedCliente.montoDeudaInactivo > 0
         ? selectedCliente.montoDeudaInactivo
         : 150000;
@@ -259,10 +270,15 @@ export default function GestionAdministracionView({
 
       setIsPagoModalOpen(false);
       alert(`✅ Pago de $${montoNum.toLocaleString('es-AR')} para cliente inactivo registrado correctamente.\n• Pago Inicial Refinanciación Restante: $${nuevoPagoInicial.toLocaleString('es-AR')}\n• Deuda Total Restante: $${nuevaDeudaInactivo.toLocaleString('es-AR')}`);
+    };
+
+    // A. DIRECT PAYMENT FOR INACTIVE CLIENT / REFINANCING INITIAL PAYMENT (No active loan)
+    if (selectedOperacionId === 'DEUDA_INACTIVO' || !operaciones.find(o => o.id === selectedOperacionId)) {
+      processInactiveDebtPayment();
       return;
     }
 
-    // B. PAYMENT FOR EXISTING ACTIVE OPERATION
+    // B. PAYMENT FOR EXISTING OPERATION
     const targetOp = operaciones.find(o => o.id === selectedOperacionId)!;
 
     // Get current unpaid cuotas for operation
@@ -275,6 +291,10 @@ export default function GestionAdministracionView({
     const sortedPending = sortCuotasByPaymentPriority(pendingOpCuotas, effectiveFechaPago);
 
     if (sortedPending.length === 0 && tipoPago !== 'ADELANTADO') {
+      if (selectedCliente.estado === 'INACTIVO' || (selectedCliente.montoDeudaInactivo !== undefined && selectedCliente.montoDeudaInactivo > 0) || (selectedCliente.montoPagoInicialRefinanciacion !== undefined && selectedCliente.montoPagoInicialRefinanciacion > 0)) {
+        processInactiveDebtPayment();
+        return;
+      }
       alert('No hay cuotas pendientes para esta operación.');
       return;
     }
