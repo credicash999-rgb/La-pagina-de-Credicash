@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Cliente, Operacion, Cuota, Pago, Feriado, 
   Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal, FichajeAsistencia,
@@ -43,12 +43,13 @@ import LiquidacionesView from './components/LiquidacionesView';
 import ClientesInactivosView from './components/ClientesInactivosView';
 import ClientesTodosView from './components/ClientesTodosView';
 import GestionAdministracionView from './components/GestionAdministracionView';
+import AlertasOportunidadesView from './components/AlertasOportunidadesView';
 
 // Icons
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
-  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX
+  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -2069,11 +2070,46 @@ export default function App() {
       })
     : pagos;
 
+  // Real-time pending opportunity / alert counter for sidebar titilating badge
+  const alertCount = useMemo(() => {
+    let count = 0;
+    try {
+      (clientes || []).forEach(c => {
+        if (c && (c.estado === 'INACTIVO' || (c.montoDeudaInactivo && c.montoDeudaInactivo > 0))) {
+          const cPagos = (pagos || []).filter(p => p && p.idCliente === c.id);
+          const refinPagos = cPagos.filter(p => (p.idOperacion && typeof p.idOperacion === 'string' && p.idOperacion.startsWith('OP-INACTIVO')) || p.modalidad === 'REFINANCIACION');
+          if (refinPagos.length > 0 || c.montoPagoInicialRefinanciacion === 0) {
+            count++;
+          }
+        }
+      });
+
+      (operaciones || []).forEach(op => {
+        if (op && (op.estado === 'ACTIVA' || op.estado === 'AL_DIA' || op.estado === 'CONGELADA')) {
+          const totalCuo = op.cantidadCuotas || 1;
+          const pagadasCount = op.cuotasPagadas || 0;
+          const pctPagado = (pagadasCount / totalCuo) * 100;
+          const pendientes = totalCuo - pagadasCount;
+          if (pctPagado >= 70 || op.elegibleRenovacion || op.elegibleAmpliacion || (pendientes <= 5 && pendientes > 0)) {
+            count++;
+          }
+        }
+      });
+    } catch (e) {
+      console.error("Error al calcular alertCount:", e);
+    }
+
+    return count;
+  }, [clientes, operaciones, pagos]);
+
   // Human readable active tab label
   const getTabLabel = () => {
     switch (activeTab) {
       case 'dashboard': return 'Consola Dashboard';
+      case 'gestion-admin': return 'Gestión Administración';
+      case 'alertas-oportunidades': return 'Alertas & Oportunidades';
       case 'clientes': return 'Buscar Cliente';
+      case 'clientes-todos': return 'Clientes (Todos)';
       case 'clientes-inactivos': return 'Clientes Inactivos con Deuda';
       case 'nuevo-cliente': return 'Nuevo Cliente (Ficha)';
       case 'operaciones': return 'Nuevo Crédito';
@@ -2081,9 +2117,8 @@ export default function App() {
       case 'pagos-whatsapp': return 'Gestión Diaria';
       case 'pagos-telefono': return 'Gestión Telefónica';
       case 'pagos-calle': return 'Gestión Domiciliaria';
-      case 'gestion-admin': return 'Gestión Administración';
+      case 'liquidaciones': return 'Liquidaciones & Comisiones';
       case 'tesoreria': return 'Caja y Tesorería';
-
       case 'configuracion': return 'Configuración';
       case 'usuarios': return 'Seguridad y Accesos';
       default: return 'Panel';
@@ -2224,6 +2259,45 @@ export default function App() {
                   </button>
                 )}
 
+                {/* GESTION ADMINISTRACION - SPECIAL ADMIN MODULE */}
+                <button
+                  onClick={() => setActiveTab('gestion-admin')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-black transition-all text-left cursor-pointer my-0.5 shadow-sm ${
+                    activeTab === 'gestion-admin'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-950/80 hover:bg-slate-800 text-emerald-300 border border-emerald-700/60 hover:border-emerald-500'
+                  }`}
+                >
+                  <ShieldCheck className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
+                  <div className="flex flex-col min-w-0 leading-tight">
+                    <span>Gestión Admin</span>
+                    <span className="text-[10px] font-bold text-emerald-200/80 mt-0.5">(Fichas & Cobros Extraordinarios)</span>
+                  </div>
+                </button>
+
+                {/* ALERTAS Y OPORTUNIDADES - SPECIAL RENEWAL & REFINANCING ALERT TAB */}
+                <button
+                  onClick={() => setActiveTab('alertas-oportunidades')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-black transition-all text-left cursor-pointer my-0.5 shadow-sm relative overflow-hidden ${
+                    activeTab === 'alertas-oportunidades'
+                      ? 'bg-gradient-to-r from-amber-600 via-emerald-600 to-teal-600 text-white border-2 border-amber-400 ring-2 ring-amber-500/30'
+                      : 'bg-slate-950/80 hover:bg-slate-800 text-amber-300 border border-amber-700/60 hover:border-amber-500'
+                  }`}
+                >
+                  <Bell className={`w-4.5 h-4.5 shrink-0 ${alertCount > 0 ? 'text-amber-300 animate-bounce' : 'text-amber-400'}`} />
+                  <div className="flex flex-col min-w-0 leading-tight flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span>Alertas & Oportunidades</span>
+                      {alertCount > 0 && (
+                        <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-xs border border-amber-300">
+                          {alertCount}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-200/80 mt-0.5">(Renovaciones & Refinanciaciones)</span>
+                  </div>
+                </button>
+
                 {activeUserRole.verClientes && (
                   <button
                     onClick={() => setActiveTab('clientes')}
@@ -2352,21 +2426,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* GESTION ADMINISTRACION - SPECIAL ADMIN MODULE */}
-                <button
-                  onClick={() => setActiveTab('gestion-admin')}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-black transition-all text-left cursor-pointer my-1 shadow-sm ${
-                    activeTab === 'gestion-admin'
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
-                      : 'bg-slate-950/80 hover:bg-slate-800 text-emerald-300 border border-emerald-700/60 hover:border-emerald-500'
-                  }`}
-                >
-                  <ShieldCheck className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
-                  <div className="flex flex-col min-w-0 leading-tight">
-                    <span>Gestión Admin</span>
-                    <span className="text-[10px] font-bold text-emerald-200/80 mt-0.5">(Fichas & Cobros Extraordinarios)</span>
-                  </div>
-                </button>
 
 
                 {activeUserRole.verTesoreria && (
@@ -2822,6 +2881,22 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'alertas-oportunidades' && (
+            <AlertasOportunidadesView
+              clientes={clientes}
+              operaciones={operaciones}
+              cuotas={cuotas}
+              pagos={pagos}
+              usuarios={usuarios}
+              activeUser={activeUser}
+              configuracion={configuracion}
+              feriados={feriados}
+              onAddOperacion={handleAddOperacion}
+              onUpdateCliente={handleUpdateCliente}
+              onUpdateOperacion={handleUpdateOperacionWithCuotas}
+            />
+          )}
+
           {activeTab === 'liquidaciones' && (
             <LiquidacionesView
               usuarios={usuarios}
@@ -2893,7 +2968,7 @@ export default function App() {
           {(![
             'dashboard', 'clientes', 'clientes-inactivos', 'clientes-todos', 'nuevo-cliente',
             'operaciones', 'pagos', 'pagos-whatsapp', 'pagos-telefono',
-            'pagos-calle', 'cobrador-campo', 'gestion-admin', 'liquidaciones', 'tesoreria',
+            'pagos-calle', 'cobrador-campo', 'gestion-admin', 'alertas-oportunidades', 'liquidaciones', 'tesoreria',
             'configuracion', 'usuarios'
           ].includes(activeTab) ||
             (activeTab === 'dashboard' && !activeUserRole.verDashboard) ||

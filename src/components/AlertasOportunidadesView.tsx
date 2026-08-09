@@ -1,0 +1,896 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useMemo } from 'react';
+import { Cliente, Operacion, Cuota, Pago, UsuarioRol, Configuracion, FrecuenciaPago } from '../types';
+import { generarPlanCuotas, calcularMesesFinanciados, obtenerProximoDiaHabil } from '../utils/cuotasGenerator';
+import { 
+  Bell, RefreshCw, Briefcase, UserCheck, ShieldCheck, CheckCircle2, 
+  AlertCircle, DollarSign, Calendar, Search, Filter, Phone, MessageCircle, 
+  X, Eye, User, Award, ArrowRight, TrendingUp, Sparkles, AlertTriangle
+} from 'lucide-react';
+
+interface AlertasOportunidadesViewProps {
+  clientes: Cliente[];
+  operaciones: Operacion[];
+  cuotas: Cuota[];
+  pagos: Pago[];
+  usuarios: UsuarioRol[];
+  activeUser: UsuarioRol;
+  configuracion: Configuracion;
+  feriados: any[];
+  onAddOperacion: (operacion: Operacion, cuotasGeneradas: Cuota[]) => void;
+  onUpdateCliente: (cliente: Cliente) => void;
+  onUpdateOperacion?: (operacion: Operacion) => void;
+}
+
+export type TipoAlerta = 'REFINANCIACION_LISTA' | 'RENOVACION_ELEGIBLE' | 'PROXIMO_A_FINALIZAR';
+
+export interface ItemOportunidad {
+  id: string;
+  tipoAlerta: TipoAlerta;
+  cliente: Cliente;
+  operacionAsociada?: Operacion;
+  montoPagoInicialAbonado?: number;
+  montoDeudaRestante?: number;
+  porcentajePagado?: number;
+  cuotasPendientes?: number;
+  cuotasPagadas?: number;
+  totalCuotas?: number;
+  detalleEstado: string;
+}
+
+export default function AlertasOportunidadesView({
+  clientes,
+  operaciones,
+  cuotas,
+  pagos,
+  usuarios,
+  activeUser,
+  configuracion,
+  feriados,
+  onAddOperacion,
+  onUpdateCliente,
+  onUpdateOperacion,
+}: AlertasOportunidadesViewProps) {
+
+  // State Filters
+  const [categoriaFiltro, setCategoriaFiltro] = useState<'TODAS' | 'REFINANCIACION' | 'RENOVACION' | 'PROXIMOS'>('TODAS');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [cobradorFiltro, setCobradorFiltro] = useState<string>('TODOS');
+
+  // Modal States
+  const [selectedItemFicha, setSelectedItemFicha] = useState<ItemOportunidad | null>(null);
+  const [selectedItemCredito, setSelectedItemCredito] = useState<ItemOportunidad | null>(null);
+
+  // Form State for "Otorgar Nuevo Crédito / Renovación" Modal
+  const [tipoOperacionForm, setTipoOperacionForm] = useState<'NUEVO' | 'RENOVACION' | 'AMPLIACION' | 'REFINANCIACION'>('RENOVACION');
+  const [capitalEntregadoForm, setCapitalEntregadoForm] = useState<number>(100000);
+  const [frecuenciaForm, setFrecuenciaForm] = useState<FrecuenciaPago>('DIARIA');
+  const [cantidadCuotasForm, setCantidadCuotasForm] = useState<number>(20);
+  const [fechaOtorgamientoForm, setFechaOtorgamientoForm] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [primerVencimientoForm, setPrimerVencimientoForm] = useState<string>('');
+  const [cobradorAsignadoForm, setCobradorAsignadoForm] = useState<string>('');
+  const [observacionesForm, setObservacionesForm] = useState<string>('Otorgado desde Alertas y Oportunidades');
+
+  // String array of holiday YYYY-MM-DD dates for cuotasGenerator
+  const feriadosList = useMemo(() => {
+    return (feriados || []).map((f: any) => typeof f === 'string' ? f : f?.fecha).filter(Boolean);
+  }, [feriados]);
+
+  // 1. Compute list of opportunities / alert items
+  const oportunidades = useMemo(() => {
+    const list: ItemOportunidad[] = [];
+    try {
+      // A. REFINANCIACIONES LISTAS (Clientes inactivos con pago inicial de refinanciación realizado o pago registrado)
+      (clientes || []).forEach(cli => {
+        if (!cli) return;
+        const isInactiveOrDebt = cli.estado === 'INACTIVO' || (cli.montoDeudaInactivo && cli.montoDeudaInactivo > 0);
+        if (!isInactiveOrDebt) return;
+
+        // Check if client made payments towards refinancing
+        const clientPagos = (pagos || []).filter(p => p && p.idCliente === cli.id);
+        const refinPagos = clientPagos.filter(p => (p.idOperacion && typeof p.idOperacion === 'string' && p.idOperacion.startsWith('OP-INACTIVO')) || p.modalidad === 'REFINANCIACION');
+        const totalAbonado = refinPagos.reduce((acc, p) => acc + (p.importe || 0), 0);
+
+        const pagoInicialOriginal = cli.montoPagoInicialRefinanciacion !== undefined 
+          ? cli.montoPagoInicialRefinanciacion 
+          : Math.round((cli.montoDeudaInactivo || 150000) * 0.10);
+
+        // If client paid towards refinancing initial payment OR pagoInicial is 0
+        if (totalAbonado > 0 || cli.montoPagoInicialRefinanciacion === 0) {
+          list.push({
+            id: `OPORT-REFIN-${cli.id}`,
+            tipoAlerta: 'REFINANCIACION_LISTA',
+            cliente: cli,
+            montoPagoInicialAbonado: totalAbonado,
+            montoDeudaRestante: cli.montoDeudaInactivo || 0,
+            detalleEstado: totalAbonado >= pagoInicialOriginal || cli.montoPagoInicialRefinanciacion === 0
+              ? '✅ Pago Inicial de Refinanciación 100% abonado. Listo para estructurar nuevo crédito refinanciado.'
+              : `⚡ Registró pago parcial de refinanciación ($${totalAbonado.toLocaleString('es-AR')}). Listo para armar plan de cuotas.`,
+          });
+        }
+      });
+
+      // B. ELEGIBLES PARA RENOVACIÓN O AMPLIACIÓN / PRÓXIMOS A VENCER
+      (operaciones || []).forEach(op => {
+        if (!op || (op.estado !== 'ACTIVA' && op.estado !== 'AL_DIA' && op.estado !== 'CONGELADA')) return;
+
+        const cli = (clientes || []).find(c => c && c.id === op.idCliente);
+        if (!cli) return;
+
+        const opCuotas = (cuotas || []).filter(cu => cu && cu.idOperacion === op.id);
+        const totalCuo = op.cantidadCuotas || opCuotas.length || 1;
+        const pagadasCount = op.cuotasPagadas || opCuotas.filter(cu => cu && cu.estado === 'PAGADA').length;
+        const pendientesCount = totalCuo - pagadasCount;
+
+        const pctPagado = Math.round((pagadasCount / totalCuo) * 100);
+
+        // 1. Elegible Renovación: >= 70% pagado o flag elegibleRenovacion
+        if (pctPagado >= 70 || op.elegibleRenovacion || op.elegibleAmpliacion) {
+          // Prevent duplicate if already listed under refinanciacion
+          if (!list.some(item => item.cliente.id === cli.id && item.tipoAlerta === 'REFINANCIACION_LISTA')) {
+            list.push({
+              id: `OPORT-RENOV-${op.id}`,
+              tipoAlerta: 'RENOVACION_ELEGIBLE',
+              cliente: cli,
+              operacionAsociada: op,
+              porcentajePagado: pctPagado,
+              cuotasPagadas: pagadasCount,
+              cuotasPendientes: pendientesCount,
+              totalCuotas: totalCuo,
+              detalleEstado: `🔄 Completó el ${pctPagado}% del crédito (#${op.id}). Elegible para renovación con/sin ampliación.`,
+            });
+          }
+        }
+
+        // 2. Próximos a finalizar: Restan <= 5 cuotas y aún no agregado como renovación
+        else if (pendientesCount <= 5 && pendientesCount > 0) {
+          if (!list.some(item => item.cliente.id === cli.id)) {
+            list.push({
+              id: `OPORT-PROX-${op.id}`,
+              tipoAlerta: 'PROXIMO_A_FINALIZAR',
+              cliente: cli,
+              operacionAsociada: op,
+              porcentajePagado: pctPagado,
+              cuotasPagadas: pagadasCount,
+              cuotasPendientes: pendientesCount,
+              totalCuotas: totalCuo,
+              detalleEstado: `⏱️ Restan solo ${pendientesCount} cuotas para finalizar su crédito (#${op.id}). Preparar propuesta de renovación.`,
+            });
+          }
+        }
+      });
+    } catch (err) {
+      console.error("Error al calcular oportunidades:", err);
+    }
+
+    return list;
+  }, [clientes, operaciones, cuotas, pagos]);
+
+  // Filtered Opportunities list
+  const oportunidadesFiltradas = useMemo(() => {
+    return oportunidades.filter(item => {
+      // Category Filter
+      if (categoriaFiltro === 'REFINANCIACION' && item.tipoAlerta !== 'REFINANCIACION_LISTA') return false;
+      if (categoriaFiltro === 'RENOVACION' && item.tipoAlerta !== 'RENOVACION_ELEGIBLE') return false;
+      if (categoriaFiltro === 'PROXIMOS' && item.tipoAlerta !== 'PROXIMO_A_FINALIZAR') return false;
+
+      // Collector Filter
+      if (cobradorFiltro !== 'TODOS') {
+        const cob = item.cliente.cobradorAsignadoNombre || item.operacionAsociada?.cobrador;
+        if (cob !== cobradorFiltro) return false;
+      }
+
+      // Search Filter
+      if (searchTerm.trim()) {
+        const query = searchTerm.toLowerCase();
+        const fullNombre = `${item.cliente.nombre} ${item.cliente.apellido || ''}`.toLowerCase();
+        const dni = item.cliente.dni || '';
+        const tel = item.cliente.telefono || '';
+        const opId = item.operacionAsociada?.id || '';
+        return fullNombre.includes(query) || dni.includes(query) || tel.includes(query) || opId.toLowerCase().includes(query);
+      }
+
+      return true;
+    });
+  }, [oportunidades, categoriaFiltro, cobradorFiltro, searchTerm]);
+
+  // Counts for summary cards
+  const countRefinanciaciones = oportunidades.filter(o => o.tipoAlerta === 'REFINANCIACION_LISTA').length;
+  const countRenovaciones = oportunidades.filter(o => o.tipoAlerta === 'RENOVACION_ELEGIBLE').length;
+  const countProximos = oportunidades.filter(o => o.tipoAlerta === 'PROXIMO_A_FINALIZAR').length;
+
+  // Open Credit Generator Modal initialized with opportunity data
+  const handleOpenCreditoModal = (item: ItemOportunidad) => {
+    setSelectedItemCredito(item);
+    
+    // Set smart defaults
+    if (item.tipoAlerta === 'REFINANCIACION_LISTA') {
+      setTipoOperacionForm('REFINANCIACION');
+      const capitalSugerido = item.montoDeudaRestante && item.montoDeudaRestante > 0 ? item.montoDeudaRestante : 100000;
+      setCapitalEntregadoForm(capitalSugerido);
+    } else {
+      setTipoOperacionForm('RENOVACION');
+      const capitalPrevio = item.operacionAsociada?.capitalEntregado || 100000;
+      setCapitalEntregadoForm(capitalPrevio);
+    }
+
+    setFrecuenciaForm('DIARIA');
+    setCantidadCuotasForm(20);
+    const today = new Date().toISOString().split('T')[0];
+    setFechaOtorgamientoForm(today);
+
+    // Calculate primer vencimiento
+    const grantDate = new Date(today + 'T12:00:00');
+    const nextDay = new Date(grantDate.getTime() + 24 * 60 * 60 * 1000);
+    const calculatedFirst = obtenerProximoDiaHabil(nextDay, feriadosList);
+    setPrimerVencimientoForm(calculatedFirst.toISOString().split('T')[0]);
+
+    setCobradorAsignadoForm(item.cliente.cobradorAsignadoNombre || item.operacionAsociada?.cobrador || activeUser.nombre);
+    setObservacionesForm(`Otorgado desde Alertas & Oportunidades (${item.tipoAlerta})`);
+  };
+
+  // Submit Credit Creation
+  const handleConfirmCrearCredito = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedItemCredito) return;
+
+    const cli = selectedItemCredito.cliente;
+    const newOpId = `OPE-${String(Date.now()).slice(-6)}`;
+
+    // Calculate financial metrics
+    const meses = calcularMesesFinanciados(frecuenciaForm, cantidadCuotasForm);
+    let tasa = 50;
+    if (frecuenciaForm === 'DIARIA') tasa = configuracion.interesDiario;
+    else if (frecuenciaForm === 'SEMANAL') tasa = configuracion.interesSemanal;
+    else if (frecuenciaForm === 'QUINCENAL') tasa = configuracion.interesQuincenal;
+    else if (frecuenciaForm === 'MENSUAL') tasa = configuracion.interesMensual;
+
+    const interesTotal = capitalEntregadoForm * (tasa / 100) * meses;
+    const totalFinanciado = capitalEntregadoForm + interesTotal;
+    const valorCuota = parseFloat((totalFinanciado / cantidadCuotasForm).toFixed(2));
+
+    const nuevaOp: Operacion = {
+      id: newOpId,
+      idCliente: cli.id,
+      nombreCliente: `${cli.nombre} ${cli.apellido || ''}`.trim(),
+      fechaOtorgamiento: fechaOtorgamientoForm,
+      capitalEntregado: capitalEntregadoForm,
+      promocionAplicada: '',
+      descuentoPorcentaje: 0,
+      totalFinanciado,
+      totalPendiente: totalFinanciado,
+      capitalPendiente: capitalEntregadoForm,
+      capitalRecuperado: 0,
+      interesCobrado: 0,
+      cantidadCuotas: cantidadCuotasForm,
+      cuotasPagadas: 0,
+      cuotasPendientes: cantidadCuotasForm,
+      valorCuota,
+      frecuencia: frecuenciaForm,
+      estado: 'ACTIVA',
+      tipoOperacion: tipoOperacionForm,
+      descripcion: `Crédito ${tipoOperacionForm} - ${frecuenciaForm}`,
+      primerVencimiento: primerVencimientoForm,
+      ultimoVencimiento: '',
+      proximoVencimiento: primerVencimientoForm,
+      ultimoPago: '',
+      captador: cli.captador || activeUser.nombre,
+      analista: cli.analista || activeUser.nombre,
+      ejecutivoAtencion: activeUser.nombre,
+      cobrador: cobradorAsignadoForm || cli.cobradorAsignadoNombre || 'Administración',
+      diasMora: 0,
+      nivelMora: 'Normal',
+      numeroCredito: (operaciones.filter(o => o.idCliente === cli.id).length) + 1,
+      mesesFinanciados: meses,
+      elegibleRenovacion: false,
+      elegibleAmpliacion: false,
+      fechaFinalizacion: '',
+      motivoCierre: '',
+      observaciones: observacionesForm,
+      cuotasGeneradas: true
+    };
+
+    // Generate Plan Cuotas
+    const nuevasCuotas = generarPlanCuotas(nuevaOp, feriadosList);
+    if (nuevasCuotas.length > 0) {
+      nuevaOp.ultimoVencimiento = nuevasCuotas[nuevasCuotas.length - 1].fechaVencimiento;
+    }
+
+    // Call onAddOperacion
+    onAddOperacion(nuevaOp, nuevasCuotas);
+
+    // If client was INACTIVO or had inactive debt, update client to ACTIVO
+    if (cli.estado === 'INACTIVO' || (cli.montoDeudaInactivo && cli.montoDeudaInactivo > 0) || (cli.montoPagoInicialRefinanciacion && cli.montoPagoInicialRefinanciacion > 0)) {
+      onUpdateCliente({
+        ...cli,
+        estado: 'ACTIVO',
+        montoDeudaInactivo: 0,
+        montoPagoInicialRefinanciacion: 0
+      });
+    }
+
+    setSelectedItemCredito(null);
+    alert(`🎉 ¡Crédito #${newOpId} por $${totalFinanciado.toLocaleString('es-AR')} otorgado con éxito a ${cli.nombre} ${cli.apellido || ''}!\nSe generaron ${nuevasCuotas.length} cuotas.`);
+  };
+
+  return (
+    <div className="space-y-6">
+      
+      {/* Header Banner with Blinking Alert Indicator */}
+      <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 border-2 border-emerald-500/80 p-5 rounded-2xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
+        <div className="flex items-center gap-4 z-10">
+          <div className="relative">
+            <div className="w-12 h-12 bg-emerald-600 text-slate-950 rounded-2xl flex items-center justify-center font-black shadow-lg">
+              <Bell className="w-6 h-6 animate-bounce text-slate-950" />
+            </div>
+            {oportunidades.length > 0 && (
+              <span className="absolute -top-2 -right-2 bg-amber-400 text-slate-950 text-xs font-black px-2 py-0.5 rounded-full border-2 border-slate-950 animate-pulse">
+                {oportunidades.length}
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black text-white tracking-wide">Alertas y Oportunidades Comercial/Admin</h1>
+              <span className="bg-amber-400/20 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-400/40 animate-pulse flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-300" /> Atenciones Pendientes
+              </span>
+            </div>
+            <p className="text-xs text-emerald-200/90 font-medium mt-1">
+              Listado en tiempo real de clientes con pago inicial refinanciado listo, aptos para renovación y próximos a finalizar crédito.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
+          <button 
+            onClick={() => setCategoriaFiltro('TODAS')}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+              categoriaFiltro === 'TODAS'
+                ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow-md font-black'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+          >
+            Ver Todas ({oportunidades.length})
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <button
+          onClick={() => setCategoriaFiltro(categoriaFiltro === 'REFINANCIACION' ? 'TODAS' : 'REFINANCIACION')}
+          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+            categoriaFiltro === 'REFINANCIACION'
+              ? 'bg-purple-950/80 border-purple-400 ring-2 ring-purple-500/30'
+              : 'bg-slate-900 border-slate-800 hover:border-purple-600/60'
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block mb-1">
+              Refinanciaciones Listas
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black text-white">{countRefinanciaciones}</span>
+              <span className="text-xs text-purple-300 font-medium">con pago inicial ok</span>
+            </div>
+          </div>
+          <div className="w-10 h-10 bg-purple-900/60 border border-purple-500/40 text-purple-300 rounded-xl flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => setCategoriaFiltro(categoriaFiltro === 'RENOVACION' ? 'TODAS' : 'RENOVACION')}
+          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+            categoriaFiltro === 'RENOVACION'
+              ? 'bg-emerald-950/80 border-emerald-400 ring-2 ring-emerald-500/30'
+              : 'bg-slate-900 border-slate-800 hover:border-emerald-600/60'
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block mb-1">
+              Elegibles Renovación
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black text-white">{countRenovaciones}</span>
+              <span className="text-xs text-emerald-300 font-medium">≥70% o autorizados</span>
+            </div>
+          </div>
+          <div className="w-10 h-10 bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 rounded-xl flex items-center justify-center">
+            <RefreshCw className="w-5 h-5" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => setCategoriaFiltro(categoriaFiltro === 'PROXIMOS' ? 'TODAS' : 'PROXIMOS')}
+          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+            categoriaFiltro === 'PROXIMOS'
+              ? 'bg-amber-950/80 border-amber-400 ring-2 ring-amber-500/30'
+              : 'bg-slate-900 border-slate-800 hover:border-amber-600/60'
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block mb-1">
+              Próximos a Finalizar
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black text-white">{countProximos}</span>
+              <span className="text-xs text-amber-300 font-medium">≤ 5 cuotas restan</span>
+            </div>
+          </div>
+          <div className="w-10 h-10 bg-amber-900/60 border border-amber-500/40 text-amber-300 rounded-xl flex items-center justify-center">
+            <Calendar className="w-5 h-5" />
+          </div>
+        </button>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3 shadow-md">
+        <div className="relative w-full md:w-80">
+          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por cliente, DNI, teléfono o #crédito..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-950 text-white pl-9 pr-4 py-2 rounded-xl text-xs border border-slate-700 focus:outline-none focus:border-emerald-500 font-medium"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+          <div className="flex items-center gap-2 bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-xl">
+            <Filter className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-xs text-slate-300 font-bold">Cobrador:</span>
+            <select
+              value={cobradorFiltro}
+              onChange={(e) => setCobradorFiltro(e.target.value)}
+              className="bg-transparent text-xs font-bold text-emerald-400 focus:outline-none cursor-pointer"
+            >
+              <option value="TODOS" className="bg-slate-900 text-white">Todos los cobradores</option>
+              {usuarios.map(u => (
+                <option key={u.id} value={u.nombre} className="bg-slate-900 text-white">
+                  {u.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Opportunities List */}
+      <div className="space-y-4">
+        {oportunidadesFiltradas.length === 0 ? (
+          <div className="bg-slate-900 border border-slate-800 p-12 rounded-2xl text-center space-y-3">
+            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto opacity-60" />
+            <p className="text-base font-extrabold text-slate-200">No hay alertas de oportunidad pendientes bajo este filtro</p>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              Todos los clientes están al día o no se encontraron casos que requieran atención de refinanciación o renovación inmediata.
+            </p>
+          </div>
+        ) : (
+          oportunidadesFiltradas.map((item) => {
+            const cli = item.cliente;
+            const op = item.operacionAsociada;
+
+            return (
+              <div 
+                key={item.id}
+                className={`bg-slate-900 border rounded-2xl p-5 shadow-lg transition-all hover:border-slate-600 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative overflow-hidden ${
+                  item.tipoAlerta === 'REFINANCIACION_LISTA'
+                    ? 'border-purple-500/60 bg-gradient-to-r from-purple-950/30 via-slate-900 to-slate-900'
+                    : item.tipoAlerta === 'RENOVACION_ELEGIBLE'
+                    ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/30 via-slate-900 to-slate-900'
+                    : 'border-amber-500/60 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900'
+                }`}
+              >
+                {/* Left side: Client Info & Status Badge */}
+                <div className="space-y-2 max-w-xl">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Badge */}
+                    {item.tipoAlerta === 'REFINANCIACION_LISTA' && (
+                      <span className="bg-purple-500/20 text-purple-300 border border-purple-400/40 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-purple-300" /> Refinanciación Lista
+                      </span>
+                    )}
+                    {item.tipoAlerta === 'RENOVACION_ELEGIBLE' && (
+                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 text-emerald-300" /> Renovación Elegible ({item.porcentajePagado}%)
+                      </span>
+                    )}
+                    {item.tipoAlerta === 'PROXIMO_A_FINALIZAR' && (
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-amber-300" /> Restan {item.cuotasPendientes} cuotas
+                      </span>
+                    )}
+
+                    <span className="text-xs font-bold text-slate-400">DNI: {cli.dni}</span>
+                    {cli.cobradorAsignadoNombre && (
+                      <span className="text-[11px] font-extrabold text-teal-300 bg-teal-950/60 px-2 py-0.5 rounded border border-teal-800">
+                        Cobrador: {cli.cobradorAsignadoNombre}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Name and Contact */}
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-black text-white">{cli.nombre} {cli.apellido || ''}</h2>
+                    {cli.telefono && (
+                      <a 
+                        href={`https://wa.me/${String(cli.telefono).replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 text-xs font-bold px-2 py-1 rounded-lg border border-emerald-500/40 flex items-center gap-1 transition-colors"
+                        title="Contactar vía WhatsApp"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>WhatsApp</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Detail description line */}
+                  <p className="text-xs text-slate-300 font-medium bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 leading-relaxed">
+                    {item.detalleEstado}
+                  </p>
+
+                  {/* Financial Mini Metrics */}
+                  <div className="flex flex-wrap items-center gap-4 text-xs font-extrabold text-slate-300">
+                    {item.montoPagoInicialAbonado !== undefined && (
+                      <span className="text-purple-300">
+                        Pago Inicial Abonado: <strong className="text-white">${item.montoPagoInicialAbonado.toLocaleString('es-AR')}</strong>
+                      </span>
+                    )}
+                    {item.montoDeudaRestante !== undefined && item.montoDeudaRestante > 0 && (
+                      <span className="text-rose-300">
+                        Deuda Inactiva Restante: <strong className="text-white">${item.montoDeudaRestante.toLocaleString('es-AR')}</strong>
+                      </span>
+                    )}
+                    {op && (
+                      <>
+                        <span className="text-emerald-300">
+                          Crédito Original: <strong className="text-white">${op.totalFinanciado.toLocaleString('es-AR')}</strong>
+                        </span>
+                        <span className="text-amber-300">
+                          Cuotas: <strong className="text-white">{item.cuotasPagadas} / {item.totalCuotas}</strong> ({op.frecuencia})
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right side: Action Buttons */}
+                <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
+                  <button
+                    onClick={() => setSelectedItemFicha(item)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    <Eye className="w-4 h-4 text-teal-400" />
+                    <span>Ver Última Ficha / Situación</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenCreditoModal(item)}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:scale-[1.02]"
+                  >
+                    <Briefcase className="w-4 h-4 text-slate-950" />
+                    <span>Otorgar Nuevo Crédito / Renovación</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* MODAL 1: VIEW CLIENT PROFILE / LAST SITUATION */}
+      {selectedItemFicha && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-slate-700 w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="bg-slate-950 p-4 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-800 text-white rounded-xl flex items-center justify-center font-black">
+                  <User className="w-5 h-5 text-teal-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    Ficha y Situación del Cliente
+                  </h3>
+                  <p className="text-xs text-slate-400 font-semibold">
+                    {selectedItemFicha.cliente.nombre} {selectedItemFicha.cliente.apellido || ''} — DNI {selectedItemFicha.cliente.dni}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedItemFicha(null)}
+                className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs font-medium text-slate-300">
+              {/* Personal Data Box */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                <h4 className="font-extrabold text-emerald-400 uppercase tracking-wider text-[11px]">Datos Personales & Contacto</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div><strong>Teléfono:</strong> {selectedItemFicha.cliente.telefono || 'Sin registrar'}</div>
+                  <div><strong>Dirección:</strong> {selectedItemFicha.cliente.direccion || 'Sin registrar'}</div>
+                  <div><strong>Trabajo:</strong> {selectedItemFicha.cliente.trabajo || 'Comerciante'}</div>
+                  <div><strong>Estado Actual:</strong> <span className="font-black text-amber-400">{selectedItemFicha.cliente.estado}</span></div>
+                  <div><strong>Cobrador Asignado:</strong> {selectedItemFicha.cliente.cobradorAsignadoNombre || 'No asignado'}</div>
+                  <div><strong>Captador/Analista:</strong> {selectedItemFicha.cliente.captador || 'Sistema'} / {selectedItemFicha.cliente.analista || 'Sistema'}</div>
+                </div>
+              </div>
+
+              {/* Debt & Refinancing Summary Box */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                <h4 className="font-extrabold text-purple-400 uppercase tracking-wider text-[11px]">Estado de Deuda y Refinanciación</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <strong>Deuda Inactiva Registrada:</strong> ${ (selectedItemFicha.cliente.montoDeudaInactivo || 0).toLocaleString('es-AR') }
+                  </div>
+                  <div>
+                    <strong>Pago Inicial Refinanciación Restante:</strong> ${ (selectedItemFicha.cliente.montoPagoInicialRefinanciacion || 0).toLocaleString('es-AR') }
+                  </div>
+                </div>
+                <div className="mt-2 text-slate-300 bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                  {selectedItemFicha.detalleEstado}
+                </div>
+              </div>
+
+              {/* History of Recent Operations */}
+              <div className="space-y-2">
+                <h4 className="font-extrabold text-teal-400 uppercase tracking-wider text-[11px]">Historial de Operaciones</h4>
+                {operaciones.filter(o => o.idCliente === selectedItemFicha.cliente.id).length === 0 ? (
+                  <p className="text-slate-500 italic">No posee operaciones activas registradas en el historial.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {operaciones.filter(o => o.idCliente === selectedItemFicha.cliente.id).map(op => (
+                      <div key={op.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div>
+                          <div className="font-bold text-white">Crédito #{op.id} ({op.frecuencia})</div>
+                          <div className="text-[11px] text-slate-400">
+                            Otorgado: {op.fechaOtorgamiento} | Total Financiado: ${op.totalFinanciado.toLocaleString('es-AR')}
+                          </div>
+                        </div>
+                        <span className="bg-slate-800 text-emerald-400 px-2 py-1 rounded text-[10px] font-black">
+                          {op.estado}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-950 p-4 border-t border-slate-800 flex items-center justify-between">
+              <button 
+                onClick={() => setSelectedItemFicha(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold cursor-pointer"
+              >
+                Cerrar
+              </button>
+
+              <button
+                onClick={() => {
+                  const item = selectedItemFicha;
+                  setSelectedItemFicha(null);
+                  handleOpenCreditoModal(item);
+                }}
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black cursor-pointer flex items-center gap-1.5"
+              >
+                <Briefcase className="w-4 h-4 text-slate-950" />
+                <span>Estructurar Nuevo Crédito Ahora</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: GENERATE NEW CREDIT / RENEWAL / REFINANCING */}
+      {selectedItemCredito && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border-2 border-emerald-500/80 w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl my-8">
+            
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-950 to-slate-950 p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-500 text-slate-950 rounded-xl flex items-center justify-center font-black">
+                  <Briefcase className="w-5 h-5 text-slate-950" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    Otorgar Nuevo Crédito / Renovación
+                  </h3>
+                  <p className="text-xs text-emerald-300 font-bold">
+                    Cliente: {selectedItemCredito.cliente.nombre} {selectedItemCredito.cliente.apellido || ''} (DNI {selectedItemCredito.cliente.dni})
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedItemCredito(null)}
+                className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleConfirmCrearCredito} className="p-6 space-y-4 text-xs font-bold text-slate-200">
+              
+              {/* Type of Operation */}
+              <div className="space-y-1">
+                <label className="text-emerald-400 block font-extrabold">Modalidad / Tipo de Operación:</label>
+                <select
+                  value={tipoOperacionForm}
+                  onChange={(e) => setTipoOperacionForm(e.target.value as any)}
+                  className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="RENOVACION">🔄 RENOVACIÓN CON/SIN AMPLIACIÓN</option>
+                  <option value="REFINANCIACION">⚡ REFINANCIACIÓN DE DEUDA</option>
+                  <option value="NUEVO">✨ NUEVO CRÉDITO ESTÁNDAR</option>
+                  <option value="AMPLIACION">📈 AMPLIACIÓN DE MONTO</option>
+                </select>
+              </div>
+
+              {/* Amount & Frequency */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-emerald-400 block font-extrabold">Monto Solicitado / Capital ($):</label>
+                  <input
+                    type="number"
+                    value={capitalEntregadoForm}
+                    onChange={(e) => setCapitalEntregadoForm(Number(e.target.value))}
+                    className="w-full bg-slate-950 text-white font-black text-sm p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                    required
+                    min={1000}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-emerald-400 block font-extrabold">Frecuencia de Cobro:</label>
+                  <select
+                    value={frecuenciaForm}
+                    onChange={(e) => {
+                      const frec = e.target.value as FrecuenciaPago;
+                      setFrecuenciaForm(frec);
+                      if (frec === 'DIARIA') setCantidadCuotasForm(20);
+                      else if (frec === 'SEMANAL') setCantidadCuotasForm(8);
+                      else if (frec === 'QUINCENAL') setCantidadCuotasForm(4);
+                      else if (frec === 'MENSUAL') setCantidadCuotasForm(4);
+                    }}
+                    className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="DIARIA">DIARIA (Lunes a Sábado)</option>
+                    <option value="SEMANAL">SEMANAL (Cada 7 días)</option>
+                    <option value="QUINCENAL">QUINCENAL (Cada 15 días)</option>
+                    <option value="MENSUAL">MENSUAL (Cada 30 días)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Installments & Grant Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-300 block font-bold">Cantidad Cuotas:</label>
+                  <input
+                    type="number"
+                    value={cantidadCuotasForm}
+                    onChange={(e) => setCantidadCuotasForm(Number(e.target.value))}
+                    className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                    required
+                    min={1}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-300 block font-bold">Fecha Otorgamiento:</label>
+                  <input
+                    type="date"
+                    value={fechaOtorgamientoForm}
+                    onChange={(e) => setFechaOtorgamientoForm(e.target.value)}
+                    className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-300 block font-bold">Primer Vencimiento:</label>
+                  <input
+                    type="date"
+                    value={primerVencimientoForm}
+                    onChange={(e) => setPrimerVencimientoForm(e.target.value)}
+                    className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Assigned Staff */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Cobrador Asignado:</label>
+                <select
+                  value={cobradorAsignadoForm}
+                  onChange={(e) => setCobradorAsignadoForm(e.target.value)}
+                  className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="">-- Seleccionar Cobrador --</option>
+                  {usuarios.map(u => (
+                    <option key={u.id} value={u.nombre}>
+                      {u.nombre} ({u.rolId})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Observaciones Internas:</label>
+                <input
+                  type="text"
+                  value={observacionesForm}
+                  onChange={(e) => setObservacionesForm(e.target.value)}
+                  className="w-full bg-slate-950 text-white font-medium p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Computed Live Financial Summary Preview */}
+              {(() => {
+                const meses = calcularMesesFinanciados(frecuenciaForm, cantidadCuotasForm);
+                let tasa = 50;
+                if (frecuenciaForm === 'DIARIA') tasa = configuracion.interesDiario;
+                else if (frecuenciaForm === 'SEMANAL') tasa = configuracion.interesSemanal;
+                else if (frecuenciaForm === 'QUINCENAL') tasa = configuracion.interesQuincenal;
+                else if (frecuenciaForm === 'MENSUAL') tasa = configuracion.interesMensual;
+
+                const interesTotal = capitalEntregadoForm * (tasa / 100) * meses;
+                const totalFinanciado = capitalEntregadoForm + interesTotal;
+                const valCuota = parseFloat((totalFinanciado / (cantidadCuotasForm || 1)).toFixed(2));
+
+                return (
+                  <div className="bg-emerald-950/60 border border-emerald-600/60 p-4 rounded-xl space-y-2 text-emerald-200">
+                    <div className="text-[11px] font-black uppercase text-emerald-400">Resumen Financiero Simulado:</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                      <div>Tasa Aplicada: <strong className="text-white">{tasa}%</strong></div>
+                      <div>Total Financiado: <strong className="text-white">${totalFinanciado.toLocaleString('es-AR')}</strong></div>
+                      <div>Valor Cuota ({cantidadCuotasForm}): <strong className="text-white">${valCuota.toLocaleString('es-AR')}</strong></div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSelectedItemCredito(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black cursor-pointer shadow-lg flex items-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-slate-950" />
+                  <span>Confirmar y Otorgar Crédito</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
