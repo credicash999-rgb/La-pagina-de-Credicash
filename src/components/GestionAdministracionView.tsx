@@ -50,6 +50,7 @@ export default function GestionAdministracionView({
   const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
   const [selectedOperacionId, setSelectedOperacionId] = useState<string>('');
   const [tipoPago, setTipoPago] = useState<'REGULAR' | 'PARCIAL' | 'ADELANTADO'>('REGULAR');
+  const [fechaPagoInput, setFechaPagoInput] = useState<string>('');
   const [montoIngresado, setMontoIngresado] = useState<string>('');
   const [metodoPago, setMetodoPago] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO'>('EFECTIVO');
   const [canalCobro, setCanalCobro] = useState<string>('ADMINISTRACION');
@@ -134,6 +135,7 @@ export default function GestionAdministracionView({
     const suggestedMonto = priorityCuotas.length > 0 ? (priorityCuotas[0].saldoPendiente || priorityCuotas[0].valorTotalCuota || 0) : 0;
 
     setMontoIngresado(suggestedMonto > 0 ? String(suggestedMonto) : '');
+    setFechaPagoInput(todayStr);
     setTipoPago('REGULAR');
     setMetodoPago('EFECTIVO');
     setCanalCobro('ADMINISTRACION');
@@ -156,6 +158,8 @@ export default function GestionAdministracionView({
       return;
     }
 
+    const effectiveFechaPago = fechaPagoInput || todayStr;
+
     const targetOp = operaciones.find(o => o.id === selectedOperacionId);
     if (!targetOp) {
       alert('No se encontró la operación seleccionada.');
@@ -169,7 +173,7 @@ export default function GestionAdministracionView({
     }
 
     const pendingOpCuotas = opCuotas.filter(cu => cu.estado !== 'PAGADA');
-    const sortedPending = sortCuotasByPaymentPriority(pendingOpCuotas, todayStr);
+    const sortedPending = sortCuotasByPaymentPriority(pendingOpCuotas, effectiveFechaPago);
 
     if (sortedPending.length === 0 && tipoPago !== 'ADELANTADO') {
       alert('No hay cuotas pendientes para esta operación.');
@@ -187,7 +191,7 @@ export default function GestionAdministracionView({
       idOperacion: targetOp.id,
       idCliente: selectedCliente.id,
       nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido || ''}`.trim(),
-      fechaPago: todayStr,
+      fechaPago: effectiveFechaPago,
       importe: montoNum,
       metodoPago: metodoPago,
       cobrador: assignedStaffName,
@@ -212,16 +216,15 @@ export default function GestionAdministracionView({
         c.estado = 'PAGADA';
         c.importePagado = (c.importePagado || 0) + saldoActual;
         c.saldoPendiente = 0;
-        c.fechaPago = todayStr;
-        c.diasAtraso = 0;
+        c.fechaPago = effectiveFechaPago;
+        c.diasAtraso = effectiveFechaPago <= c.fechaVencimiento ? 0 : Math.max(0, Math.floor((new Date(effectiveFechaPago).getTime() - new Date(c.fechaVencimiento).getTime()) / (1000 * 60 * 60 * 24)));
         updatedCuotasList.push(c);
       } else {
         // Partial pay this cuota
         c.estado = 'PAGO_PARCIAL';
         c.importePagado = (c.importePagado || 0) + remainingMonto;
         c.saldoPendiente = saldoActual - remainingMonto;
-        c.fechaPago = todayStr;
-        remainingMonto = 0;
+        c.fechaPago = effectiveFechaPago;
         updatedCuotasList.push(c);
       }
     }
@@ -233,7 +236,7 @@ export default function GestionAdministracionView({
     const updatedOperacion: Operacion = {
       ...targetOp,
       cuotasPagadas: newCuotasPagadas,
-      ultimoPago: todayStr,
+      ultimoPago: effectiveFechaPago,
       estado: isFullyPaid ? 'FINALIZADA' : targetOp.estado,
       capitalRecuperado: (targetOp.capitalRecuperado || 0) + (montoNum * 0.7),
       interesCobrado: (targetOp.interesCobrado || 0) + (montoNum * 0.3),
@@ -242,7 +245,7 @@ export default function GestionAdministracionView({
     // Treasury income transaction
     const tesoreriaTrx: TransaccionTesoreria = {
       id: `TRX-${String(Date.now())}`,
-      fecha: todayStr,
+      fecha: effectiveFechaPago,
       tipo: 'INGRESO',
       concepto: `Cobro Extraordinario Admin [${canalCobro}] - ${selectedCliente.nombre} (Crédito ${targetOp.id})`,
       monto: montoNum,
@@ -732,8 +735,19 @@ export default function GestionAdministracionView({
                 </button>
               </div>
 
-              {/* Amount & Method */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Date, Amount & Method */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="font-extrabold text-teal-300 block">Fecha Real del Cobro:</label>
+                  <input
+                    type="date"
+                    value={fechaPagoInput}
+                    onChange={(e) => setFechaPagoInput(e.target.value)}
+                    className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-teal-500 focus:outline-none focus:border-teal-400"
+                    required
+                  />
+                </div>
+
                 <div className="space-y-1">
                   <label className="font-extrabold text-emerald-300 block">Importe A Cobrar ($):</label>
                   <input
