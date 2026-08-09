@@ -42,6 +42,7 @@ import CobradorCampoView from './components/CobradorCampoView';
 import LiquidacionesView from './components/LiquidacionesView';
 import ClientesInactivosView from './components/ClientesInactivosView';
 import ClientesTodosView from './components/ClientesTodosView';
+import GestionAdministracionView from './components/GestionAdministracionView';
 
 // Icons
 import { 
@@ -2079,6 +2080,7 @@ export default function App() {
       case 'pagos-whatsapp': return 'Gestión Diaria';
       case 'pagos-telefono': return 'Gestión Telefónica';
       case 'pagos-calle': return 'Gestión Domiciliaria';
+      case 'gestion-admin': return 'Gestión Administración';
       case 'tesoreria': return 'Caja y Tesorería';
 
       case 'configuracion': return 'Configuración';
@@ -2348,6 +2350,22 @@ export default function App() {
                     </button>
                   </div>
                 )}
+
+                {/* GESTION ADMINISTRACION - SPECIAL ADMIN MODULE */}
+                <button
+                  onClick={() => setActiveTab('gestion-admin')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-black transition-all text-left cursor-pointer my-1 shadow-sm ${
+                    activeTab === 'gestion-admin'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-950/80 hover:bg-slate-800 text-emerald-300 border border-emerald-700/60 hover:border-emerald-500'
+                  }`}
+                >
+                  <ShieldCheck className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
+                  <div className="flex flex-col min-w-0 leading-tight">
+                    <span>Gestión Admin</span>
+                    <span className="text-[10px] font-bold text-emerald-200/80 mt-0.5">(Fichas & Cobros Extraordinarios)</span>
+                  </div>
+                </button>
 
 
                 {activeUserRole.verTesoreria && (
@@ -2788,6 +2806,21 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'gestion-admin' && (
+            <GestionAdministracionView
+              clientes={clientes}
+              operaciones={operaciones}
+              cuotas={cuotas}
+              pagos={pagos}
+              usuarios={usuarios}
+              activeUser={activeUser}
+              configuracion={configuracion}
+              onAddPago={handleAddPago}
+              onUpdateCliente={handleUpdateCliente}
+              onUpdateOperacion={handleUpdateOperacionWithCuotas}
+            />
+          )}
+
           {activeTab === 'liquidaciones' && (
             <LiquidacionesView
               usuarios={usuarios}
@@ -2857,9 +2890,9 @@ export default function App() {
 
           {/* Fallback default render if activeTab does not match any valid view */}
           {(![
-            'dashboard', 'clientes', 'clientes-inactivos', 'nuevo-cliente',
+            'dashboard', 'clientes', 'clientes-inactivos', 'clientes-todos', 'nuevo-cliente',
             'operaciones', 'pagos', 'pagos-whatsapp', 'pagos-telefono',
-            'pagos-calle', 'cobrador-campo', 'liquidaciones', 'tesoreria',
+            'pagos-calle', 'cobrador-campo', 'gestion-admin', 'liquidaciones', 'tesoreria',
             'configuracion', 'usuarios'
           ].includes(activeTab) ||
             (activeTab === 'dashboard' && !activeUserRole.verDashboard) ||
