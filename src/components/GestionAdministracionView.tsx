@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Cliente, Operacion, Cuota, Pago, UsuarioRol, 
   TransaccionTesoreria, Configuracion 
@@ -165,6 +165,56 @@ export default function GestionAdministracionView({
     setIsPagoModalOpen(true);
   };
 
+  // Calculate real-time estimated cuotas impact preview based on selected payment date and amount
+  const previewImpacto = useMemo(() => {
+    const amountToApply = parseFloat(montoIngresado || '0');
+    if (amountToApply <= 0 || !selectedOperacionId || selectedOperacionId === 'DEUDA_INACTIVO') return null;
+
+    const targetOp = operaciones.find(o => o.id === selectedOperacionId);
+    if (!targetOp) return null;
+
+    let opCuotas = cuotas.filter(cu => cu.idOperacion === targetOp.id);
+    if (opCuotas.length === 0) {
+      opCuotas = generarPlanCuotas(targetOp, []);
+    }
+
+    const effectiveFecha = fechaPagoInput || todayStr;
+    const cuotasPriorizadas = sortCuotasByPaymentPriority(
+      opCuotas.filter(c => c.estado !== 'PAGADA'),
+      effectiveFecha,
+      tipoPago === 'ADELANTADO' ? 'PAGO_ADELANTADO_OPCION_B' : undefined
+    );
+
+    let rem = amountToApply;
+    const items: { num: number; fechaVenc: string; cobrado: number; completo: boolean; saldoRestante: number }[] = [];
+
+    for (const c of cuotasPriorizadas) {
+      if (rem <= 0) break;
+      const saldoActual = c.saldoPendiente > 0 ? c.saldoPendiente : c.valorTotalCuota;
+      if (rem >= saldoActual) {
+        items.push({
+          num: c.numeroCuota,
+          fechaVenc: c.fechaVencimiento,
+          cobrado: saldoActual,
+          completo: true,
+          saldoRestante: 0
+        });
+        rem -= saldoActual;
+      } else {
+        items.push({
+          num: c.numeroCuota,
+          fechaVenc: c.fechaVencimiento,
+          cobrado: rem,
+          completo: false,
+          saldoRestante: saldoActual - rem
+        });
+        rem = 0;
+      }
+    }
+
+    return items;
+  }, [montoIngresado, selectedOperacionId, operaciones, cuotas, fechaPagoInput, todayStr, tipoPago]);
+
   // Submit Payment
   const handleSubmitPago = (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,16 +361,27 @@ export default function GestionAdministracionView({
       observaciones: `[${canalCobro}] ${observacionesPago}`.trim(),
     };
 
-    // Apply payment to cuotas (waterfall distribution)
+    // Apply payment to cuotas (waterfall distribution according to selected payment date)
     let remainingMonto = montoNum;
     const updatedCuotasList: Cuota[] = [];
 
-    // Clone cuotas list to update
-    const mutableCuotas = opCuotas.map(c => ({ ...c }));
+    // Map all cuotas by ID to update them in place
+    const mutableCuotasMap = new Map(opCuotas.map(c => [c.id, { ...c }]));
 
-    for (const c of mutableCuotas) {
+    // Priority sort based on effectiveFechaPago:
+    // 1. Cuota due on effectiveFechaPago
+    // 2. Overdue cuotas (fechaVencimiento < effectiveFechaPago), sorted DESCENDING by date (most recent past first, going backwards)
+    // 3. Future cuotas (fechaVencimiento > effectiveFechaPago), sorted ASCENDING by date
+    const cuotasPriorizadas = sortCuotasByPaymentPriority(
+      opCuotas.filter(c => c.estado !== 'PAGADA'),
+      effectiveFechaPago,
+      tipoPago === 'ADELANTADO' ? 'PAGO_ADELANTADO_OPCION_B' : undefined
+    );
+
+    for (const prio of cuotasPriorizadas) {
       if (remainingMonto <= 0) break;
-      if (c.estado === 'PAGADA') continue;
+      const c = mutableCuotasMap.get(prio.id);
+      if (!c || c.estado === 'PAGADA') continue;
 
       const saldoActual = c.saldoPendiente > 0 ? c.saldoPendiente : c.valorTotalCuota;
       if (remainingMonto >= saldoActual) {
@@ -338,12 +399,14 @@ export default function GestionAdministracionView({
         c.importePagado = (c.importePagado || 0) + remainingMonto;
         c.saldoPendiente = saldoActual - remainingMonto;
         c.fechaPago = effectiveFechaPago;
+        remainingMonto = 0;
         updatedCuotasList.push(c);
       }
     }
 
     // Update Operation total balance
-    const newCuotasPagadas = mutableCuotas.filter(c => c.estado === 'PAGADA').length;
+    const allMutableCuotas = Array.from(mutableCuotasMap.values());
+    const newCuotasPagadas = allMutableCuotas.filter(c => c.estado === 'PAGADA').length;
     const isFullyPaid = newCuotasPagadas >= targetOp.cantidadCuotas;
 
     const updatedOperacion: Operacion = {
@@ -907,6 +970,37 @@ export default function GestionAdministracionView({
                   </select>
                 </div>
               </div>
+
+              {/* Live Preview of Payment Allocation Impact */}
+              {previewImpacto && previewImpacto.length > 0 && (
+                <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/40 space-y-2">
+                  <div className="text-xs font-black text-emerald-400 flex items-center justify-between">
+                    <span>Impacto Estimado en Fecha Seleccionada ({fechaPagoInput || todayStr}):</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Cuota de fecha → Moras recientes hacia atrás</span>
+                  </div>
+                  <div className="space-y-1">
+                    {previewImpacto.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800">
+                        <span className="font-bold text-white">
+                          Cuota N° {item.num} <span className="text-slate-400 font-normal">({item.fechaVenc})</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-amber-300">${item.cobrado.toLocaleString('es-AR')}</span>
+                          {item.completo ? (
+                            <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-600">
+                              100% PAGADA
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black text-amber-400 bg-amber-950 px-1.5 py-0.5 rounded border border-amber-600">
+                              PARCIAL (Mora rest.: ${item.saldoRestante.toLocaleString('es-AR')})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Attribution: Canal & Cobrador / Employee */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800">
