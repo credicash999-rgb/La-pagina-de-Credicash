@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { parseClientesCSV } from '../utils/importHelper';
-import { normalizeDateToISO, parseDateToTimestamp } from '../utils/cuotasGenerator';
+import { normalizeDateToISO, parseDateToTimestamp, sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -237,11 +237,12 @@ export default function ClientesView({
       opCuotas = (cuotas || []).filter(c => c.idCliente === pagoModalCliente.id && c.estado !== 'PAGADA');
     }
 
-    const cuotasToProcess = [...opCuotas].sort((a, b) => {
-      if (a.id === pagoSelectedCuotaId) return -1;
-      if (b.id === pagoSelectedCuotaId) return 1;
-      return a.numeroCuota - b.numeroCuota;
-    });
+    const cuotasToProcess = sortCuotasByPaymentPriority(
+      opCuotas,
+      pagoFecha,
+      undefined,
+      pagoSelectedCuotaId
+    );
 
     let remPago = monto;
     const affectedCuotaNums: number[] = [];

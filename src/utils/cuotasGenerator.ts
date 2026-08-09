@@ -280,17 +280,22 @@ export function parseDateToTimestamp(dateStr?: string): number {
 
 /**
  * Ordena las cuotas impagas para imputar un pago según la prioridad de negocio:
- * 1. Cuota de la FECHA SELECCIONADA (o la fecha más cercana <= fechaSeleccionada)
- * 2. Cuotas ANTERIORES / VENCIDAS (fechaVencimiento < fechaReferencia), en orden DESCENDENTE de fecha (de la más reciente hacia atrás)
- * 3. Cuotas FUTURAS (fechaVencimiento > fechaReferencia), en orden ASCENDENTE de fecha
+ * 1. Cuota seleccionada manualmente por el usuario (si aplica).
+ * 2. Cuota cuya fecha de vencimiento coincida EXACTAMENTE con la fecha del pago registrado (refDate).
+ * 3. Demás cuotas impagas en estricto orden cronológico ascendente (de la cuota más antigua a la más nueva).
  */
-export function sortCuotasByPaymentPriority(cuotas: Cuota[], referenceDateStr: string, modalidad?: string): Cuota[] {
+export function sortCuotasByPaymentPriority(
+  cuotas: Cuota[], 
+  referenceDateStr: string, 
+  modalidad?: string,
+  selectedCuotaId?: string
+): Cuota[] {
   const currentList = [...cuotas];
 
   if (modalidad === 'PAGO_ADELANTADO_OPCION_A') {
     // Opción A: Descontar desde el final hacia atrás (últimas cuotas del plan)
     return currentList
-      .filter(c => c.estado !== 'PAGADA')
+      .filter(c => c.estado !== 'PAGADA' && (c.saldoPendiente === undefined || c.saldoPendiente > 0))
       .sort((a, b) => b.numeroCuota - a.numeroCuota);
   }
 
@@ -299,37 +304,22 @@ export function sortCuotasByPaymentPriority(cuotas: Cuota[], referenceDateStr: s
   // Filtrar solo cuotas impagas o parcialmente pagadas
   const unpaid = currentList.filter(c => c.estado !== 'PAGADA' && (c.saldoPendiente === undefined || c.saldoPendiente > 0));
 
-  // Buscar coincidencia exacta de fecha de vencimiento con refDate.
-  // Si no hay coincidencia exacta, buscar la fecha máxima de vencimiento que sea <= refDate (la fecha más cercana hacia atrás).
-  let targetDate = refDate;
-  const hasExact = unpaid.some(c => normalizeDateToISO(c.fechaVencimiento) === refDate);
-  if (!hasExact) {
-    const pastOrCurrentCuotas = unpaid.filter(c => normalizeDateToISO(c.fechaVencimiento) <= refDate);
-    if (pastOrCurrentCuotas.length > 0) {
-      pastOrCurrentCuotas.sort((a, b) => normalizeDateToISO(b.fechaVencimiento).localeCompare(normalizeDateToISO(a.fechaVencimiento)));
-      targetDate = normalizeDateToISO(pastOrCurrentCuotas[0].fechaVencimiento);
-    }
-  }
-
   return unpaid.sort((a, b) => {
+    // 0. Prioridad a la cuota seleccionada manualmente por el usuario
+    if (selectedCuotaId) {
+      if (a.id === selectedCuotaId) return -1;
+      if (b.id === selectedCuotaId) return 1;
+    }
+
     const aFec = normalizeDateToISO(a.fechaVencimiento);
     const bFec = normalizeDateToISO(b.fechaVencimiento);
 
-    // 1. Cuota objetivo (coincide con targetDate)
-    const aIsTarget = aFec === targetDate ? 1 : 0;
-    const bIsTarget = bFec === targetDate ? 1 : 0;
-    if (aIsTarget !== bIsTarget) return bIsTarget - aIsTarget;
+    // 1. Prioridad a la cuota que coincide exactamente con la fecha de vencimiento del pago registrado
+    const aIsExactRef = (refDate && aFec === refDate) ? 1 : 0;
+    const bIsExactRef = (refDate && bFec === refDate) ? 1 : 0;
+    if (aIsExactRef !== bIsExactRef) return bIsExactRef - aIsExactRef;
 
-    // 2. Cuotas pasadas / vencidas (< targetDate), ordenadas DESCENDENTE por fecha (de la más reciente hacia atrás)
-    const aIsPast = aFec < targetDate ? 1 : 0;
-    const bIsPast = bFec < targetDate ? 1 : 0;
-    if (aIsPast !== bIsPast) return bIsPast - aIsPast;
-
-    if (aIsPast && bIsPast) {
-      return bFec.localeCompare(aFec);
-    }
-
-    // 3. Cuotas futuras (> targetDate), ordenadas ASCENDENTE por fecha (las más cercanas a vencer primero)
+    // 2. Para las demás cuotas impagas, orden cronológico ascendente (de la más antigua a la más reciente)
     if (aFec !== bFec) {
       return aFec.localeCompare(bFec);
     }

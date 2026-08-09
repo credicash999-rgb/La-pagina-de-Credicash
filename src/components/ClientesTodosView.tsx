@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Cliente, Operacion, Cuota, Pago, UsuarioRol, TransaccionTesoreria } from '../types';
-import { generarPlanCuotas, normalizeDateToISO } from '../utils/cuotasGenerator';
+import { generarPlanCuotas, normalizeDateToISO, sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
 import { 
   Users, Search, Calendar, DollarSign, Edit2, Trash2, CheckCircle2, 
   X, Phone, MapPin, CreditCard, Shield, AlertTriangle, Eye, ArrowRight,
@@ -240,16 +240,19 @@ export default function ClientesTodosView({
       return;
     }
 
-    const opCuotas = cuotas.filter(c => c.idOperacion === opToUse.id).sort((a,b) => a.numeroCuota - b.numeroCuota);
+    const opCuotas = cuotas.filter(c => c.idOperacion === opToUse.id);
+    const cuotasToProcess = sortCuotasByPaymentPriority(opCuotas, pagoFecha);
     
     // Allocate payment across pending cuotas
     let remPago = monto;
     const affectedCuotaNums: number[] = [];
     const cuotaUpdatesMap = new Map<string, Cuota>();
 
-    opCuotas.forEach(c => {
-      if (c.estado === 'PAGADA') return;
-      if (remPago <= 0) return;
+    cuotasToProcess.forEach(c => {
+      if (c.estado === 'PAGADA' || remPago <= 0) {
+        if (!cuotaUpdatesMap.has(c.id)) cuotaUpdatesMap.set(c.id, c);
+        return;
+      }
 
       const cCopy = { ...c };
       affectedCuotaNums.push(cCopy.numeroCuota);
