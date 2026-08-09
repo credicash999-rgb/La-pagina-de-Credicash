@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Operacion, Cuota, Pago, TransaccionTesoreria, Cliente, UsuarioRol, Configuracion } from '../types';
-import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
+import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority, normalizeDateToISO, parseDateToTimestamp } from '../utils/cuotasGenerator';
 import { 
   DollarSign, Search, Calendar, Check, AlertCircle, FileText, 
   ChevronRight, ArrowRight, User, Users, Phone, Send, X, ClipboardList,
@@ -473,6 +473,7 @@ export default function PagosView({
     if (!selectedOp) return;
     const loggedInUserName = activeUser?.nombre || 'Operador Central';
     const valorCobrado = parseFloat(importeCobrado);
+    const effectiveFecha = normalizeDateToISO(fechaPago || getTodayStr());
 
     // Determine payment modality
     let modality: 'PAGO_REGULAR' | 'PAGO_PARCIAL' | 'PAGO_ADELANTADO_OPCION_A' | 'PAGO_ADELANTADO_OPCION_B' = 'PAGO_REGULAR';
@@ -486,7 +487,7 @@ export default function PagosView({
     const updatedCuotas: Cuota[] = [];
     
     const allOpCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
-    const cuotasToProcess = sortCuotasByPaymentPriority(allOpCuotas, fechaPago || getTodayStr(), modality);
+    const cuotasToProcess = sortCuotasByPaymentPriority(allOpCuotas, effectiveFecha, modality);
 
     let totalCapitalPaid = 0;
     let totalInteresPaid = 0;
@@ -520,7 +521,7 @@ export default function PagosView({
         cuoCopy.importePagado = parseFloat((cuoCopy.importePagado + paidThisCuota).toFixed(2));
         cuoCopy.saldoPendiente = 0;
         cuoCopy.estado = 'PAGADA';
-        cuoCopy.fechaPago = fechaPago;
+        cuoCopy.fechaPago = effectiveFecha;
         cuoCopy.cobrador = loggedInUserName;
       } else {
         // Partial payment of this installment
@@ -539,7 +540,7 @@ export default function PagosView({
         cuoCopy.importePagado = parseFloat((cuoCopy.importePagado + paidThisCuota).toFixed(2));
         cuoCopy.saldoPendiente = parseFloat((cuoCopy.saldoPendiente - paidThisCuota).toFixed(2));
         cuoCopy.estado = 'PAGO_PARCIAL';
-        cuoCopy.fechaPago = fechaPago;
+        cuoCopy.fechaPago = effectiveFecha;
         cuoCopy.cobrador = loggedInUserName;
       }
 
@@ -567,7 +568,7 @@ export default function PagosView({
     const pagadasCount = opCuotasModified.filter(c => c.estado === 'PAGADA').length;
     updatedOp.cuotasPagadas = pagadasCount;
     updatedOp.cuotasPendientes = totalCuotasCount - pagadasCount;
-    updatedOp.ultimoPago = fechaPago;
+    updatedOp.ultimoPago = effectiveFecha;
 
     // Find next pending cuota expiration
     const nextPendingCuo = opCuotasModified
@@ -578,15 +579,15 @@ export default function PagosView({
       updatedOp.proximoVencimiento = nextPendingCuo.fechaVencimiento;
       
       // Recalculate days of arrears dynamically
-      const dueTime = new Date(nextPendingCuo.fechaVencimiento).getTime();
-      const payTime = new Date(fechaPago).getTime();
+      const dueTime = parseDateToTimestamp(nextPendingCuo.fechaVencimiento);
+      const payTime = parseDateToTimestamp(effectiveFecha);
       const diffDays = Math.ceil((payTime - dueTime) / (1000 * 60 * 60 * 24));
       updatedOp.diasMora = diffDays > 0 ? diffDays : 0;
       updatedOp.estado = 'ACTIVA';
     } else {
       updatedOp.proximoVencimiento = 'PAGADO TOTAL';
       updatedOp.estado = 'FINALIZADA';
-      updatedOp.fechaFinalizacion = fechaPago;
+      updatedOp.fechaFinalizacion = effectiveFecha;
       updatedOp.motivoCierre = 'Crédito amortizado en su totalidad por cobranza regular';
       updatedOp.diasMora = 0;
     }
@@ -608,7 +609,7 @@ export default function PagosView({
     updatedOp.elegibleAmpliacion = pctPaid >= 40 && updatedOp.diasMora <= 2;
 
     // Append general observations
-    const paymentMsg = `[Pago de $${valorCobrado} vía ${medioPago} el ${fechaPago} (${modality})] ${observacionesInput}`;
+    const paymentMsg = `[Pago de $${valorCobrado} vía ${medioPago} el ${effectiveFecha} (${modality})] ${observacionesInput}`;
     updatedOp.observaciones = updatedOp.observaciones 
       ? `${updatedOp.observaciones}\n${paymentMsg}` 
       : paymentMsg;
@@ -628,7 +629,7 @@ export default function PagosView({
       idOperacion: selectedOp.id,
       idCliente: selectedOp.idCliente,
       nombreCliente: selectedOp.nombreCliente,
-      fechaPago,
+      fechaPago: effectiveFecha,
       horaPago: formattedTime,
       importe: valorCobrado,
       cobrador: cobradorSeleccionado,
@@ -643,7 +644,7 @@ export default function PagosView({
     // Create Treasury record
     const trxTesoreria: TransaccionTesoreria = {
       id: `TRX-${Date.now().toString()}`,
-      fecha: fechaPago,
+      fecha: effectiveFecha,
       tipo: 'INGRESO',
       concepto: `Cobranza de Crédito N° ${selectedOp.id} - ${selectedOp.nombreCliente} (${medioPago} - ${modality})`,
       monto: valorCobrado,
@@ -1976,7 +1977,7 @@ export default function PagosView({
                     ) : (
                       pagos
                         .filter(p => p.idOperacion === selectedOp.id)
-                        .sort((a, b) => b.fechaPago.localeCompare(a.fechaPago))
+                        .sort((a, b) => parseDateToTimestamp(b.fechaPago) - parseDateToTimestamp(a.fechaPago))
                         .map((pago) => (
                           <div key={pago.id} className="bg-slate-900/80 p-2 rounded-lg border border-emerald-800/80 text-[10px] space-y-1">
                             <div className="flex justify-between items-center">
@@ -2307,7 +2308,7 @@ export default function PagosView({
                       const matchMet = pagoFilterMetodo === 'TODOS' || p.metodoPago === pagoFilterMetodo;
                       return matchSearch && matchMod && matchMet;
                     })
-                    .sort((a, b) => new Date(b.fechaPago).getTime() - new Date(a.fechaPago).getTime())
+                    .sort((a, b) => parseDateToTimestamp(b.fechaPago) - parseDateToTimestamp(a.fechaPago))
                     .map((pago) => {
                       const mod = pago.modalidad || 'PAGO_REGULAR';
                       return (

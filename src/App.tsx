@@ -11,7 +11,7 @@ import {
   LiquidacionSemanal, LiquidacionMensual, SolicitudReintegroDesayuno
 } from './types';
 
-import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority } from './utils/cuotasGenerator';
+import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority, normalizeDateToISO, parseDateToTimestamp } from './utils/cuotasGenerator';
 
 import { 
   getSavedFirebaseConfig, 
@@ -1237,7 +1237,7 @@ export default function App() {
           ...p,
           modalidad: newModalidad,
           metodoPago: newMetodoPago || p.metodoPago,
-          fechaPago: newFechaPago || p.fechaPago,
+          fechaPago: normalizeDateToISO(newFechaPago || p.fechaPago),
           importe: newImporte !== undefined ? newImporte : p.importe,
           observaciones: newObservaciones !== undefined ? newObservaciones : p.observaciones,
         };
@@ -1268,7 +1268,7 @@ export default function App() {
     let lastPaymentDate = '';
 
     // 4. Re-apply all payments sequentially according to their modality
-    const sortedOpPayments = [...opPayments].sort((a, b) => new Date(a.fechaPago).getTime() - new Date(b.fechaPago).getTime());
+    const sortedOpPayments = [...opPayments].sort((a, b) => parseDateToTimestamp(a.fechaPago) - parseDateToTimestamp(b.fechaPago));
 
     sortedOpPayments.forEach(p => {
       let rem = p.importe;
@@ -1429,7 +1429,7 @@ export default function App() {
       let lastPaymentDate = '';
 
       // 5. Re-apply remaining payments
-      const sortedOpPayments = [...opPayments].sort((a, b) => new Date(a.fechaPago).getTime() - new Date(b.fechaPago).getTime());
+      const sortedOpPayments = [...opPayments].sort((a, b) => parseDateToTimestamp(a.fechaPago) - parseDateToTimestamp(b.fechaPago));
 
       sortedOpPayments.forEach(p => {
         let rem = p.importe;

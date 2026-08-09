@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { parseClientesCSV } from '../utils/importHelper';
+import { normalizeDateToISO, parseDateToTimestamp } from '../utils/cuotasGenerator';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -261,7 +262,7 @@ export default function ClientesView({
         cCopy.importePagado = cCopy.valorTotalCuota;
         cCopy.saldoPendiente = 0;
         cCopy.estado = 'PAGADA';
-        cCopy.fechaPago = pagoFecha;
+        cCopy.fechaPago = normalizeDateToISO(pagoFecha);
         cCopy.cobrador = pagoCobrador || activeUser?.nombre || 'Cobrador Central';
       } else {
         const paidThis = remPago;
@@ -269,7 +270,7 @@ export default function ClientesView({
         cCopy.importePagado = parseFloat((cCopy.importePagado + paidThis).toFixed(2));
         cCopy.saldoPendiente = parseFloat((cCopy.saldoPendiente - paidThis).toFixed(2));
         cCopy.estado = 'PAGO_PARCIAL';
-        cCopy.fechaPago = pagoFecha;
+        cCopy.fechaPago = normalizeDateToISO(pagoFecha);
         cCopy.cobrador = pagoCobrador || activeUser?.nombre || 'Cobrador Central';
       }
       cuotaUpdatesMap.set(cCopy.id, cCopy);
@@ -287,7 +288,7 @@ export default function ClientesView({
       idOperacion: targetOp.id,
       idCliente: pagoModalCliente.id,
       nombreCliente: `${pagoModalCliente.nombre} ${pagoModalCliente.apellido}`,
-      fechaPago: pagoFecha,
+      fechaPago: normalizeDateToISO(pagoFecha),
       horaPago: pagoHora,
       importe: monto,
       cobrador: pagoCobrador || activeUser?.nombre || 'Agente CrediCash',

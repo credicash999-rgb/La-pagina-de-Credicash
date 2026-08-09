@@ -1,4 +1,5 @@
 import { Cliente, Operacion, Cuota, Pago } from '../types';
+import { parseDateToTimestamp, normalizeDateToISO, sortCuotasByPaymentPriority } from './cuotasGenerator';
 
 export interface AuditResult {
   repairedClientes: Cliente[];
@@ -56,77 +57,94 @@ export function reconstructAndRepairData(
     const opPagos = pagosPorOperacion.get(op.id) || [];
     const opCuotas = (cuotasPorOperacion.get(op.id) || []).sort((a, b) => a.numeroCuota - b.numeroCuota);
 
-    // Sum total paid on this operation from payments history
-    const totalPagadoReal = opPagos.reduce((sum, p) => sum + (Number(p.importe) || 0), 0);
+    // Reset all cuotas for this operation to initial baseline
+    opCuotas.forEach(c => {
+      c.importePagado = 0;
+      c.saldoPendiente = c.valorTotalCuota;
+      c.estado = 'PENDIENTE';
+      c.fechaPago = '';
+      c.fechaVencimiento = normalizeDateToISO(c.fechaVencimiento);
+    });
 
-    let saldoDisponibleParaCuotas = totalPagadoReal;
-    let cuotasPagadasCount = 0;
-    let capitalRecuperado = 0;
-    let interesCobrado = 0;
-    let maxDiasMoraOp = 0;
-    let proximoVencimiento = op.proximoVencimiento;
-    let ultimoPagoFecha = op.ultimoPago;
+    const resetCuotasMap = new Map<string, Cuota>(opCuotas.map(c => [c.id, c]));
 
-    if (opPagos.length > 0) {
-      // Find latest payment date
-      const sortedPagos = [...opPagos].sort((a, b) => a.fechaPago.localeCompare(b.fechaPago));
-      ultimoPagoFecha = sortedPagos[sortedPagos.length - 1].fechaPago;
-    }
+    // Sort operation payments chronologically
+    const sortedOpPagos = [...opPagos].sort((a, b) => parseDateToTimestamp(a.fechaPago) - parseDateToTimestamp(b.fechaPago));
 
-    // Allocate payment money chronologically across cuotas
-    opCuotas.forEach(cuota => {
-      const valorCuota = cuota.valorTotalCuota || (cuota.capitalCuota + cuota.interesCuota);
-      let nuevoEstadoCuota = cuota.estado;
-      let nuevoImportePagado = 0;
-      let nuevoSaldoPendiente = valorCuota;
-      let fechaPagoCuota = cuota.fechaPago || '';
+    let totalCapitalPaid = 0;
+    let totalInteresPaid = 0;
+    let totalAmountPaid = 0;
+    let lastPaymentDate = op.ultimoPago || '';
 
-      if (saldoDisponibleParaCuotas >= valorCuota) {
-        // Fully paid
-        saldoDisponibleParaCuotas -= valorCuota;
-        nuevoEstadoCuota = 'PAGADA';
-        nuevoImportePagado = valorCuota;
-        nuevoSaldoPendiente = 0;
-        cuotasPagadasCount++;
-        capitalRecuperado += cuota.capitalCuota;
-        interesCobrado += cuota.interesCuota;
-        if (!fechaPagoCuota) fechaPagoCuota = ultimoPagoFecha || todayStr;
-      } else if (saldoDisponibleParaCuotas > 0) {
-        // Partially paid
-        nuevoImportePagado = saldoDisponibleParaCuotas;
-        nuevoSaldoPendiente = valorCuota - saldoDisponibleParaCuotas;
-        nuevoEstadoCuota = 'PAGO_PARCIAL';
-        const proporcion = valorCuota > 0 ? (saldoDisponibleParaCuotas / valorCuota) : 0;
-        capitalRecuperado += cuota.capitalCuota * proporcion;
-        interesCobrado += cuota.interesCuota * proporcion;
-        saldoDisponibleParaCuotas = 0;
-      } else {
-        // Unpaid
-        nuevoImportePagado = 0;
-        nuevoSaldoPendiente = valorCuota;
-        if (cuota.fechaVencimiento < todayStr) {
-          nuevoEstadoCuota = 'VENCIDA';
-          // Calculate overdue days
-          const diffMs = new Date(todayStr).getTime() - new Date(cuota.fechaVencimiento).getTime();
-          const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          if (dias > maxDiasMoraOp) maxDiasMoraOp = dias;
+    sortedOpPagos.forEach(p => {
+      p.fechaPago = normalizeDateToISO(p.fechaPago);
+      let rem = p.importe;
+      totalAmountPaid += p.importe;
+      lastPaymentDate = p.fechaPago;
+
+      const currentCuotasList = Array.from(resetCuotasMap.values());
+      const processOrder = sortCuotasByPaymentPriority(currentCuotasList, p.fechaPago, p.modalidad);
+
+      processOrder.forEach(cuo => {
+        if (rem <= 0) return;
+        const currentCuo = resetCuotasMap.get(cuo.id)!;
+        const cuoSaldo = currentCuo.saldoPendiente;
+
+        if (rem >= cuoSaldo) {
+          const paidThis = cuoSaldo;
+          rem = parseFloat((rem - paidThis).toFixed(2));
+
+          const ratioCap = currentCuo.valorTotalCuota > 0 ? (currentCuo.capitalCuota / currentCuo.valorTotalCuota) : 0;
+          const ratioInt = currentCuo.valorTotalCuota > 0 ? (currentCuo.interesCuota / currentCuo.valorTotalCuota) : 0;
+
+          totalCapitalPaid += parseFloat((paidThis * ratioCap).toFixed(2));
+          totalInteresPaid += parseFloat((paidThis * ratioInt).toFixed(2));
+
+          currentCuo.importePagado = parseFloat((currentCuo.importePagado + paidThis).toFixed(2));
+          currentCuo.saldoPendiente = 0;
+          currentCuo.estado = 'PAGADA';
+          currentCuo.fechaPago = p.fechaPago;
+          currentCuo.cobrador = p.cobrador || currentCuo.cobrador;
         } else {
-          nuevoEstadoCuota = 'PENDIENTE';
-        }
-      }
+          const paidThis = rem;
+          rem = 0;
 
-      if (
-        cuota.estado !== nuevoEstadoCuota ||
-        cuota.importePagado !== nuevoImportePagado ||
-        cuota.saldoPendiente !== nuevoSaldoPendiente
-      ) {
-        cuotasAjustadas++;
-        cuota.estado = nuevoEstadoCuota;
-        cuota.importePagado = Math.round(nuevoImportePagado * 100) / 100;
-        cuota.saldoPendiente = Math.round(nuevoSaldoPendiente * 100) / 100;
-        cuota.fechaPago = fechaPagoCuota;
+          const ratioCap = currentCuo.valorTotalCuota > 0 ? (currentCuo.capitalCuota / currentCuo.valorTotalCuota) : 0;
+          const ratioInt = currentCuo.valorTotalCuota > 0 ? (currentCuo.interesCuota / currentCuo.valorTotalCuota) : 0;
+
+          totalCapitalPaid += parseFloat((paidThis * ratioCap).toFixed(2));
+          totalInteresPaid += parseFloat((paidThis * ratioInt).toFixed(2));
+
+          currentCuo.importePagado = parseFloat((currentCuo.importePagado + paidThis).toFixed(2));
+          currentCuo.saldoPendiente = parseFloat((currentCuo.saldoPendiente - paidThis).toFixed(2));
+          currentCuo.estado = 'PAGO_PARCIAL';
+          currentCuo.fechaPago = p.fechaPago;
+          currentCuo.cobrador = p.cobrador || currentCuo.cobrador;
+        }
+        resetCuotasMap.set(currentCuo.id, currentCuo);
+      });
+    });
+
+    let maxDiasMoraOp = 0;
+    let cuotasPagadasCount = 0;
+    Array.from(resetCuotasMap.values()).forEach(c => {
+      if (c.estado === 'PAGADA') {
+        cuotasPagadasCount++;
+      } else if (c.fechaVencimiento < todayStr) {
+        if (c.estado !== 'PAGO_PARCIAL') c.estado = 'VENCIDA';
+        const dueTs = parseDateToTimestamp(c.fechaVencimiento);
+        const todayTs = parseDateToTimestamp(todayStr);
+        const diffMs = todayTs - dueTs;
+        const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (dias > maxDiasMoraOp) maxDiasMoraOp = dias;
       }
     });
+
+    const capitalRecuperado = totalCapitalPaid;
+    const interesCobrado = totalInteresPaid;
+    const totalPagadoReal = totalAmountPaid;
+    const ultimoPagoFecha = lastPaymentDate;
+    let proximoVencimiento = op.proximoVencimiento;
 
     // Determine upcoming expiration date among unpaid/partial cuotas
     const cuotaPendienteSig = opCuotas.find(c => c.estado === 'PENDIENTE' || c.estado === 'VENCIDA' || c.estado === 'PAGO_PARCIAL');

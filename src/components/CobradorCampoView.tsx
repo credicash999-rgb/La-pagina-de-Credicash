@@ -10,7 +10,7 @@ import {
   ConfiguracionComisiones, ConfiguracionRecorrido, TransaccionTesoreria, SolicitudReintegroDesayuno,
   Configuracion
 } from '../types';
-import { sortCuotasByPaymentPriority, generarPlanCuotas } from '../utils/cuotasGenerator';
+import { sortCuotasByPaymentPriority, generarPlanCuotas, normalizeDateToISO, parseDateToTimestamp } from '../utils/cuotasGenerator';
 import { exportDailyRoutePDF } from '../utils/pdfExportRoute';
 import { optimizeRouteNearestNeighbor, buildGoogleMapsRouteUrl } from '../utils/routeOptimizer';
 import { 
@@ -2256,7 +2256,7 @@ export default function CobradorCampoView({
                       if (amountToApply <= 0 || !selectedOperacion) return null;
 
                       const opCuotas = cuotas.filter(c => c.idOperacion === selectedOperacion.id);
-                      const cuotasSorted = sortCuotasByPaymentPriority(opCuotas, fechaPago || todayStr, 'PAGO_PARCIAL');
+                      const cuotasSorted = sortCuotasByPaymentPriority(opCuotas, todayStr, 'PAGO_PARCIAL');
 
                       let rem = amountToApply;
                       const breakdown: { num: number; fec: string; monto: number; completo: boolean; saldoRestante: number }[] = [];

@@ -215,6 +215,70 @@ export function generarPlanCuotas(
 }
 
 /**
+ * Normaliza cualquier string de fecha al formato canónico ISO YYYY-MM-DD.
+ * Admite: YYYY-MM-DD, DD/MM/YYYY, D/M/YYYY, D/M, DD/MM, YYYY/MM/DD, etc.
+ */
+export function normalizeDateToISO(dateStr?: string): string {
+  if (!dateStr) return '';
+  const clean = dateStr.split('T')[0].trim();
+  if (!clean) return '';
+
+  const currentYear = new Date().getFullYear().toString();
+
+  if (clean.includes('/')) {
+    const parts = clean.split('/').map(p => p.trim());
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY/MM/DD
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      // DD/MM/YYYY or D/M/YYYY
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    if (parts.length === 2) {
+      // D/M or DD/MM -> assume current year DD/MM/YYYY
+      return `${currentYear}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+
+  if (clean.includes('-')) {
+    const parts = clean.split('-').map(p => p.trim());
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD or YYYY-M-D
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      // DD-MM-YYYY
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    if (parts.length === 2) {
+      // D-M or DD-MM -> assume current year DD-MM-YYYY
+      return `${currentYear}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+
+  return clean;
+}
+
+/**
+ * Parsea una fecha a timestamp numérico para ordenamiento seguro sin errores de zona horaria o locale.
+ */
+export function parseDateToTimestamp(dateStr?: string): number {
+  const iso = normalizeDateToISO(dateStr);
+  if (!iso) return 0;
+  const parts = iso.split('-');
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return Date.UTC(y, m, d);
+    }
+  }
+  return new Date(iso).getTime() || 0;
+}
+
+/**
  * Ordena las cuotas impagas para imputar un pago según la prioridad de negocio:
  * 1. Cuota de la FECHA SELECCIONADA (o la fecha más cercana <= fechaSeleccionada)
  * 2. Cuotas ANTERIORES / VENCIDAS (fechaVencimiento < fechaReferencia), en orden DESCENDENTE de fecha (de la más reciente hacia atrás)
@@ -230,21 +294,7 @@ export function sortCuotasByPaymentPriority(cuotas: Cuota[], referenceDateStr: s
       .sort((a, b) => b.numeroCuota - a.numeroCuota);
   }
 
-  // Normalizador de fecha YYYY-MM-DD
-  const normalizeDate = (d?: string) => {
-    if (!d) return '';
-    const clean = d.split('T')[0].trim();
-    if (clean.includes('/')) {
-      const parts = clean.split('/');
-      if (parts.length === 3) {
-        if (parts[0].length === 4) return clean;
-        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-    }
-    return clean;
-  };
-
-  const refDate = normalizeDate(referenceDateStr);
+  const refDate = normalizeDateToISO(referenceDateStr);
 
   // Filtrar solo cuotas impagas o parcialmente pagadas
   const unpaid = currentList.filter(c => c.estado !== 'PAGADA' && (c.saldoPendiente === undefined || c.saldoPendiente > 0));
@@ -252,18 +302,18 @@ export function sortCuotasByPaymentPriority(cuotas: Cuota[], referenceDateStr: s
   // Buscar coincidencia exacta de fecha de vencimiento con refDate.
   // Si no hay coincidencia exacta, buscar la fecha máxima de vencimiento que sea <= refDate (la fecha más cercana hacia atrás).
   let targetDate = refDate;
-  const hasExact = unpaid.some(c => normalizeDate(c.fechaVencimiento) === refDate);
+  const hasExact = unpaid.some(c => normalizeDateToISO(c.fechaVencimiento) === refDate);
   if (!hasExact) {
-    const pastOrCurrentCuotas = unpaid.filter(c => normalizeDate(c.fechaVencimiento) <= refDate);
+    const pastOrCurrentCuotas = unpaid.filter(c => normalizeDateToISO(c.fechaVencimiento) <= refDate);
     if (pastOrCurrentCuotas.length > 0) {
-      pastOrCurrentCuotas.sort((a, b) => normalizeDate(b.fechaVencimiento).localeCompare(normalizeDate(a.fechaVencimiento)));
-      targetDate = normalizeDate(pastOrCurrentCuotas[0].fechaVencimiento);
+      pastOrCurrentCuotas.sort((a, b) => normalizeDateToISO(b.fechaVencimiento).localeCompare(normalizeDateToISO(a.fechaVencimiento)));
+      targetDate = normalizeDateToISO(pastOrCurrentCuotas[0].fechaVencimiento);
     }
   }
 
   return unpaid.sort((a, b) => {
-    const aFec = normalizeDate(a.fechaVencimiento);
-    const bFec = normalizeDate(b.fechaVencimiento);
+    const aFec = normalizeDateToISO(a.fechaVencimiento);
+    const bFec = normalizeDateToISO(b.fechaVencimiento);
 
     // 1. Cuota objetivo (coincide con targetDate)
     const aIsTarget = aFec === targetDate ? 1 : 0;

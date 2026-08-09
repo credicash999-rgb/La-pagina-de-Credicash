@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Cliente, Operacion, Cuota, Pago, UsuarioRol, TransaccionTesoreria } from '../types';
-import { generarPlanCuotas } from '../utils/cuotasGenerator';
+import { generarPlanCuotas, normalizeDateToISO } from '../utils/cuotasGenerator';
 import { 
   Users, Search, Calendar, DollarSign, Edit2, Trash2, CheckCircle2, 
   X, Phone, MapPin, CreditCard, Shield, AlertTriangle, Eye, ArrowRight,
@@ -259,7 +259,7 @@ export default function ClientesTodosView({
         cCopy.importePagado = cCopy.valorTotalCuota;
         cCopy.saldoPendiente = 0;
         cCopy.estado = 'PAGADA';
-        cCopy.fechaPago = pagoFecha;
+        cCopy.fechaPago = normalizeDateToISO(pagoFecha);
         cCopy.cobrador = pagoCobrador;
       } else {
         const paidThis = remPago;
@@ -267,7 +267,7 @@ export default function ClientesTodosView({
         cCopy.importePagado = parseFloat((cCopy.importePagado + paidThis).toFixed(2));
         cCopy.saldoPendiente = parseFloat((cCopy.saldoPendiente - paidThis).toFixed(2));
         cCopy.estado = 'PAGO_PARCIAL';
-        cCopy.fechaPago = pagoFecha;
+        cCopy.fechaPago = normalizeDateToISO(pagoFecha);
         cCopy.cobrador = pagoCobrador;
       }
       cuotaUpdatesMap.set(cCopy.id, cCopy);
@@ -282,7 +282,7 @@ export default function ClientesTodosView({
       idCliente: pagoModalCliente.id,
       nombreCliente: `${pagoModalCliente.nombre} ${pagoModalCliente.apellido}`,
       importe: monto,
-      fechaPago: pagoFecha,
+      fechaPago: normalizeDateToISO(pagoFecha),
       horaPago: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
       cobrador: pagoCobrador,
       metodoPago: (pagoMedio as any) || 'EFECTIVO',

@@ -116,7 +116,7 @@ export default function AlertasOportunidadesView({
 
       // B. ELEGIBLES PARA RENOVACIÓN O AMPLIACIÓN / PRÓXIMOS A VENCER
       (operaciones || []).forEach(op => {
-        if (!op || (op.estado !== 'ACTIVA' && op.estado !== 'AL_DIA' && op.estado !== 'CONGELADA')) return;
+        if (!op || (op.estado !== 'ACTIVA' && op.estado !== 'CONGELADA')) return;
 
         const cli = (clientes || []).find(c => c && c.id === op.idCliente);
         if (!cli) return;

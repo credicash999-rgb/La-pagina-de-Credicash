@@ -3,7 +3,7 @@ import {
   Cliente, Operacion, Cuota, Pago, UsuarioRol, 
   TransaccionTesoreria, Configuracion 
 } from '../types';
-import { sortCuotasByPaymentPriority, generarPlanCuotas } from '../utils/cuotasGenerator';
+import { sortCuotasByPaymentPriority, generarPlanCuotas, normalizeDateToISO } from '../utils/cuotasGenerator';
 import { exportDailyRoutePDF } from '../utils/pdfExportRoute';
 import { 
   Users, Search, DollarSign, Calendar, FileText, 
@@ -178,7 +178,7 @@ export default function GestionAdministracionView({
       opCuotas = generarPlanCuotas(targetOp, []);
     }
 
-    const effectiveFecha = fechaPagoInput || todayStr;
+    const effectiveFecha = normalizeDateToISO(fechaPagoInput || todayStr);
     const cuotasPriorizadas = sortCuotasByPaymentPriority(
       opCuotas.filter(c => c.estado !== 'PAGADA'),
       effectiveFecha,
@@ -229,7 +229,7 @@ export default function GestionAdministracionView({
       return;
     }
 
-    const effectiveFechaPago = fechaPagoInput || todayStr;
+    const effectiveFechaPago = normalizeDateToISO(fechaPagoInput || todayStr);
     const assignedStaffName = cobradorComisionId || selectedCliente.cobradorAsignadoNombre || activeUser?.nombre || 'Administración';
     const newPagoId = `PAG-${String(Date.now())}`;
 
