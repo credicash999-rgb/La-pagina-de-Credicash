@@ -1076,6 +1076,7 @@ export default function App() {
   };
 
   const handleUpdateOperacion = (updated: Operacion) => {
+    if (!updated || !updated.id || updated.id.startsWith('OP-INACTIVO') || updated.id === 'SIN_CREDITO') return;
     const exists = operaciones.some(o => o.id === updated.id);
     const list = exists ? operaciones.map(o => o.id === updated.id ? updated : o) : [updated, ...operaciones];
     setOperaciones(list);

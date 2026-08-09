@@ -126,13 +126,23 @@ export default function GestionAdministracionView({
   const handleOpenPagoModal = (opId?: string) => {
     if (!selectedCliente) return;
 
-    const opToSelect = opId || (clientOperations.length > 0 ? clientOperations[0].id : '');
+    const opToSelect = opId || (clientOperations.length > 0 ? clientOperations[0].id : 'DEUDA_INACTIVO');
     setSelectedOperacionId(opToSelect);
 
-    // Suggest default amount based on first pending cuota
-    const targetOpCuotas = clientCuotas.filter(cu => cu.idOperacion === opToSelect && cu.estado !== 'PAGADA');
-    const priorityCuotas = sortCuotasByPaymentPriority(targetOpCuotas, todayStr);
-    const suggestedMonto = priorityCuotas.length > 0 ? (priorityCuotas[0].saldoPendiente || priorityCuotas[0].valorTotalCuota || 0) : 0;
+    let suggestedMonto = 0;
+    if (opToSelect !== 'DEUDA_INACTIVO') {
+      const targetOpCuotas = clientCuotas.filter(cu => cu.idOperacion === opToSelect && cu.estado !== 'PAGADA');
+      const priorityCuotas = sortCuotasByPaymentPriority(targetOpCuotas, todayStr);
+      suggestedMonto = priorityCuotas.length > 0 ? (priorityCuotas[0].saldoPendiente || priorityCuotas[0].valorTotalCuota || 0) : 0;
+    } else {
+      const defaultDeuda = selectedCliente.montoDeudaInactivo !== undefined && selectedCliente.montoDeudaInactivo > 0
+        ? selectedCliente.montoDeudaInactivo
+        : 150000;
+      const defaultPagoInicial = selectedCliente.montoPagoInicialRefinanciacion !== undefined && selectedCliente.montoPagoInicialRefinanciacion > 0
+        ? selectedCliente.montoPagoInicialRefinanciacion
+        : Math.round(defaultDeuda * 0.10);
+      suggestedMonto = defaultPagoInicial;
+    }
 
     setMontoIngresado(suggestedMonto > 0 ? String(suggestedMonto) : '');
     setFechaPagoInput(todayStr);
@@ -140,7 +150,7 @@ export default function GestionAdministracionView({
     setMetodoPago('EFECTIVO');
     setCanalCobro('ADMINISTRACION');
     setCobradorComisionId(selectedCliente.cobradorAsignadoNombre || activeUser?.nombre || '');
-    setObservacionesPago('Cobro extraordinario registrado desde Gestión Administración');
+    setObservacionesPago('Cobro extraordinario / Pago refinanciación registrado desde Gestión Administración');
     setIsPagoModalOpen(true);
   };
 
@@ -148,7 +158,7 @@ export default function GestionAdministracionView({
   const handleSubmitPago = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCliente || !selectedOperacionId) {
-      alert('Por favor seleccione una operación para registrar el cobro.');
+      alert('Por favor seleccione una opción para registrar el cobro.');
       return;
     }
 
@@ -159,12 +169,101 @@ export default function GestionAdministracionView({
     }
 
     const effectiveFechaPago = fechaPagoInput || todayStr;
+    const assignedStaffName = cobradorComisionId || selectedCliente.cobradorAsignadoNombre || activeUser?.nombre || 'Administración';
+    const newPagoId = `PAG-${String(Date.now())}`;
 
-    const targetOp = operaciones.find(o => o.id === selectedOperacionId);
-    if (!targetOp) {
-      alert('No se encontró la operación seleccionada.');
+    // A. DIRECT PAYMENT FOR INACTIVE CLIENT / REFINANCING INITIAL PAYMENT (No active loan)
+    if (selectedOperacionId === 'DEUDA_INACTIVO' || !operaciones.find(o => o.id === selectedOperacionId)) {
+      const currentDeuda = selectedCliente.montoDeudaInactivo !== undefined && selectedCliente.montoDeudaInactivo > 0
+        ? selectedCliente.montoDeudaInactivo
+        : 150000;
+      const currentPagoInicial = selectedCliente.montoPagoInicialRefinanciacion !== undefined && selectedCliente.montoPagoInicialRefinanciacion > 0
+        ? selectedCliente.montoPagoInicialRefinanciacion
+        : Math.round(currentDeuda * 0.10);
+
+      const nuevoPagoInicial = Math.max(0, currentPagoInicial - montoNum);
+      const nuevaDeudaInactivo = Math.max(0, currentDeuda - montoNum);
+
+      const dummyOp: Operacion = {
+        id: `OP-INACTIVO-${selectedCliente.id}`,
+        idCliente: selectedCliente.id,
+        nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido || ''}`.trim(),
+        fechaOtorgamiento: effectiveFechaPago,
+        capitalEntregado: currentDeuda,
+        promocionAplicada: '',
+        descuentoPorcentaje: 0,
+        totalFinanciado: currentDeuda,
+        totalPendiente: nuevaDeudaInactivo,
+        capitalPendiente: nuevaDeudaInactivo,
+        capitalRecuperado: montoNum,
+        interesCobrado: 0,
+        cantidadCuotas: 1,
+        cuotasPagadas: 1,
+        cuotasPendientes: 0,
+        valorCuota: currentPagoInicial,
+        frecuencia: 'DIARIA',
+        estado: 'REFINANCIADA',
+        tipoOperacion: 'REFINANCIACION',
+        descripcion: 'Refinanciación Cliente Inactivo',
+        primerVencimiento: effectiveFechaPago,
+        ultimoVencimiento: effectiveFechaPago,
+        proximoVencimiento: effectiveFechaPago,
+        ultimoPago: effectiveFechaPago,
+        captador: selectedCliente.captador || 'Sistema',
+        analista: selectedCliente.analista || 'Sistema',
+        ejecutivoAtencion: 'Sistema',
+        cobrador: selectedCliente.cobradorAsignadoNombre || 'Administración',
+        diasMora: 0,
+        nivelMora: 'Normal',
+        numeroCredito: 1,
+        mesesFinanciados: 1,
+        elegibleRenovacion: false,
+        elegibleAmpliacion: false,
+        fechaFinalizacion: effectiveFechaPago,
+        motivoCierre: '',
+        observaciones: 'Cliente Inactivo',
+        cuotasGeneradas: true
+      };
+
+      const nuevoPago: Pago = {
+        id: newPagoId,
+        idOperacion: dummyOp.id,
+        idCliente: selectedCliente.id,
+        nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido || ''}`.trim(),
+        fechaPago: effectiveFechaPago,
+        importe: montoNum,
+        metodoPago: metodoPago,
+        cobrador: assignedStaffName,
+        modalidad: 'REFINANCIACION',
+        observaciones: `[${canalCobro}] Pago Cliente Inactivo / Refinanciación - ${observacionesPago}`.trim(),
+      };
+
+      const tesoreriaTrx: TransaccionTesoreria = {
+        id: `TRX-${String(Date.now())}`,
+        fecha: effectiveFechaPago,
+        tipo: 'INGRESO',
+        concepto: `Cobro Inactivo / Refinanciación Admin [${canalCobro}] - ${selectedCliente.nombre}`,
+        monto: montoNum,
+        referenciaId: newPagoId,
+      };
+
+      const updatedCli: Cliente = {
+        ...selectedCliente,
+        montoDeudaInactivo: nuevaDeudaInactivo,
+        montoPagoInicialRefinanciacion: nuevoPagoInicial,
+        estado: nuevaDeudaInactivo === 0 ? 'ACTIVO' : selectedCliente.estado
+      };
+
+      onAddPago(nuevoPago, [], dummyOp, tesoreriaTrx);
+      if (onUpdateCliente) onUpdateCliente(updatedCli);
+
+      setIsPagoModalOpen(false);
+      alert(`✅ Pago de $${montoNum.toLocaleString('es-AR')} para cliente inactivo registrado correctamente.\n• Pago Inicial Refinanciación Restante: $${nuevoPagoInicial.toLocaleString('es-AR')}\n• Deuda Total Restante: $${nuevaDeudaInactivo.toLocaleString('es-AR')}`);
       return;
     }
+
+    // B. PAYMENT FOR EXISTING ACTIVE OPERATION
+    const targetOp = operaciones.find(o => o.id === selectedOperacionId)!;
 
     // Get current unpaid cuotas for operation
     let opCuotas = cuotas.filter(cu => cu.idOperacion === targetOp.id);
@@ -179,12 +278,6 @@ export default function GestionAdministracionView({
       alert('No hay cuotas pendientes para esta operación.');
       return;
     }
-
-    const targetCuota = sortedPending.length > 0 ? sortedPending[0] : opCuotas[opCuotas.length - 1];
-    const newPagoId = `PAG-${String(Date.now())}`;
-
-    // Selected assigned staff member for commission
-    const assignedStaffName = cobradorComisionId || selectedCliente.cobradorAsignadoNombre || activeUser?.nombre || 'Administración';
 
     const nuevoPago: Pago = {
       id: newPagoId,
@@ -256,13 +349,22 @@ export default function GestionAdministracionView({
     onAddPago(nuevoPago, updatedCuotasList, updatedOperacion, tesoreriaTrx);
 
     // If client was inactive or had debt, update client state if needed
-    if (selectedCliente.estado === 'INACTIVO') {
-      const remainingDebt = Math.max(0, (selectedCliente.montoDeudaInactivo || 0) - montoNum);
+    if (selectedCliente.estado === 'INACTIVO' || (selectedCliente.montoDeudaInactivo && selectedCliente.montoDeudaInactivo > 0) || (selectedCliente.montoPagoInicialRefinanciacion && selectedCliente.montoPagoInicialRefinanciacion > 0)) {
+      const currentDeuda = selectedCliente.montoDeudaInactivo !== undefined && selectedCliente.montoDeudaInactivo > 0
+        ? selectedCliente.montoDeudaInactivo
+        : 150000;
+      const currentPagoInicial = selectedCliente.montoPagoInicialRefinanciacion !== undefined && selectedCliente.montoPagoInicialRefinanciacion > 0
+        ? selectedCliente.montoPagoInicialRefinanciacion
+        : Math.round(currentDeuda * 0.10);
+
+      const nuevoPagoInicial = Math.max(0, currentPagoInicial - montoNum);
+      const nuevaDeudaInactivo = Math.max(0, currentDeuda - montoNum);
+
       const updatedCli: Cliente = {
         ...selectedCliente,
-        montoDeudaInactivo: remainingDebt,
-        montoPagoInicialRefinanciacion: Math.max(0, (selectedCliente.montoPagoInicialRefinanciacion || 0) - montoNum),
-        estado: remainingDebt === 0 ? 'ACTIVO' : 'INACTIVO',
+        montoDeudaInactivo: nuevaDeudaInactivo,
+        montoPagoInicialRefinanciacion: nuevoPagoInicial,
+        estado: nuevaDeudaInactivo === 0 ? 'ACTIVO' : selectedCliente.estado,
       };
       if (onUpdateCliente) onUpdateCliente(updatedCli);
     }
@@ -680,10 +782,16 @@ export default function GestionAdministracionView({
                   value={selectedOperacionId}
                   onChange={(e) => {
                     setSelectedOperacionId(e.target.value);
-                    const targetOpCuotas = clientCuotas.filter(cu => cu.idOperacion === e.target.value && cu.estado !== 'PAGADA');
-                    const priorityCuotas = sortCuotasByPaymentPriority(targetOpCuotas, todayStr);
-                    if (priorityCuotas.length > 0) {
-                      setMontoIngresado(String(priorityCuotas[0].saldoPendiente || priorityCuotas[0].valorTotalCuota || 0));
+                    if (e.target.value === 'DEUDA_INACTIVO') {
+                      const currentDeuda = selectedCliente.montoDeudaInactivo ?? 150000;
+                      const currentPagoInicial = selectedCliente.montoPagoInicialRefinanciacion ?? Math.round(currentDeuda * 0.10);
+                      setMontoIngresado(String(currentPagoInicial));
+                    } else {
+                      const targetOpCuotas = clientCuotas.filter(cu => cu.idOperacion === e.target.value && cu.estado !== 'PAGADA');
+                      const priorityCuotas = sortCuotasByPaymentPriority(targetOpCuotas, todayStr);
+                      if (priorityCuotas.length > 0) {
+                        setMontoIngresado(String(priorityCuotas[0].saldoPendiente || priorityCuotas[0].valorTotalCuota || 0));
+                      }
                     }
                   }}
                   className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
@@ -693,6 +801,11 @@ export default function GestionAdministracionView({
                       Crédito N° {op.id} | Otorgado: {op.fechaOtorgamiento} | Frecuencia: {op.frecuencia}
                     </option>
                   ))}
+                  {(clientOperations.length === 0 || selectedCliente.estado === 'INACTIVO' || (selectedCliente.montoDeudaInactivo && selectedCliente.montoDeudaInactivo > 0)) && (
+                    <option value="DEUDA_INACTIVO">
+                      ⚡ Deuda Inactiva / Pago Inicial Refinanciación (Sin crédito activo)
+                    </option>
+                  )}
                 </select>
               </div>
 

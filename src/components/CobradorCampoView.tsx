@@ -864,11 +864,23 @@ export default function CobradorCampoView({
 
     onAddPago(newPago, updatedCuotas, updatedOperacion, tesoreriaTrx);
 
-    if (selectedCliente.estado === 'INACTIVO' && onUpdateCliente) {
+    if ((selectedCliente.estado === 'INACTIVO' || (selectedCliente.montoDeudaInactivo && selectedCliente.montoDeudaInactivo > 0)) && onUpdateCliente) {
+      const currentDeuda = selectedCliente.montoDeudaInactivo !== undefined && selectedCliente.montoDeudaInactivo > 0
+        ? selectedCliente.montoDeudaInactivo
+        : 150000;
+      const currentPagoInicial = selectedCliente.montoPagoInicialRefinanciacion !== undefined && selectedCliente.montoPagoInicialRefinanciacion > 0
+        ? selectedCliente.montoPagoInicialRefinanciacion
+        : Math.round(currentDeuda * 0.10);
+
+      const nuevoPagoInicial = Math.max(0, currentPagoInicial - monto);
+      const nuevaDeudaInactivo = Math.max(0, currentDeuda - monto);
+
       onUpdateCliente({
         ...selectedCliente,
-        estado: 'ACTIVO',
-        esClienteInactivoRefinanciacion: false
+        montoPagoInicialRefinanciacion: nuevoPagoInicial,
+        montoDeudaInactivo: nuevaDeudaInactivo,
+        estado: nuevaDeudaInactivo === 0 ? 'ACTIVO' : selectedCliente.estado,
+        fechaCobroInicial: todayStr
       });
     }
 
