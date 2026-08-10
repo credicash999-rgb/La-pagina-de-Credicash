@@ -282,7 +282,8 @@ export function parseDateToTimestamp(dateStr?: string): number {
  * Ordena las cuotas impagas para imputar un pago según la prioridad de negocio:
  * 1. Cuota seleccionada manualmente por el usuario (si aplica).
  * 2. Cuota cuya fecha de vencimiento coincida EXACTAMENTE con la fecha del pago registrado (refDate).
- * 3. Demás cuotas impagas en estricto orden cronológico ascendente (de la cuota más antigua a la más nueva).
+ * 3. Cuotas anteriores o iguales a la fecha de pago (<= refDate) en orden descendente hacia atrás (6/8, 5/8, 4/8...), cancelando primero los días de atraso contiguos y recientes.
+ * 4. Cuotas futuras (> refDate) en orden cronológico ascendente (7/8, 8/8, 9/8...).
  */
 export function sortCuotasByPaymentPriority(
   cuotas: Cuota[], 
@@ -319,13 +320,29 @@ export function sortCuotasByPaymentPriority(
     const bIsExactRef = (refDate && bFec === refDate) ? 1 : 0;
     if (aIsExactRef !== bIsExactRef) return bIsExactRef - aIsExactRef;
 
-    // 2. Para las demás cuotas impagas, orden cronológico ascendente (de la más antigua a la más reciente)
-    if (aFec !== bFec) {
-      return aFec.localeCompare(bFec);
+    // 2. Clasificar entre cuotas pasadas/presentes (<= refDate) y cuotas futuras (> refDate)
+    const aIsPastOrCurrent = (refDate && aFec <= refDate) ? 1 : 0;
+    const bIsPastOrCurrent = (refDate && bFec <= refDate) ? 1 : 0;
+
+    if (aIsPastOrCurrent !== bIsPastOrCurrent) {
+      return bIsPastOrCurrent - aIsPastOrCurrent; // Las cuotas <= refDate van antes que las futuras
     }
 
-    // Desempate por número de cuota
-    return a.numeroCuota - b.numeroCuota;
+    if (aIsPastOrCurrent && bIsPastOrCurrent) {
+      // Para cuotas adeudadas hasta la fecha de pago (<= refDate):
+      // Se ordenan de forma descendente (desde la fecha de pago hacia el pasado: 6/8, 5/8, 4/8, 3/8...)
+      if (aFec !== bFec) {
+        return bFec.localeCompare(aFec);
+      }
+      return b.numeroCuota - a.numeroCuota;
+    } else {
+      // Para cuotas futuras (> refDate):
+      // Se ordenan en orden cronológico ascendente (7/8, 8/8, 9/8...)
+      if (aFec !== bFec) {
+        return aFec.localeCompare(bFec);
+      }
+      return a.numeroCuota - b.numeroCuota;
+    }
   });
 }
 
