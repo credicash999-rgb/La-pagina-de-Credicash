@@ -2786,7 +2786,10 @@ export default function App() {
               operaciones={operaciones}
               activeUserRole={activeUser}
               usuarios={usuarios}
+              configuracion={configuracion}
+              feriados={feriados}
               onUpdateCliente={handleUpdateCliente}
+              onAddOperacion={handleAddOperacion}
             />
           )}
 
