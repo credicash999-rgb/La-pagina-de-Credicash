@@ -45,6 +45,20 @@ export function esFeriado(fechaStr: string, feriados: any[]): boolean {
 }
 
 /**
+ * Safe helper to format a Date into YYYY-MM-DD without RangeError
+ */
+export function safeFormatISO(date: Date): string {
+  if (!date || isNaN(date.getTime())) {
+    return new Date().toISOString().split('T')[0];
+  }
+  try {
+    return date.toISOString().split('T')[0];
+  } catch (e) {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+/**
  * Obtiene el próximo día hábil (evitando domingos y feriados).
  */
 export function obtenerProximoDiaHabil(fecha: Date, feriados: any[]): Date {
@@ -95,133 +109,150 @@ export function calcularMesesFinanciados(frecuencia: FrecuenciaPago, cantidadCuo
  */
 export function generarPlanCuotas(
   operacion: Operacion,
-  feriados: string[]
+  feriados: any[]
 ): Cuota[] {
-  const cuotas: Cuota[] = [];
-  const {
-    id: idOperacion,
-    idCliente,
-    nombreCliente,
-    numeroCredito,
-    frecuencia,
-    cantidadCuotas,
-    primerVencimiento,
-    totalFinanciado,
-    capitalEntregado,
-  } = operacion;
-
-  // El interés total es la diferencia entre el total financiado y el capital entregado
-  const interesTotal = Math.max(0, totalFinanciado - capitalEntregado);
-
-  const capitalPorCuota = parseFloat((capitalEntregado / cantidadCuotas).toFixed(2));
-  const interesPorCuota = parseFloat((interesTotal / cantidadCuotas).toFixed(2));
-  const valorTotalCuota = parseFloat((totalFinanciado / cantidadCuotas).toFixed(2));
-
-  let fechasVencimiento: string[] = [];
-
-  // Generación de fechas base según la frecuencia
-  if (frecuencia === 'DIARIA') {
-    let current = new Date(primerVencimiento + 'T12:00:00'); // Evitar problemas de zona horaria usando mediodía
-    for (let i = 0; i < cantidadCuotas; i++) {
-      if (i > 0) {
-        current.setDate(current.getDate() + 1);
-      }
-      const adjusted = obtenerProximoDiaHabil(current, feriados);
-      fechasVencimiento.push(adjusted.toISOString().split('T')[0]);
-      current = new Date(adjusted.getTime());
-    }
-  } else if (frecuencia === 'SEMANAL') {
-    for (let i = 0; i < cantidadCuotas; i++) {
-      const current = new Date(primerVencimiento + 'T12:00:00');
-      current.setDate(current.getDate() + i * 7);
-      const adjusted = obtenerProximoDiaHabil(current, feriados);
-      fechasVencimiento.push(adjusted.toISOString().split('T')[0]);
-    }
-  } else if (frecuencia === 'QUINCENAL') {
-    // Quincenal: Se definen dos días de cobro basados en el día de primerVencimiento
-    const baseDate = new Date(primerVencimiento + 'T12:00:00');
-    const d = baseDate.getDate();
-    let day1 = 5;
-    let day2 = 20;
-
-    if (d <= 15) {
-      day1 = d;
-      day2 = d + 15;
-    } else {
-      day2 = d;
-      day1 = d - 15;
-    }
-
-    let current = new Date(baseDate.getTime());
-    for (let i = 0; i < cantidadCuotas; i++) {
-      const adjusted = obtenerProximoDiaHabil(current, feriados);
-      fechasVencimiento.push(adjusted.toISOString().split('T')[0]);
-
-      // Mover a la siguiente quincena
-      const currDay = current.getDate();
-      const currMonth = current.getMonth();
-      const currYear = current.getFullYear();
-
-      if (currDay <= 15) {
-        current = new Date(currYear, currMonth, day2, 12, 0, 0);
-      } else {
-        current = new Date(currYear, currMonth + 1, day1, 12, 0, 0);
-      }
-    }
-  } else if (frecuencia === 'MENSUAL') {
-    const baseDate = new Date(primerVencimiento + 'T12:00:00');
-    for (let i = 0; i < cantidadCuotas; i++) {
-      const current = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate(), 12, 0, 0);
-      const adjusted = obtenerProximoDiaHabil(current, feriados);
-      fechasVencimiento.push(adjusted.toISOString().split('T')[0]);
-    }
-  }
-
-  // Ajustes de redondeo para que sumen exactamente el total
-  let sumaCapital = 0;
-  let sumaInteres = 0;
-  let sumaTotal = 0;
-
-  for (let i = 0; i < cantidadCuotas; i++) {
-    const esUltima = i === cantidadCuotas - 1;
-
-    const cap = esUltima ? parseFloat((capitalEntregado - sumaCapital).toFixed(2)) : capitalPorCuota;
-    const int = esUltima ? parseFloat((interesTotal - sumaInteres).toFixed(2)) : interesPorCuota;
-    const tot = esUltima ? parseFloat((totalFinanciado - sumaTotal).toFixed(2)) : valorTotalCuota;
-
-    sumaCapital += cap;
-    sumaInteres += int;
-    sumaTotal += tot;
-
-    const cuotaNumero = i + 1;
-    const esPagada = cuotaNumero <= (operacion.cuotasPagadas || 0);
-    const todayStr = new Date().toISOString().split('T')[0];
-    const fechaVenc = fechasVencimiento[i];
-    const esVencida = !esPagada && fechaVenc < todayStr;
-
-    cuotas.push({
-      id: `${idOperacion}-CUO-${String(cuotaNumero).padStart(2, '0')}`,
-      idOperacion,
+  try {
+    const cuotas: Cuota[] = [];
+    const {
+      id: idOperacion,
       idCliente,
       nombreCliente,
       numeroCredito,
-      numeroCuota: cuotaNumero,
       frecuencia,
-      fechaVencimiento: fechaVenc,
-      capitalCuota: cap,
-      interesCuota: int,
-      valorTotalCuota: tot,
-      estado: esPagada ? 'PAGADA' : (esVencida ? 'VENCIDA' : 'PENDIENTE'),
-      fechaPago: esPagada ? (operacion.ultimoPago || (operacion as any).fechaEntrega || operacion.fechaOtorgamiento || '') : '',
-      importePagado: esPagada ? tot : 0,
-      saldoPendiente: esPagada ? 0 : tot,
-      diasAtraso: esVencida ? Math.max(1, Math.floor((new Date(todayStr + 'T00:00:00').getTime() - new Date(fechaVenc + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))) : 0,
-      cobrador: operacion.cobrador,
-      observaciones: '',
-    });
-  }
+      cantidadCuotas = 1,
+      totalFinanciado = 0,
+      capitalEntregado = 0,
+    } = operacion;
 
-  return cuotas;
+    let primerVencimiento = operacion.primerVencimiento;
+    if (!primerVencimiento || isNaN(new Date(primerVencimiento + 'T12:00:00').getTime())) {
+      primerVencimiento = safeFormatISO(new Date());
+    }
+
+    // El interés total es la diferencia entre el total financiado y el capital entregado
+    const interesTotal = Math.max(0, totalFinanciado - capitalEntregado);
+
+    const safeCantCuotas = Math.max(1, cantidadCuotas);
+    const capitalPorCuota = parseFloat((capitalEntregado / safeCantCuotas).toFixed(2));
+    const interesPorCuota = parseFloat((interesTotal / safeCantCuotas).toFixed(2));
+    const valorTotalCuota = parseFloat((totalFinanciado / safeCantCuotas).toFixed(2));
+
+    let fechasVencimiento: string[] = [];
+
+    // Generación de fechas base según la frecuencia
+    if (frecuencia === 'DIARIA') {
+      let current = new Date(primerVencimiento + 'T12:00:00'); // Evitar problemas de zona horaria usando mediodía
+      for (let i = 0; i < safeCantCuotas; i++) {
+        if (i > 0) {
+          current.setDate(current.getDate() + 1);
+        }
+        const adjusted = obtenerProximoDiaHabil(current, feriados);
+        fechasVencimiento.push(safeFormatISO(adjusted));
+        current = new Date(adjusted.getTime());
+      }
+    } else if (frecuencia === 'SEMANAL') {
+      for (let i = 0; i < safeCantCuotas; i++) {
+        const current = new Date(primerVencimiento + 'T12:00:00');
+        current.setDate(current.getDate() + i * 7);
+        const adjusted = obtenerProximoDiaHabil(current, feriados);
+        fechasVencimiento.push(safeFormatISO(adjusted));
+      }
+    } else if (frecuencia === 'QUINCENAL') {
+      // Quincenal: Se definen dos días de cobro basados en el día de primerVencimiento
+      const baseDate = new Date(primerVencimiento + 'T12:00:00');
+      const d = baseDate.getDate() || 1;
+      let day1 = 5;
+      let day2 = 20;
+
+      if (d <= 15) {
+        day1 = d;
+        day2 = d + 15;
+      } else {
+        day2 = d;
+        day1 = d - 15;
+      }
+
+      let current = new Date(baseDate.getTime());
+      for (let i = 0; i < safeCantCuotas; i++) {
+        const adjusted = obtenerProximoDiaHabil(current, feriados);
+        fechasVencimiento.push(safeFormatISO(adjusted));
+
+        // Mover a la siguiente quincena
+        const currDay = current.getDate();
+        const currMonth = current.getMonth();
+        const currYear = current.getFullYear();
+
+        if (currDay <= 15) {
+          current = new Date(currYear, currMonth, day2, 12, 0, 0);
+        } else {
+          current = new Date(currYear, currMonth + 1, day1, 12, 0, 0);
+        }
+      }
+    } else if (frecuencia === 'MENSUAL') {
+      const baseDate = new Date(primerVencimiento + 'T12:00:00');
+      for (let i = 0; i < safeCantCuotas; i++) {
+        const current = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate(), 12, 0, 0);
+        const adjusted = obtenerProximoDiaHabil(current, feriados);
+        fechasVencimiento.push(safeFormatISO(adjusted));
+      }
+    } else {
+      let current = new Date(primerVencimiento + 'T12:00:00');
+      for (let i = 0; i < safeCantCuotas; i++) {
+        const adjusted = obtenerProximoDiaHabil(current, feriados);
+        fechasVencimiento.push(safeFormatISO(adjusted));
+        current.setDate(current.getDate() + 1);
+      }
+    }
+
+    // Ajustes de redondeo para que sumen exactamente el total
+    let sumaCapital = 0;
+    let sumaInteres = 0;
+    let sumaTotal = 0;
+
+    for (let i = 0; i < safeCantCuotas; i++) {
+      const esUltima = i === safeCantCuotas - 1;
+
+      const cap = esUltima ? parseFloat((capitalEntregado - sumaCapital).toFixed(2)) : capitalPorCuota;
+      const int = esUltima ? parseFloat((interesTotal - sumaInteres).toFixed(2)) : interesPorCuota;
+      const tot = esUltima ? parseFloat((totalFinanciado - sumaTotal).toFixed(2)) : valorTotalCuota;
+
+      sumaCapital += cap;
+      sumaInteres += int;
+      sumaTotal += tot;
+
+      const cuotaNumero = i + 1;
+      const esPagada = cuotaNumero <= (operacion.cuotasPagadas || 0);
+      const todayStr = safeFormatISO(new Date());
+      const fechaVenc = fechasVencimiento[i] || todayStr;
+      const esVencida = !esPagada && fechaVenc < todayStr;
+
+      cuotas.push({
+        id: `${idOperacion}-CUO-${String(cuotaNumero).padStart(2, '0')}`,
+        idOperacion,
+        idCliente,
+        nombreCliente,
+        numeroCredito,
+        numeroCuota: cuotaNumero,
+        frecuencia,
+        fechaVencimiento: fechaVenc,
+        capitalCuota: cap,
+        interesCuota: int,
+        valorTotalCuota: tot,
+        estado: esPagada ? 'PAGADA' : (esVencida ? 'VENCIDA' : 'PENDIENTE'),
+        fechaPago: esPagada ? (operacion.ultimoPago || (operacion as any).fechaEntrega || operacion.fechaOtorgamiento || '') : '',
+        importePagado: esPagada ? tot : 0,
+        saldoPendiente: esPagada ? 0 : tot,
+        diasAtraso: esVencida ? Math.max(1, Math.floor((new Date(todayStr + 'T00:00:00').getTime() - new Date(fechaVenc + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))) : 0,
+        cobrador: operacion.cobrador,
+        observaciones: '',
+      });
+    }
+
+    return cuotas;
+  } catch (error) {
+    console.error('Error generating cuotas plan:', error);
+    return [];
+  }
 }
 
 /**

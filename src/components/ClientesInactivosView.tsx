@@ -370,16 +370,23 @@ export default function ClientesInactivosView({
 
       onAddOperacion(nuevaOp, finalizedCuotas);
 
+      const targetClient = generatingCreditCliente;
+      const clientName = `${targetClient.nombre || ''} ${targetClient.apellido || ''}`.trim();
+
       // Update client: clear inactive debt and set to ACTIVO
       onUpdateCliente({
-        ...generatingCreditCliente,
+        ...targetClient,
         estado: 'ACTIVO',
         montoDeudaInactivo: 0,
         montoPagoInicialRefinanciacion: 0
       });
 
-      alert(`🎉 ¡Crédito ${generatedOpId} por $${totalFinanciado.toLocaleString('es-AR')} otorgado con éxito!\n\nCliente: ${generatingCreditCliente.nombre} ${generatingCreditCliente.apellido}\nPlan: ${creditoCuotas} cuotas de $${valorCuota.toLocaleString('es-AR')}\nEl cliente ha pasado automáticamente a estado ACTIVO.`);
+      // Clear modal state first to avoid holding rendering state open during browser alert dialog
       setGeneratingCreditCliente(null);
+
+      setTimeout(() => {
+        alert(`🎉 ¡Crédito ${generatedOpId} por $${totalFinanciado.toLocaleString('es-AR')} otorgado con éxito!\n\nCliente: ${clientName}\nPlan: ${creditoCuotas} cuotas de $${valorCuota.toLocaleString('es-AR')}\nEl cliente ha pasado automáticamente a estado ACTIVO.`);
+      }, 50);
     } catch (err) {
       console.error('Error al generar crédito de refinanciación:', err);
       alert('Ocurrió un error al procesar el otorgamiento del crédito. Intente nuevamente.');
@@ -894,7 +901,7 @@ export default function ClientesInactivosView({
                       <tr key={cuo.numeroCuota} className="hover:bg-slate-900/50">
                         <td className="p-2.5 font-bold text-white">Cuota #{cuo.numeroCuota}</td>
                         <td className="p-2.5 font-mono text-emerald-300">{cuo.fechaVencimiento}</td>
-                        <td className="p-2.5 text-right font-black text-white font-mono">${cuo.monto.toLocaleString('es-AR')}</td>
+                        <td className="p-2.5 text-right font-black text-white font-mono">${(cuo.valorTotalCuota || (cuo as any).monto || 0).toLocaleString('es-AR')}</td>
                         <td className="p-2.5 text-center">
                           <span className="bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded text-[9px] font-bold">
                             PENDIENTE
