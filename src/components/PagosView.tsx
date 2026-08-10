@@ -1293,7 +1293,7 @@ export default function PagosView({
                     setActiveAction('pago_adelantado');
                     setImporteCobrado((selectedOp.valorCuota * 2).toString());
                     setObservacionesInput('');
-                    setPrepaymentMode('FINAL_ATRAS');
+                    setPrepaymentMode('CONSECUTIVO_INMEDIATO');
                   }}
                   className={`p-2 rounded-lg text-[10px] font-extrabold transition-all flex flex-col items-center justify-center gap-1 cursor-pointer border text-center ${
                     activeAction === 'pago_adelantado'

@@ -54,7 +54,7 @@ interface ConfiguracionViewProps {
   onClearDatabase: () => void;
   onResetToSeed: () => void;
   onRestoreBackup: (data: any) => void;
-  onBatchUpdateData?: (repairedClientes: Cliente[], repairedOps?: Operacion[], repairedCuotas?: Cuota[]) => void;
+  onBatchUpdateData?: (repairedClientes: Cliente[], repairedOps?: Operacion[], repairedCuotas?: Cuota[], repairedPagos?: Pago[]) => void;
 }
 
 export default function ConfiguracionView({
@@ -1662,7 +1662,8 @@ export default function ConfiguracionView({
                     onBatchUpdateData(
                       auditResult.repairedClientes,
                       auditResult.repairedOperaciones,
-                      auditResult.repairedCuotas
+                      auditResult.repairedCuotas,
+                      auditResult.repairedPagos
                     );
                     alert('✅ ¡Reconstrucción aplicada e ingresada exitosamente en el sistema de CrediCash!');
                     setAuditResult(null);

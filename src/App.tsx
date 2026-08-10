@@ -1631,7 +1631,8 @@ export default function App() {
   const handleBatchUpdateData = (
     repairedClientes: Cliente[],
     repairedOps?: Operacion[],
-    repairedCuotas?: Cuota[]
+    repairedCuotas?: Cuota[],
+    repairedPagos?: Pago[]
   ) => {
     if (repairedClientes && repairedClientes.length > 0) {
       setClientes(repairedClientes);
@@ -1645,12 +1646,16 @@ export default function App() {
       setCuotas(repairedCuotas);
       saveToLocalStorage(STORAGE_KEYS.CUOTAS, repairedCuotas);
     }
+    if (repairedPagos && repairedPagos.length > 0) {
+      setPagos(repairedPagos);
+      saveToLocalStorage(STORAGE_KEYS.PAGOS, repairedPagos);
+    }
     if (isFirebaseEnabled() && isAutoSyncEnabled()) {
       uploadAllToFirestore({
         clientes: repairedClientes || clientes,
         operaciones: repairedOps || operaciones,
         cuotas: repairedCuotas || cuotas,
-        pagos,
+        pagos: repairedPagos || pagos,
         transacciones,
         configuracion,
         feriados

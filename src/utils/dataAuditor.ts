@@ -5,6 +5,7 @@ export interface AuditResult {
   repairedClientes: Cliente[];
   repairedOperaciones: Operacion[];
   repairedCuotas: Cuota[];
+  repairedPagos: Pago[];
   logs: string[];
   summary: {
     totalClientes: number;
@@ -34,9 +35,27 @@ export function reconstructAndRepairData(
   let operacionesFinalizadasCorregidas = 0;
   let clientesActualizados = 0;
 
-  // 1. Index payments by operation ID and client ID
+  // Clone payments & normalize dates and modalities
+  const repairedPagosMap = new Map<string, Pago>();
+  const newPagos: Pago[] = pagos.map(p => {
+    const normDate = normalizeDateToISO(p.fechaPago) || todayStr;
+    // Auto-correct erroneous OP_A (prepayment from back) to OP_B (consecutive starting from target/due date)
+    let normModality = p.modalidad;
+    if (normModality === 'PAGO_ADELANTADO_OPCION_A') {
+      normModality = 'PAGO_ADELANTADO_OPCION_B';
+    }
+    const updatedPago: Pago = {
+      ...p,
+      fechaPago: normDate,
+      modalidad: normModality
+    };
+    repairedPagosMap.set(updatedPago.id, updatedPago);
+    return updatedPago;
+  });
+
+  // 1. Index payments by operation ID
   const pagosPorOperacion = new Map<string, Pago[]>();
-  pagos.forEach(pago => {
+  newPagos.forEach(pago => {
     if (!pago.idOperacion) return;
     const existing = pagosPorOperacion.get(pago.idOperacion) || [];
     existing.push(pago);
@@ -85,6 +104,8 @@ export function reconstructAndRepairData(
       const currentCuotasList = Array.from(resetCuotasMap.values());
       const processOrder = sortCuotasByPaymentPriority(currentCuotasList, p.fechaPago, p.modalidad);
 
+      const affectedCuotaDetails: string[] = [];
+
       processOrder.forEach(cuo => {
         if (rem <= 0) return;
         const currentCuo = resetCuotasMap.get(cuo.id)!;
@@ -105,6 +126,9 @@ export function reconstructAndRepairData(
           currentCuo.estado = 'PAGADA';
           currentCuo.fechaPago = p.fechaPago;
           currentCuo.cobrador = p.cobrador || currentCuo.cobrador;
+
+          affectedCuotaDetails.push(`Cuota N° ${currentCuo.numeroCuota} (${currentCuo.fechaVencimiento})`);
+          cuotasAjustadas++;
         } else {
           const paidThis = rem;
           rem = 0;
@@ -120,9 +144,19 @@ export function reconstructAndRepairData(
           currentCuo.estado = 'PAGO_PARCIAL';
           currentCuo.fechaPago = p.fechaPago;
           currentCuo.cobrador = p.cobrador || currentCuo.cobrador;
+
+          affectedCuotaDetails.push(`Cuota N° ${currentCuo.numeroCuota} (Parcial $${paidThis})`);
+          cuotasAjustadas++;
         }
         resetCuotasMap.set(currentCuo.id, currentCuo);
       });
+
+      if (affectedCuotaDetails.length > 0) {
+        const pInMap = repairedPagosMap.get(p.id);
+        if (pInMap) {
+          pInMap.cuotasAfectadas = affectedCuotaDetails.join(', ');
+        }
+      }
     });
 
     let maxDiasMoraOp = 0;
@@ -241,6 +275,7 @@ export function reconstructAndRepairData(
     repairedClientes: newClientes,
     repairedOperaciones: newOperaciones,
     repairedCuotas: newCuotas,
+    repairedPagos: Array.from(repairedPagosMap.values()),
     logs,
     summary: {
       totalClientes: clientes.length,
