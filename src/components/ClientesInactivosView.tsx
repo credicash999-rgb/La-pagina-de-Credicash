@@ -13,16 +13,16 @@ interface ClientesInactivosViewProps {
   activeUserRole: UsuarioRol;
   usuarios: UsuarioRol[];
   configuracion?: Configuracion;
-  feriados?: string[];
+  feriados?: (string | any)[];
   onUpdateCliente: (clienteActualizado: Cliente) => void;
   onAddOperacion?: (operacion: Operacion, cuotasGeneradas: Cuota[]) => void;
 }
 
 export default function ClientesInactivosView({
-  clientes,
-  operaciones,
+  clientes = [],
+  operaciones = [],
   activeUserRole,
-  usuarios,
+  usuarios = [],
   configuracion,
   feriados = [],
   onUpdateCliente,
@@ -39,7 +39,7 @@ export default function ClientesInactivosView({
 
   // Modal state for Credit Generator (Simulador y Liquidación de Crédito)
   const [generatingCreditCliente, setGeneratingCreditCliente] = useState<Cliente | null>(null);
-  const [creditoFecha, setCreditoFecha] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [creditoFecha, setCreditoFecha] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [creditoTipo, setCreditoTipo] = useState<Operacion['tipoOperacion']>('REFINANCIACION');
   const [creditoCapital, setCreditoCapital] = useState<number>(100000);
   const [creditoFrecuencia, setCreditoFrecuencia] = useState<FrecuenciaPago>('DIARIA');
@@ -63,41 +63,59 @@ export default function ClientesInactivosView({
   // Auto-calculate primer vencimiento date
   useEffect(() => {
     if (!creditoFecha) return;
-    const grantDate = new Date(creditoFecha + 'T12:00:00');
-    if (creditoFrecuencia === 'DIARIA') {
-      const nextDay = new Date(grantDate.getTime() + 24 * 60 * 60 * 1000);
-      const calculated = obtenerProximoDiaHabil(nextDay, feriados);
-      setCreditoPrimerVenc(calculated.toISOString().split('T')[0]);
-    } else if (creditoFrecuencia === 'SEMANAL') {
-      const nextDay = new Date(grantDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-      setCreditoPrimerVenc(nextDay.toISOString().split('T')[0]);
-    } else if (creditoFrecuencia === 'QUINCENAL') {
-      const nextDay = new Date(grantDate.getTime() + 15 * 24 * 60 * 60 * 1000);
-      setCreditoPrimerVenc(nextDay.toISOString().split('T')[0]);
-    } else if (creditoFrecuencia === 'MENSUAL') {
-      const nextDay = new Date(grantDate.getFullYear(), grantDate.getMonth() + 1, grantDate.getDate(), 12, 0, 0);
-      setCreditoPrimerVenc(nextDay.toISOString().split('T')[0]);
+    try {
+      const grantDate = new Date(creditoFecha + 'T12:00:00');
+      if (isNaN(grantDate.getTime())) return;
+
+      const safeFeriados = Array.isArray(feriados) ? feriados : [];
+
+      if (creditoFrecuencia === 'DIARIA') {
+        const nextDay = new Date(grantDate.getTime() + 24 * 60 * 60 * 1000);
+        const calculated = obtenerProximoDiaHabil(nextDay, safeFeriados);
+        if (calculated && !isNaN(calculated.getTime())) {
+          setCreditoPrimerVenc(calculated.toISOString().split('T')[0]);
+        }
+      } else if (creditoFrecuencia === 'SEMANAL') {
+        const nextDay = new Date(grantDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        setCreditoPrimerVenc(nextDay.toISOString().split('T')[0]);
+      } else if (creditoFrecuencia === 'QUINCENAL') {
+        const nextDay = new Date(grantDate.getTime() + 15 * 24 * 60 * 60 * 1000);
+        setCreditoPrimerVenc(nextDay.toISOString().split('T')[0]);
+      } else if (creditoFrecuencia === 'MENSUAL') {
+        const nextDay = new Date(grantDate.getFullYear(), grantDate.getMonth() + 1, grantDate.getDate(), 12, 0, 0);
+        setCreditoPrimerVenc(nextDay.toISOString().split('T')[0]);
+      }
+    } catch (e) {
+      console.error('Error calculando primer vencimiento:', e);
     }
   }, [creditoFrecuencia, creditoFecha, feriados]);
 
+  // Safe client list
+  const safeClientes = Array.isArray(clientes) ? clientes : [];
+  const safeOperaciones = Array.isArray(operaciones) ? operaciones : [];
+  const safeUsuarios = Array.isArray(usuarios) ? usuarios : [];
+
   // Filter inactive clients (either state INACTIVO or with explicit inactive debt)
-  const inactivosList = clientes.filter(c => {
+  const inactivosList = safeClientes.filter(c => {
+    if (!c) return false;
     const isInactiveState = c.estado === 'INACTIVO' || c.estado === 'SUSPENDIDO';
-    const clientOps = operaciones.filter(o => o.idCliente === c.id);
+    const clientOps = safeOperaciones.filter(o => o && o.idCliente === c.id);
     const hasInactiveDebt = (c.montoDeudaInactivo && c.montoDeudaInactivo > 0) || 
       clientOps.some(o => o.estado === 'VENCIDA' || o.estado === 'CONGELADA');
     
     return isInactiveState || hasInactiveDebt;
   });
 
-  const cobradoresList = usuarios.filter(u => u.rolId === 'COBRADOR' || u.rolId === 'ADMIN');
+  const cobradoresList = safeUsuarios.filter(u => u && (u.rolId === 'COBRADOR' || u.rolId === 'ADMIN'));
 
   // Filter by search term and cobrador
   const filteredInactivos = inactivosList.filter(c => {
+    if (!c) return false;
+    const term = (searchTerm || '').toLowerCase();
     const matchesSearch = 
-      c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.dni.includes(searchTerm);
+      (c.nombre || '').toLowerCase().includes(term) ||
+      (c.apellido || '').toLowerCase().includes(term) ||
+      (c.dni || '').includes(term);
 
     const matchesCobrador = filterCobrador === 'TODOS' || c.cobradorAsignadoId === filterCobrador;
 
@@ -106,16 +124,18 @@ export default function ClientesInactivosView({
 
   // Calculate total debt for an inactive client
   const getClienteDeudaTotal = (c: Cliente): number => {
+    if (!c) return 0;
     if (c.montoDeudaInactivo !== undefined && c.montoDeudaInactivo > 0) {
       return c.montoDeudaInactivo;
     }
-    const clientOps = operaciones.filter(o => o.idCliente === c.id);
+    const clientOps = safeOperaciones.filter(o => o && o.idCliente === c.id);
     const opDebt = clientOps.reduce((sum, o) => sum + (o.totalPendiente || 0), 0);
     return opDebt > 0 ? opDebt : 150000; // Fallback initial default if never edited
   };
 
   // Calculate minimum exigible amount (configured by admin or default 20%)
   const getClienteMinimoExigible = (c: Cliente): number => {
+    if (!c) return 0;
     if (c.montoMinimoInactivoConfigurado !== undefined && c.montoMinimoInactivoConfigurado > 0) {
       return c.montoMinimoInactivoConfigurado;
     }
@@ -157,7 +177,7 @@ export default function ClientesInactivosView({
   };
 
   const handleReassignCobrador = (cliente: Cliente, cobradorId: string) => {
-    const cobradorObj = usuarios.find(u => u.id === cobradorId);
+    const cobradorObj = safeUsuarios.find(u => u && u.id === cobradorId);
     const todayStr = new Date().toISOString().split('T')[0];
     
     onUpdateCliente({
@@ -182,12 +202,16 @@ export default function ClientesInactivosView({
     setCreditoFrecuencia('DIARIA');
     setCreditoCuotas(20);
 
-    const grantDate = new Date(todayStr + 'T12:00:00');
-    const nextDay = new Date(grantDate.getTime() + 24 * 60 * 60 * 1000);
-    const calculatedFirst = obtenerProximoDiaHabil(nextDay, feriados);
-    setCreditoPrimerVenc(calculatedFirst.toISOString().split('T')[0]);
+    try {
+      const grantDate = new Date(todayStr + 'T12:00:00');
+      const nextDay = new Date(grantDate.getTime() + 24 * 60 * 60 * 1000);
+      const calculatedFirst = obtenerProximoDiaHabil(nextDay, feriados);
+      setCreditoPrimerVenc(calculatedFirst.toISOString().split('T')[0]);
+    } catch (e) {
+      setCreditoPrimerVenc(todayStr);
+    }
 
-    setCreditoCobrador(cliente.cobradorAsignadoNombre || activeUserRole.nombre);
+    setCreditoCobrador(cliente.cobradorAsignadoNombre || activeUserRole?.nombre || 'Cobrador General');
     setCreditoPromo('');
     setCreditoDescuento(0);
     setCreditoObservaciones(
@@ -219,7 +243,7 @@ export default function ClientesInactivosView({
       id: 'OPE-TEMP',
       fechaOtorgamiento: creditoFecha,
       idCliente: generatingCreditCliente.id,
-      nombreCliente: `${generatingCreditCliente.nombre} ${generatingCreditCliente.apellido}`,
+      nombreCliente: `${generatingCreditCliente.nombre || ''} ${generatingCreditCliente.apellido || ''}`.trim(),
       estado: 'ACTIVA',
       tipoOperacion: creditoTipo,
       descripcion: `Crédito ${creditoTipo}`,
@@ -235,7 +259,7 @@ export default function ClientesInactivosView({
       ultimoVencimiento: '',
       captador: generatingCreditCliente.captador || '',
       analista: generatingCreditCliente.analista || '',
-      ejecutivoAtencion: activeUserRole.nombre,
+      ejecutivoAtencion: activeUserRole?.nombre || 'Sistema',
       cobrador: creditoCobrador || 'Cobrador General',
       capitalRecuperado: 0,
       interesCobrado: 0,
@@ -247,7 +271,7 @@ export default function ClientesInactivosView({
       ultimoPago: '',
       diasMora: 0,
       nivelMora: 'Sano',
-      numeroCredito: operaciones.filter(o => o.idCliente === generatingCreditCliente.id).length + 1,
+      numeroCredito: safeOperaciones.filter(o => o && o.idCliente === generatingCreditCliente.id).length + 1,
       elegibleRenovacion: false,
       elegibleAmpliacion: false,
       fechaFinalizacion: '',
@@ -259,6 +283,7 @@ export default function ClientesInactivosView({
       cuotasPreview = generarPlanCuotas(tempOp, feriados);
     } catch (e) {
       console.error('Error generando preview de cuotas', e);
+      cuotasPreview = [];
     }
   }
 
@@ -277,80 +302,88 @@ export default function ClientesInactivosView({
       return;
     }
 
-    // Generate unique operation ID
-    const nextNum = operaciones.reduce((max, o) => {
-      const match = o.id.match(/OPE-(\d+)/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        return num > max ? num : max;
-      }
-      return max;
-    }, 0) + 1;
-    const generatedOpId = `OPE-${String(nextNum).padStart(3, '0')}`;
-    const numCredito = operaciones.filter(o => o.idCliente === generatingCreditCliente.id).length + 1;
+    try {
+      // Safe next operation ID generation
+      const nextNum = safeOperaciones.reduce((max, o) => {
+        if (o && o.id && typeof o.id === 'string') {
+          const match = o.id.match(/OPE-(\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            return !isNaN(num) && num > max ? num : max;
+          }
+        }
+        return max;
+      }, 0) + 1;
 
-    const finalizedCuotas = cuotasPreview.map(cuo => ({
-      ...cuo,
-      id: `${generatedOpId}-CUO-${String(cuo.numeroCuota).padStart(2, '0')}`,
-      idOperacion: generatedOpId,
-      cobrador: creditoCobrador || generatingCreditCliente.cobradorAsignadoNombre || 'Cobrador General'
-    }));
+      const generatedOpId = `OPE-${String(nextNum).padStart(3, '0')}`;
+      const numCredito = safeOperaciones.filter(o => o && o.idCliente === generatingCreditCliente.id).length + 1;
 
-    const ultimoVenc = finalizedCuotas.length > 0 ? finalizedCuotas[finalizedCuotas.length - 1].fechaVencimiento : '';
+      const finalizedCuotas = (cuotasPreview || []).map(cuo => ({
+        ...cuo,
+        id: `${generatedOpId}-CUO-${String(cuo.numeroCuota).padStart(2, '0')}`,
+        idOperacion: generatedOpId,
+        cobrador: creditoCobrador || generatingCreditCliente.cobradorAsignadoNombre || 'Cobrador General'
+      }));
 
-    const nuevaOp: Operacion = {
-      id: generatedOpId,
-      fechaOtorgamiento: creditoFecha,
-      idCliente: generatingCreditCliente.id,
-      nombreCliente: `${generatingCreditCliente.nombre} ${generatingCreditCliente.apellido}`,
-      estado: 'ACTIVA',
-      tipoOperacion: creditoTipo,
-      descripcion: creditoPromo ? `PROMO: ${creditoPromo}` : `Crédito ${creditoTipo} ${creditoFrecuencia}`,
-      capitalEntregado: creditoCapital,
-      promocionAplicada: creditoPromo,
-      descuentoPorcentaje: creditoDescuento,
-      totalFinanciado,
-      frecuencia: creditoFrecuencia,
-      cantidadCuotas: creditoCuotas,
-      mesesFinanciados,
-      valorCuota,
-      primerVencimiento: creditoPrimerVenc,
-      ultimoVencimiento: ultimoVenc,
-      captador: generatingCreditCliente.captador || activeUserRole.nombre,
-      analista: generatingCreditCliente.analista || activeUserRole.nombre,
-      ejecutivoAtencion: activeUserRole.nombre,
-      cobrador: creditoCobrador || generatingCreditCliente.cobradorAsignadoNombre || 'Cobrador General',
-      capitalRecuperado: 0,
-      interesCobrado: 0,
-      capitalPendiente: creditoCapital,
-      totalPendiente: totalFinanciado,
-      cuotasPagadas: 0,
-      cuotasPendientes: creditoCuotas,
-      proximoVencimiento: creditoPrimerVenc,
-      ultimoPago: '',
-      diasMora: 0,
-      nivelMora: 'Sano',
-      numeroCredito: numCredito,
-      elegibleRenovacion: false,
-      elegibleAmpliacion: false,
-      fechaFinalizacion: '',
-      motivoCierre: '',
-      observaciones: creditoObservaciones,
-      cuotasGeneradas: true
-    };
+      const ultimoVenc = finalizedCuotas.length > 0 ? finalizedCuotas[finalizedCuotas.length - 1].fechaVencimiento : '';
 
-    onAddOperacion(nuevaOp, finalizedCuotas);
+      const nuevaOp: Operacion = {
+        id: generatedOpId,
+        fechaOtorgamiento: creditoFecha,
+        idCliente: generatingCreditCliente.id,
+        nombreCliente: `${generatingCreditCliente.nombre || ''} ${generatingCreditCliente.apellido || ''}`.trim(),
+        estado: 'ACTIVA',
+        tipoOperacion: creditoTipo,
+        descripcion: creditoPromo ? `PROMO: ${creditoPromo}` : `Crédito ${creditoTipo} ${creditoFrecuencia}`,
+        capitalEntregado: creditoCapital,
+        promocionAplicada: creditoPromo,
+        descuentoPorcentaje: creditoDescuento,
+        totalFinanciado,
+        frecuencia: creditoFrecuencia,
+        cantidadCuotas: creditoCuotas,
+        mesesFinanciados,
+        valorCuota,
+        primerVencimiento: creditoPrimerVenc,
+        ultimoVencimiento: ultimoVenc,
+        captador: generatingCreditCliente.captador || activeUserRole?.nombre || 'Sistema',
+        analista: generatingCreditCliente.analista || activeUserRole?.nombre || 'Sistema',
+        ejecutivoAtencion: activeUserRole?.nombre || 'Sistema',
+        cobrador: creditoCobrador || generatingCreditCliente.cobradorAsignadoNombre || 'Cobrador General',
+        capitalRecuperado: 0,
+        interesCobrado: 0,
+        capitalPendiente: creditoCapital,
+        totalPendiente: totalFinanciado,
+        cuotasPagadas: 0,
+        cuotasPendientes: creditoCuotas,
+        proximoVencimiento: creditoPrimerVenc,
+        ultimoPago: '',
+        diasMora: 0,
+        nivelMora: 'Sano',
+        numeroCredito: numCredito,
+        elegibleRenovacion: false,
+        elegibleAmpliacion: false,
+        fechaFinalizacion: '',
+        motivoCierre: '',
+        observaciones: creditoObservaciones,
+        cuotasGeneradas: true
+      };
 
-    // Update client: clear inactive debt and set to ACTIVO
-    onUpdateCliente({
-      ...generatingCreditCliente,
-      estado: 'ACTIVO',
-      montoDeudaInactivo: 0,
-      montoPagoInicialRefinanciacion: 0
-    });
+      onAddOperacion(nuevaOp, finalizedCuotas);
 
-    alert(`🎉 ¡Crédito ${generatedOpId} por $${totalFinanciado.toLocaleString('es-AR')} otorgado con éxito!\n\nCliente: ${generatingCreditCliente.nombre} ${generatingCreditCliente.apellido}\nPlan: ${creditoCuotas} cuotas de $${valorCuota.toLocaleString('es-AR')}\nEl cliente ha pasado automáticamente a estado ACTIVO.`);
-    setGeneratingCreditCliente(null);
+      // Update client: clear inactive debt and set to ACTIVO
+      onUpdateCliente({
+        ...generatingCreditCliente,
+        estado: 'ACTIVO',
+        montoDeudaInactivo: 0,
+        montoPagoInicialRefinanciacion: 0
+      });
+
+      alert(`🎉 ¡Crédito ${generatedOpId} por $${totalFinanciado.toLocaleString('es-AR')} otorgado con éxito!\n\nCliente: ${generatingCreditCliente.nombre} ${generatingCreditCliente.apellido}\nPlan: ${creditoCuotas} cuotas de $${valorCuota.toLocaleString('es-AR')}\nEl cliente ha pasado automáticamente a estado ACTIVO.`);
+      setGeneratingCreditCliente(null);
+    } catch (err) {
+      console.error('Error al generar crédito de refinanciación:', err);
+      alert('Ocurrió un error al procesar el otorgamiento del crédito. Intente nuevamente.');
+    }
   };
 
   return (
@@ -504,6 +537,7 @@ export default function ClientesInactivosView({
 
                   {/* Primary Action: Generar Crédito */}
                   <button
+                    type="button"
                     onClick={() => handleOpenGenerarCredito(cliente)}
                     className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer border border-emerald-400 transition-all shadow-md shadow-emerald-950/60 uppercase tracking-wider"
                   >
@@ -511,8 +545,9 @@ export default function ClientesInactivosView({
                     <span>Generar Crédito Refinanciación</span>
                   </button>
 
-                  {(activeUserRole.rolId === 'ADMIN' || activeUserRole.rolId === 'SUPERVISOR') && (
+                  {(activeUserRole?.rolId === 'ADMIN' || activeUserRole?.rolId === 'SUPERVISOR') && (
                     <button
+                      type="button"
                       onClick={() => handleOpenConfigModal(cliente)}
                       className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-black text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer border border-amber-500/40 transition-all shadow-sm"
                     >
@@ -609,12 +644,14 @@ export default function ClientesInactivosView({
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
               <button
+                type="button"
                 onClick={() => setEditingCliente(null)}
                 className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
               >
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={handleSaveConfigInactivo}
                 className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-950/80 transition-all uppercase tracking-wider"
               >
@@ -646,6 +683,7 @@ export default function ClientesInactivosView({
               </div>
 
               <button
+                type="button"
                 onClick={() => setGeneratingCreditCliente(null)}
                 className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all cursor-pointer border border-slate-800"
               >
@@ -872,12 +910,14 @@ export default function ClientesInactivosView({
             {/* Footer Actions */}
             <div className="flex justify-end gap-3 pt-3 border-t border-emerald-800/80">
               <button
+                type="button"
                 onClick={() => setGeneratingCreditCliente(null)}
                 className="bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold text-xs px-5 py-3 rounded-xl cursor-pointer border border-slate-800"
               >
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={handleConfirmGenerarCredito}
                 className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-6 py-3 rounded-xl flex items-center gap-2 cursor-pointer shadow-xl shadow-emerald-950/80 transition-all uppercase tracking-wider border border-emerald-400"
               >
@@ -891,4 +931,3 @@ export default function ClientesInactivosView({
     </div>
   );
 }
-

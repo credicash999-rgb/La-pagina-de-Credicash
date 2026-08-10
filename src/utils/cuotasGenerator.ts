@@ -35,16 +35,26 @@ export function calcularDiasAtrasoSinDomingos(fechaVencimientoStr: string, fecha
 /**
  * Verifica si una fecha (formato YYYY-MM-DD) está en la lista de feriados.
  */
-export function esFeriado(fechaStr: string, feriados: string[]): boolean {
-  return feriados.includes(fechaStr);
+export function esFeriado(fechaStr: string, feriados: any[]): boolean {
+  if (!Array.isArray(feriados) || !fechaStr) return false;
+  return feriados.some(f => {
+    if (typeof f === 'string') return f === fechaStr;
+    if (f && typeof f === 'object' && f.fecha) return f.fecha === fechaStr;
+    return false;
+  });
 }
 
 /**
  * Obtiene el próximo día hábil (evitando domingos y feriados).
  */
-export function obtenerProximoDiaHabil(fecha: Date, feriados: string[]): Date {
+export function obtenerProximoDiaHabil(fecha: Date, feriados: any[]): Date {
+  if (!fecha || isNaN(fecha.getTime())) {
+    return new Date();
+  }
   const temp = new Date(fecha.getTime());
-  while (true) {
+  let maxLoop = 365; // Prevent any potential infinite loop
+  while (maxLoop > 0) {
+    maxLoop--;
     const año = temp.getFullYear();
     const mes = String(temp.getMonth() + 1).padStart(2, '0');
     const dia = String(temp.getDate()).padStart(2, '0');

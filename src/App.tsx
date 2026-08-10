@@ -2787,7 +2787,7 @@ export default function App() {
               activeUserRole={activeUser}
               usuarios={usuarios}
               configuracion={configuracion}
-              feriados={feriados}
+              feriados={(feriados || []).map(f => f.fecha)}
               onUpdateCliente={handleUpdateCliente}
               onAddOperacion={handleAddOperacion}
             />
