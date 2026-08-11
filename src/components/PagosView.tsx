@@ -49,6 +49,13 @@ export default function PagosView({
   canAddPago = true,
   mode = 'WHATSAPP',
 }: PagosViewProps) {
+  // Mode selection state (WHATSAPP, TELEFONO, CALLE)
+  const [currentMode, setCurrentMode] = useState<'WHATSAPP' | 'TELEFONO' | 'CALLE'>(mode);
+
+  React.useEffect(() => {
+    setCurrentMode(mode);
+  }, [mode]);
+
   // Main view tab (Cobranza vs Registro Histórico de Pagos)
   const [viewTab, setViewTab] = useState<'cobranza' | 'registro_pagos'>('cobranza');
 
@@ -254,10 +261,10 @@ export default function PagosView({
     let list = operaciones.filter(op => op.estado === 'ACTIVA');
 
     // 2. Filter by collection stage/mode
-    if (mode === 'WHATSAPP') {
+    if (currentMode === 'WHATSAPP') {
       list = list.filter(op => getInstanciaCobro(op) === 'WHATSAPP' || hasCuotaDueToday(op) || op.proximoVencimiento === getTodayStr());
     } else {
-      list = list.filter(op => getInstanciaCobro(op) === mode);
+      list = list.filter(op => getInstanciaCobro(op) === currentMode);
     }
 
     // 2.5 Filter out active operations whose next due date is more than 3 days away AND don't have overdue cuotas
@@ -347,7 +354,7 @@ export default function PagosView({
       // Secondary sort alphabetically by client name
       return a.nombreCliente.localeCompare(b.nombreCliente);
     });
-  }, [operaciones, cuotas, clientes, activeUser, searchTerm, filterOnlyAssigned, mode, configuracion]);
+  }, [operaciones, cuotas, clientes, activeUser, searchTerm, filterOnlyAssigned, currentMode, configuracion]);
 
   // Handle the action submission (registering payments, visits, etc.)
   const handleActionSubmit = (e: React.FormEvent) => {
@@ -1151,21 +1158,61 @@ export default function PagosView({
 
       {(viewTab === 'cobranza' || !isUserAdmin) && (
       <>
+      {/* Mode Selector for Consola de Cobranzas */}
+      <div className="flex flex-wrap items-center gap-2 bg-slate-900 p-3 rounded-2xl border border-slate-800 shadow-md">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">Módulos de Cobranza:</span>
+        <button
+          onClick={() => setCurrentMode('WHATSAPP')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            currentMode === 'WHATSAPP'
+              ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+          }`}
+        >
+          <MessageCircle className="w-4 h-4 text-emerald-400" />
+          <span>Gestión diaria</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentMode('TELEFONO')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            currentMode === 'TELEFONO'
+              ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-500/30'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+          }`}
+        >
+          <PhoneCall className="w-4 h-4 text-amber-400" />
+          <span>Gestión telefónica</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentMode('CALLE')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            currentMode === 'CALLE'
+              ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-500/30'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+          }`}
+        >
+          <MapPin className="w-4 h-4 text-teal-400" />
+          <span>Gestión domiciliaria</span>
+        </button>
+      </div>
+
       {/* Tab Navigation header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md">
         <div>
           <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            {mode === 'WHATSAPP' && <MessageCircle className="w-5.5 h-5.5 text-emerald-400" />}
-            {mode === 'TELEFONO' && <PhoneCall className="w-5.5 h-5.5 text-amber-400" />}
-            {mode === 'CALLE' && <MapPin className="w-5.5 h-5.5 text-rose-400" />}
-            {mode === 'WHATSAPP' && 'Agenda de Cobranzas'}
-            {mode === 'TELEFONO' && 'Consola del Operador - Cobranza Telefónica'}
-            {mode === 'CALLE' && 'Consola de Campo - Cobrador en Calle'}
+            {currentMode === 'WHATSAPP' && <MessageCircle className="w-5.5 h-5.5 text-emerald-400" />}
+            {currentMode === 'TELEFONO' && <PhoneCall className="w-5.5 h-5.5 text-amber-400" />}
+            {currentMode === 'CALLE' && <MapPin className="w-5.5 h-5.5 text-rose-400" />}
+            {currentMode === 'WHATSAPP' && 'Gestión Diaria (Agenda de Cobranzas)'}
+            {currentMode === 'TELEFONO' && 'Consola del Operador - Cobranza Telefónica'}
+            {currentMode === 'CALLE' && 'Consola de Campo - Cobrador en Calle'}
           </h2>
           <p className="text-xs text-emerald-200/80 mt-1">
-            {mode === 'WHATSAPP' && 'Optimizado para operadores de WhatsApp. Registre pagos, compromisos y gestiones de forma ágil y segura.'}
-            {mode === 'TELEFONO' && 'Gestión de mora media. Realice llamadas, efectúe alertas críticas y registre promesas de pago.'}
-            {mode === 'CALLE' && 'Gestión de mora crítica y visitas presenciales. Acceda a hojas de ruta, domicilios de cobro e indicaciones de mapa.'}
+            {currentMode === 'WHATSAPP' && 'Optimizado para operadores de WhatsApp. Registre pagos, compromisos y gestiones de forma ágil y segura.'}
+            {currentMode === 'TELEFONO' && 'Gestión de mora media. Realice llamadas, efectúe alertas críticas y registre promesas de pago.'}
+            {currentMode === 'CALLE' && 'Gestión de mora crítica y visitas presenciales. Acceda a hojas de ruta, domicilios de cobro e indicaciones de mapa.'}
           </p>
         </div>
         

@@ -28,6 +28,7 @@ interface GestionAdministracionViewProps {
   ) => void;
   onUpdateCliente?: (cliente: Cliente) => void;
   onUpdateOperacion?: (operacion: Operacion) => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 export default function GestionAdministracionView({
@@ -40,7 +41,8 @@ export default function GestionAdministracionView({
   configuracion,
   onAddPago,
   onUpdateCliente,
-  onUpdateOperacion
+  onUpdateOperacion,
+  onNavigateTab
 }: GestionAdministracionViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<'TODOS' | 'ACTIVOS' | 'INACTIVOS'>('TODOS');
@@ -488,6 +490,53 @@ export default function GestionAdministracionView({
           </div>
         </div>
       </div>
+
+      {/* SUB-NAVEGACION MODULO ADMINISTRACION */}
+      {onNavigateTab && (
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900 p-2.5 rounded-2xl border border-slate-800 shadow-md">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-2">Accesos Rápidos:</span>
+          
+          <button
+            onClick={() => onNavigateTab('clientes-todos')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-emerald-900/60 text-emerald-300 hover:text-white border border-slate-700 hover:border-emerald-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            <Users className="w-3.5 h-3.5 text-amber-400" />
+            <span>Todos los Clientes</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab('clientes-inactivos')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-rose-300 hover:text-white border border-slate-700 hover:border-rose-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            <UserX className="w-3.5 h-3.5 text-rose-400" />
+            <span>Clientes Inactivos</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab('alertas-oportunidades')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-amber-900/60 text-amber-300 hover:text-white border border-slate-700 hover:border-amber-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <span>Alertas & Mora</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab('nuevo-cliente')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-emerald-900/60 text-emerald-300 hover:text-white border border-slate-700 hover:border-emerald-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            <UserPlus className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Nuevo Cliente (Ficha)</span>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab('operaciones')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-teal-900/60 text-teal-300 hover:text-white border border-slate-700 hover:border-teal-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
+            <span>Nuevo Crédito</span>
+          </button>
+        </div>
+      )}
 
       {/* MAIN TWO-COLUMN LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

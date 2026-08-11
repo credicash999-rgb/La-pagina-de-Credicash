@@ -44,12 +44,14 @@ import ClientesInactivosView from './components/ClientesInactivosView';
 import ClientesTodosView from './components/ClientesTodosView';
 import GestionAdministracionView from './components/GestionAdministracionView';
 import AlertasOportunidadesView from './components/AlertasOportunidadesView';
+import CaptacionClientesView from './components/CaptacionClientesView';
+import VerificacionView from './components/VerificacionView';
 
 // Icons
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
-  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles
+  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles, UserCheck, FileCheck
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -1997,13 +1999,19 @@ export default function App() {
       (activeUser.rolId === 'COBRADOR' && (activeTab === 'pagos-calle' || activeTab === 'liquidaciones')) ||
       (activeUser.rolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'clientes' || activeTab === 'operaciones')) ||
       (activeTab === 'dashboard' && r?.verDashboard) ||
+      (activeTab === 'gestion-admin' && (r?.verClientes || isAdmin)) ||
       (activeTab === 'clientes' && r?.verClientes) ||
+      (activeTab === 'clientes-todos' && r?.verClientes) ||
+      (activeTab === 'clientes-inactivos' && r?.verClientes) ||
+      (activeTab === 'alertas-oportunidades' && r?.verClientes) ||
       (activeTab === 'nuevo-cliente' && r?.crearClientes) ||
       (activeTab === 'operaciones' && r?.verPrestamos) ||
       (activeTab === 'pagos' && r?.verPagos) ||
       (activeTab === 'pagos-whatsapp' && r?.verPagos) ||
       (activeTab === 'pagos-telefono' && r?.verPagos && activeUser.rolId !== 'OPERADOR') ||
       (activeTab === 'pagos-calle' && r?.verPagos && activeUser.rolId !== 'OPERADOR') ||
+      (activeTab === 'captacion-clientes') ||
+      (activeTab === 'verificacion') ||
       (activeTab === 'liquidaciones') ||
       (activeTab === 'tesoreria' && r?.verTesoreria) ||
       (activeTab === 'configuracion' && r?.verConfiguracion) ||
@@ -2113,18 +2121,20 @@ export default function App() {
       case 'dashboard': return 'Consola Dashboard';
       case 'gestion-admin': return 'Gestión Administración';
       case 'alertas-oportunidades': return 'Alertas & Oportunidades';
-      case 'clientes': return 'Buscar Cliente';
-      case 'clientes-todos': return 'Clientes (Todos)';
+      case 'clientes': return 'Buscador de Clientes';
+      case 'clientes-todos': return 'Todos los Clientes';
       case 'clientes-inactivos': return 'Clientes Inactivos con Deuda';
       case 'nuevo-cliente': return 'Nuevo Cliente (Ficha)';
       case 'operaciones': return 'Nuevo Crédito';
       case 'pagos': return 'Consola del Operador de Pagos';
-      case 'pagos-whatsapp': return 'Gestión Diaria';
-      case 'pagos-telefono': return 'Gestión Telefónica';
-      case 'pagos-calle': return 'Gestión Domiciliaria';
-      case 'liquidaciones': return 'Liquidaciones & Comisiones';
+      case 'pagos-whatsapp': return 'Gestión diaria (Cobranzas)';
+      case 'pagos-telefono': return 'Gestión telefónica (Cobranzas)';
+      case 'pagos-calle': return 'Gestión domiciliaria (Cobranzas)';
+      case 'captacion-clientes': return 'Captación de Clientes';
+      case 'verificacion': return 'Verificación';
+      case 'liquidaciones': return 'Liquidaciones';
       case 'tesoreria': return 'Caja y Tesorería';
-      case 'configuracion': return 'Configuración';
+      case 'configuracion': return 'Configuraciones';
       case 'usuarios': return 'Seguridad y Accesos';
       default: return 'Panel';
     }
@@ -2248,241 +2258,131 @@ export default function App() {
 
           <div className="flex flex-col gap-1.5 bg-slate-900 p-3.5 rounded-2xl border border-slate-800 shadow-md">
             {isAdmin ? (
-              // ADMIN Order: Dashboard first, then Clients, New Client, Loans, Operator Payments, Treasury, Configuration, Security
+              // Flat Single-Level Main Menu (Exactly 9 Options)
               <>
+                {/* 1. Consola Dashboard */}
                 {activeUserRole.verDashboard && (
                   <button
                     onClick={() => setActiveTab('dashboard')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-black transition-all text-left cursor-pointer mb-1 shadow-xs ${
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
                       activeTab === 'dashboard'
                         ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
-                        : 'bg-slate-900/90 hover:bg-slate-800 text-emerald-300 border border-slate-700/80 hover:border-emerald-600'
+                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
                     }`}
                   >
-                    <LayoutDashboard className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
+                    <LayoutDashboard className="w-4 h-4 shrink-0 text-emerald-400" />
                     <span>Consola Dashboard</span>
                   </button>
                 )}
 
-                {/* GESTION ADMINISTRACION - SPECIAL ADMIN MODULE */}
+                {/* 2. Gestión Administración */}
                 <button
                   onClick={() => setActiveTab('gestion-admin')}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-black transition-all text-left cursor-pointer my-0.5 shadow-sm ${
-                    activeTab === 'gestion-admin'
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    ['gestion-admin', 'clientes', 'clientes-todos', 'clientes-inactivos', 'alertas-oportunidades', 'nuevo-cliente', 'operaciones'].includes(activeTab)
                       ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
-                      : 'bg-slate-950/80 hover:bg-slate-800 text-emerald-300 border border-emerald-700/60 hover:border-emerald-500'
-                  }`}
-                >
-                  <ShieldCheck className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
-                  <div className="flex flex-col min-w-0 leading-tight">
-                    <span>Gestión Admin</span>
-                    <span className="text-[10px] font-bold text-emerald-200/80 mt-0.5">(Fichas & Cobros Extraordinarios)</span>
-                  </div>
-                </button>
-
-                {/* ALERTAS Y OPORTUNIDADES - SPECIAL RENEWAL & REFINANCING ALERT TAB */}
-                <button
-                  onClick={() => setActiveTab('alertas-oportunidades')}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-black transition-all text-left cursor-pointer my-0.5 shadow-sm relative overflow-hidden ${
-                    activeTab === 'alertas-oportunidades'
-                      ? 'bg-gradient-to-r from-amber-600 via-emerald-600 to-teal-600 text-white border-2 border-amber-400 ring-2 ring-amber-500/30'
-                      : 'bg-slate-950/80 hover:bg-slate-800 text-amber-300 border border-amber-700/60 hover:border-amber-500'
-                  }`}
-                >
-                  <Bell className={`w-4.5 h-4.5 shrink-0 ${alertCount > 0 ? 'text-amber-300 animate-bounce' : 'text-amber-400'}`} />
-                  <div className="flex flex-col min-w-0 leading-tight flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <span>Alertas & Oportunidades</span>
-                      {alertCount > 0 && (
-                        <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-xs border border-amber-300">
-                          {alertCount}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-bold text-amber-200/80 mt-0.5">(Renovaciones & Refinanciaciones)</span>
-                  </div>
-                </button>
-
-                {activeUserRole.verClientes && (
-                  <button
-                    onClick={() => setActiveTab('clientes')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                      activeTab === 'clientes'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                    }`}
-                  >
-                    <Search className="w-4 h-4 shrink-0 text-teal-400" />
-                    <div className="flex flex-col min-w-0 leading-tight">
-                      <span>Buscar Cliente</span>
-                      <span className="text-[10px] font-medium text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
-                    </div>
-                  </button>
-                )}
-
-                {activeUserRole.verClientes && (
-                  <button
-                    onClick={() => setActiveTab('clientes-todos')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                      activeTab === 'clientes-todos'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                    }`}
-                  >
-                    <Users className="w-4 h-4 shrink-0 text-amber-400" />
-                    <div className="flex flex-col min-w-0 leading-tight">
-                      <span>Clientes (todos)</span>
-                      <span className="text-[10px] font-medium text-amber-300/80 mt-0.5">(Diario, Semanal, Mensual, Inactivos)</span>
-                    </div>
-                  </button>
-                )}
-
-                {activeUserRole.verClientes && (
-                  <button
-                    onClick={() => setActiveTab('clientes-inactivos')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                      activeTab === 'clientes-inactivos'
-                        ? 'bg-rose-600 text-white font-black border border-rose-500 shadow-sm ring-2 ring-rose-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                    }`}
-                  >
-                    <UserX className="w-4 h-4 shrink-0 text-rose-400" />
-                    <div className="flex flex-col min-w-0 leading-tight">
-                      <span>Clientes Inactivos</span>
-                      <span className="text-[10px] font-medium text-rose-300/80 mt-0.5">(Con Deuda / Sin Cuotas)</span>
-                    </div>
-                  </button>
-                )}
-
-                {activeUserRole.crearClientes && (
-                  <button
-                    onClick={() => setActiveTab('nuevo-cliente')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                      activeTab === 'nuevo-cliente'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                    }`}
-                  >
-                    <UserPlus className="w-4 h-4 shrink-0 text-emerald-400" />
-                    Nuevo Cliente (Ficha)
-                  </button>
-                )}
-
-                {activeUserRole.verPrestamos && (
-                  <button
-                    onClick={() => setActiveTab('operaciones')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                      activeTab === 'operaciones'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                    }`}
-                  >
-                    <Briefcase className="w-4 h-4 shrink-0 text-emerald-400" />
-                    Nuevo Crédito
-                  </button>
-                )}
-
-                {/* Consola de Cobranza - Highlighted Block */}
-                {activeUserRole.verPagos && (
-                  <div className="my-2 p-2.5 bg-gradient-to-b from-slate-950 to-emerald-950/60 rounded-xl border-2 border-emerald-600/60 shadow-md space-y-1">
-                    <div className="flex items-center justify-between px-2 py-1 border-b border-emerald-800/80 mb-1.5">
-                      <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
-                        Consola de Cobranza
-                      </span>
-                      <span className="text-[8px] font-black bg-emerald-500 text-slate-950 px-1.5 py-0.5 rounded uppercase">3 Módulos</span>
-                    </div>
-
-                    <button
-                      onClick={() => setActiveTab('pagos-whatsapp')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-extrabold transition-all text-left cursor-pointer ${
-                        activeTab === 'pagos-whatsapp'
-                          ? 'bg-emerald-500 text-slate-950 font-black border border-emerald-300 shadow-xs'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                      }`}
-                    >
-                      <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
-                      <span>Gestión Diaria</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('pagos-telefono')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-extrabold transition-all text-left cursor-pointer ${
-                        activeTab === 'pagos-telefono'
-                          ? 'bg-amber-500 text-slate-950 font-black border border-amber-300 shadow-xs'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                      }`}
-                    >
-                      <PhoneCall className="w-4 h-4 shrink-0 text-amber-400" />
-                      <span>Gestión Telefónica</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('pagos-calle')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-extrabold transition-all text-left cursor-pointer ${
-                        activeTab === 'pagos-calle'
-                          ? 'bg-teal-500 text-slate-950 font-black border border-teal-300 shadow-xs'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                      }`}
-                    >
-                      <MapPin className="w-4 h-4 shrink-0 text-teal-400" />
-                      <span>Gestión Domiciliaria</span>
-                    </button>
-                  </div>
-                )}
-
-
-
-                {activeUserRole.verTesoreria && (
-                  <button
-                    onClick={() => setActiveTab('tesoreria')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                      activeTab === 'tesoreria'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                    }`}
-                  >
-                    <Activity className="w-4 h-4 shrink-0 text-teal-400" />
-                    Caja y Tesorería
-                  </button>
-                )}
-
-                {activeUserRole.verConfiguracion && (
-                  <button
-                    onClick={() => setActiveTab('configuracion')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                      activeTab === 'configuracion'
-                        ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                    }`}
-                  >
-                    <Settings className="w-4 h-4 shrink-0 text-emerald-400" />
-                    Configuración & Feriados
-                  </button>
-                )}
-
-                <button
-                  onClick={() => setActiveTab('liquidaciones')}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                    activeTab === 'liquidaciones'
-                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                  }`}
-                >
-                  <DollarSign className="w-4 h-4 shrink-0 text-emerald-400" />
-                  Liquidaciones & Comisiones
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('usuarios')}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                    activeTab === 'usuarios'
-                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
                   }`}
                 >
                   <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-                  Seguridad y Accesos
+                  <span>Gestión Administración</span>
+                </button>
+
+                {/* 3. Consola de Cobranzas */}
+                {activeUserRole.verPagos && (
+                  <button
+                    onClick={() => setActiveTab('pagos-whatsapp')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                      ['pagos-whatsapp', 'pagos-telefono', 'pagos-calle', 'cobrador-campo'].includes(activeTab)
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                    }`}
+                  >
+                    <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>Consola de Cobranzas</span>
+                  </button>
+                )}
+
+                {/* 4. Captación de Clientes */}
+                <button
+                  onClick={() => setActiveTab('captacion-clientes')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'captacion-clientes'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <UserCheck className="w-4 h-4 shrink-0 text-teal-400" />
+                  <span>Captación de Clientes</span>
+                </button>
+
+                {/* 5. Verificación */}
+                <button
+                  onClick={() => setActiveTab('verificacion')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'verificacion'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <FileCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Verificación</span>
+                </button>
+
+                {/* 6. Caja y Tesorería */}
+                {activeUserRole.verTesoreria && (
+                  <button
+                    onClick={() => setActiveTab('tesoreria')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                      activeTab === 'tesoreria'
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                    }`}
+                  >
+                    <Activity className="w-4 h-4 shrink-0 text-teal-400" />
+                    <span>Caja y Tesorería</span>
+                  </button>
+                )}
+
+                {/* 7. Liquidaciones */}
+                <button
+                  onClick={() => setActiveTab('liquidaciones')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'liquidaciones'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <DollarSign className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Liquidaciones</span>
+                </button>
+
+                {/* 8. Configuraciones */}
+                {activeUserRole.verConfiguracion && (
+                  <button
+                    onClick={() => setActiveTab('configuracion')}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                      activeTab === 'configuracion'
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                    }`}
+                  >
+                    <Settings className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>Configuraciones</span>
+                  </button>
+                )}
+
+                {/* 9. Seguridad y Accesos */}
+                <button
+                  onClick={() => setActiveTab('usuarios')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'usuarios'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Seguridad y Accesos</span>
                 </button>
               </>
              ) : activeUser?.rolId === 'COBRADOR' ? (
@@ -2886,6 +2786,7 @@ export default function App() {
               onAddPago={handleAddPago}
               onUpdateCliente={handleUpdateCliente}
               onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onNavigateTab={setActiveTab}
             />
           )}
 
@@ -2956,6 +2857,14 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'captacion-clientes' && (
+            <CaptacionClientesView />
+          )}
+
+          {activeTab === 'verificacion' && (
+            <VerificacionView />
+          )}
+
           {activeTab === 'usuarios' && activeUser?.rolId === 'ADMIN' && (
             <UsuariosView
               usuarios={usuarios}
@@ -2976,7 +2885,9 @@ export default function App() {
           {(![
             'dashboard', 'clientes', 'clientes-inactivos', 'clientes-todos', 'nuevo-cliente',
             'operaciones', 'pagos', 'pagos-whatsapp', 'pagos-telefono',
-            'pagos-calle', 'cobrador-campo', 'gestion-admin', 'alertas-oportunidades', 'liquidaciones', 'tesoreria',
+            'pagos-calle', 'cobrador-campo', 'gestion-admin', 'alertas-oportunidades', 
+            'captacion-clientes', 'verificacion',
+            'liquidaciones', 'tesoreria',
             'configuracion', 'usuarios'
           ].includes(activeTab) ||
             (activeTab === 'dashboard' && !activeUserRole.verDashboard) ||
