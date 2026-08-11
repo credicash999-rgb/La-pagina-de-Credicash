@@ -30,12 +30,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
-    try {
-      localStorage.removeItem('credicash_logged_in');
-      localStorage.removeItem('credicash_real_user_rol_id');
-    } catch (e) {
-      console.error(e);
-    }
+    this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 

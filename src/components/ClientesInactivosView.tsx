@@ -368,18 +368,22 @@ export default function ClientesInactivosView({
         cuotasGeneradas: true
       };
 
-      onAddOperacion(nuevaOp, finalizedCuotas);
+      if (onAddOperacion) {
+        onAddOperacion(nuevaOp, finalizedCuotas);
+      }
 
       const targetClient = generatingCreditCliente;
       const clientName = `${targetClient.nombre || ''} ${targetClient.apellido || ''}`.trim();
 
       // Update client: clear inactive debt and set to ACTIVO
-      onUpdateCliente({
-        ...targetClient,
-        estado: 'ACTIVO',
-        montoDeudaInactivo: 0,
-        montoPagoInicialRefinanciacion: 0
-      });
+      if (onUpdateCliente) {
+        onUpdateCliente({
+          ...targetClient,
+          estado: 'ACTIVO',
+          montoDeudaInactivo: 0,
+          montoPagoInicialRefinanciacion: 0
+        });
+      }
 
       // Clear modal state first to avoid holding rendering state open during browser alert dialog
       setGeneratingCreditCliente(null);
