@@ -9,7 +9,7 @@ import {
   Users, Search, DollarSign, Calendar, FileText, 
   CheckCircle2, AlertTriangle, UserCheck, ShieldCheck, 
   Printer, ArrowRight, UserPlus, Phone, MapPin, 
-  ChevronRight, Filter, RefreshCw
+  ChevronRight, Filter, RefreshCw, UserX
 } from 'lucide-react';
 
 interface GestionAdministracionViewProps {
