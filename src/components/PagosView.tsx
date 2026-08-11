@@ -126,7 +126,14 @@ export default function PagosView({
   // Helper: Get collection stage instance based on configuration
   const getInstanciaCobro = (op: Operacion): 'WHATSAPP' | 'TELEFONO' | 'CALLE' => {
     if (!configuracion) return 'WHATSAPP';
-    const diasMora = op.diasMora;
+    const opCuotas = cuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
+    const sortedPending = [...opCuotas].sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento));
+    const oldestPending = sortedPending[0];
+    const today = getTodayStr();
+    const diasMora = oldestPending && oldestPending.fechaVencimiento < today
+      ? calcularDiasAtrasoSinDomingos(oldestPending.fechaVencimiento, today)
+      : (op.diasMora || 0);
+
     let llamarDias = 2;
     let cobradorDias = 6;
     
@@ -262,7 +269,8 @@ export default function PagosView({
 
     // 2. Filter by collection stage/mode
     if (currentMode === 'WHATSAPP') {
-      list = list.filter(op => getInstanciaCobro(op) === 'WHATSAPP' || hasCuotaDueToday(op) || op.proximoVencimiento === getTodayStr());
+      // In WHATSAPP / Gestión Diaria mode, operations from ALL stages (WHATSAPP, TELEFONO, CALLE)
+      // remain visible in the entrance desk (Mesa de Entrada) with their visual classification level.
     } else {
       list = list.filter(op => getInstanciaCobro(op) === currentMode);
     }
@@ -1648,20 +1656,8 @@ export default function PagosView({
                 const isPromesa = isPromesaPendiente(op);
                 const cli = getClienteDetails(op.idCliente);
 
-                // Priority Badge label
-                let priorityLabel = 'Al Día / Normal';
-                let priorityColor = 'bg-emerald-900 text-emerald-300 border-emerald-700 text-[10px]';
-                
-                if (isVencido) {
-                  priorityLabel = `🚨 ALERTA ATRASO: ${dynamicDiasMora} DÍAS`;
-                  priorityColor = 'bg-rose-600 text-white border-rose-500 font-extrabold px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider animate-pulse shadow-sm';
-                } else if (isHoy) {
-                  priorityLabel = '📅 VENCE HOY';
-                  priorityColor = 'bg-amber-950 text-amber-300 border-amber-800 font-bold px-2 py-0.5 rounded-full text-[10px]';
-                } else if (isPromesa) {
-                  priorityLabel = '🤝 PROMESA PENDIENTE';
-                  priorityColor = 'bg-indigo-950 text-indigo-300 border-indigo-800 font-bold px-2 py-0.5 rounded-full text-[10px]';
-                }
+                // Stage instance level classification
+                const inst = getInstanciaCobro(op);
 
                 return (
                   <div
@@ -1670,55 +1666,53 @@ export default function PagosView({
                     className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 relative ${
                       selectedOp?.id === op.id
                         ? 'border-emerald-400 bg-emerald-900/90 shadow-md ring-2 ring-emerald-400/40'
-                        : isVencido
-                          ? 'border-rose-700/80 bg-rose-950/40 hover:bg-rose-950/70 shadow-xs'
-                          : 'border-emerald-800/80 hover:border-emerald-600 bg-slate-900/90 hover:bg-emerald-900/60'
+                        : inst === 'CALLE'
+                          ? 'border-rose-800/80 bg-slate-900/90 hover:bg-rose-950/40 shadow-xs'
+                          : inst === 'TELEFONO'
+                            ? 'border-amber-800/80 bg-slate-900/90 hover:bg-amber-950/40 shadow-xs'
+                            : 'border-emerald-800/80 hover:border-emerald-600 bg-slate-900/90 hover:bg-emerald-900/60'
                     }`}
                   >
                     
                     {/* Index or highlight line */}
-                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${isVencido ? 'bg-red-500' : 'bg-emerald-400'}`}></div>
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${
+                      inst === 'CALLE'
+                        ? 'bg-rose-500'
+                        : inst === 'TELEFONO'
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-400'
+                    }`}></div>
                     
                     <div className="space-y-1.5 pl-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-mono font-bold text-emerald-300/80">Cred: {op.id}</span>
-                        <span className={isVencido ? priorityColor : `text-[9px] font-bold border px-2 py-0.5 rounded-full ${priorityColor}`}>
-                          {priorityLabel}
-                        </span>
                         
-                        {/* Arrears warnings based on dynamic operational logic config */}
-                        {(() => {
-                          let llamar = 2;
-                          let cobrador = 6;
-                          if (op.frecuencia === 'DIARIA') {
-                            llamar = configuracion?.moraDiarioLlamarDias ?? 2;
-                            cobrador = configuracion?.moraDiarioCobradorDias ?? 6;
-                          } else if (op.frecuencia === 'SEMANAL') {
-                            llamar = configuracion?.moraSemanalLlamarDias ?? 4;
-                            cobrador = configuracion?.moraSemanalCobradorDias ?? 7;
-                          } else if (op.frecuencia === 'QUINCENAL') {
-                            llamar = configuracion?.moraQuincenalLlamarDias ?? 5;
-                            cobrador = configuracion?.moraQuincenalCobradorDias ?? 8;
-                          } else if (op.frecuencia === 'MENSUAL') {
-                            llamar = configuracion?.moraMensualLlamarDias ?? 2;
-                            cobrador = configuracion?.moraMensualCobradorDias ?? 2;
-                          }
+                        {/* Visual Classification Badges */}
+                        {inst === 'CALLE' ? (
+                          <span className="bg-rose-950/90 text-rose-300 border border-rose-600/90 font-extrabold px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1 shadow-xs">
+                            🔴 GESTIÓN DOMICILIARIA
+                          </span>
+                        ) : inst === 'TELEFONO' ? (
+                          <span className="bg-amber-950/90 text-amber-300 border border-amber-600/90 font-extrabold px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1 shadow-xs">
+                            🟠 GESTIÓN TELEFÓNICA
+                          </span>
+                        ) : (
+                          <span className="bg-emerald-950/90 text-emerald-300 border border-emerald-700/90 font-extrabold px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1">
+                            🟢 CUOTA DEL DÍA
+                          </span>
+                        )}
 
-                          if (dynamicDiasMora >= cobrador) {
-                            return (
-                              <span className="text-[9px] font-extrabold bg-red-600 text-white px-2 py-0.5 rounded-md">
-                                C. DE CALLE ({cobrador}+ DÍAS)
-                              </span>
-                            );
-                          } else if (dynamicDiasMora >= llamar) {
-                            return (
-                              <span className="text-[9px] font-extrabold bg-amber-500 text-white px-2 py-0.5 rounded-md">
-                                TELÉFONO ({llamar}-{cobrador - 1} DÍAS)
-                              </span>
-                            );
-                          }
-                          return null;
-                        })()}
+                        {/* Additional status badges */}
+                        {isVencido && (
+                          <span className="bg-rose-900/60 text-rose-200 border border-rose-700/60 font-bold px-2 py-0.5 rounded-md text-[9.5px]">
+                            🚨 {dynamicDiasMora} {dynamicDiasMora === 1 ? 'DÍA' : 'DÍAS'} ATRASO
+                          </span>
+                        )}
+                        {isPromesa && (
+                          <span className="bg-indigo-950 text-indigo-300 border border-indigo-800 font-bold px-2 py-0.5 rounded-md text-[9.5px]">
+                            🤝 PROMESA PENDIENTE
+                          </span>
+                        )}
                       </div>
 
                       <div className="font-extrabold text-white text-sm flex items-center gap-1">
