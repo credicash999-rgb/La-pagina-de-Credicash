@@ -99,6 +99,11 @@ export default function GestionAdministracionView({
   const [selectedCompromisoDetail, setSelectedCompromisoDetail] = useState<CompromisoPago | null>(null);
   const [compFilterEstado, setCompFilterEstado] = useState<'TODOS' | 'PENDIENTE' | 'REALIZADO' | 'EN MORA' | 'CANCELADO'>('TODOS');
 
+  // Search and Filter states for Historial de Pagos
+  const [pagoSearchTerm, setPagoSearchTerm] = useState('');
+  const [pagoFilterModalidad, setPagoFilterModalidad] = useState('TODOS');
+  const [pagoFilterMetodo, setPagoFilterMetodo] = useState('TODOS');
+
   // Modal state for Refinancing / Simulator / Debt Splitting ("DIVIDIR DEUDA")
   const [isRefinanciarModalOpen, setIsRefinanciarModalOpen] = useState(false);
   const [refinanciarModo, setRefinanciarModo] = useState<'UNICO' | 'DIVIDIR_2' | 'DIVIDIR_3'>('UNICO');
@@ -1390,231 +1395,343 @@ export default function GestionAdministracionView({
                   </button>
                 </div>
 
-                {/* TAB CONTENT 1: RESUMEN FICHA (Exact Ficha de Resumen Rápido design and model from Gestión Diaria) */}
+                {/* TAB CONTENT 1: RESUMEN FICHA + CRONOGRAMA DE AMORTIZACIÓN */}
                 {activeTabFicha === 'FICHA' && (
-                  <div className="bg-[#0B4B27] text-emerald-50 p-5 rounded-2xl border border-emerald-800 shadow-lg space-y-4 relative overflow-hidden">
-                    <div className="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4 pointer-events-none">
-                      <DollarSign className="w-40 h-40 text-emerald-300" />
-                    </div>
+                  <div className="space-y-5">
+                    {/* Ficha de Resumen Rápido Card */}
+                    <div className="bg-[#0B4B27] text-emerald-50 p-5 rounded-2xl border border-emerald-800 shadow-lg space-y-4 relative overflow-hidden">
+                      <div className="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4 pointer-events-none">
+                        <DollarSign className="w-40 h-40 text-emerald-300" />
+                      </div>
 
-                    {/* Card Header & Credit Switcher */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-3 gap-2 relative z-10">
-                      <div>
-                        <span className="text-[10px] font-extrabold tracking-widest text-emerald-300 uppercase block mb-0.5">
-                          Ficha de Resumen Rápido
-                        </span>
-                        <h3 className="text-base font-extrabold text-white tracking-tight">
-                          {selectedCliente.nombre} {selectedCliente.apellido || ''}
-                        </h3>
-                        {selectedOp && (
-                          <span className="text-[11px] text-emerald-200/80 font-mono">
-                            Crédito Nro: #{selectedOp.id}
+                      {/* Card Header & Credit Switcher */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-3 gap-2 relative z-10">
+                        <div>
+                          <span className="text-[10px] font-extrabold tracking-widest text-emerald-300 uppercase block mb-0.5">
+                            Ficha de Resumen Rápido
                           </span>
+                          <h3 className="text-base font-extrabold text-white tracking-tight">
+                            {selectedCliente.nombre} {selectedCliente.apellido || ''}
+                          </h3>
+                          {selectedOp && (
+                            <span className="text-[11px] text-emerald-200/80 font-mono">
+                              Crédito Nro: #{selectedOp.id}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Dropdown to switch credit if client has multiple */}
+                        {allClientOperations.length > 1 && (
+                          <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-xl border border-white/10">
+                            <span className="text-[10px] font-bold text-emerald-300 uppercase shrink-0">
+                              Ver Crédito:
+                            </span>
+                            <select
+                              value={selectedOperacionId || (selectedOp ? selectedOp.id : '')}
+                              onChange={(e) => setSelectedOperacionId(e.target.value)}
+                              className="bg-emerald-950/90 text-white font-bold text-xs px-2.5 py-1 rounded-lg border border-emerald-600 focus:outline-none cursor-pointer"
+                            >
+                              {allClientOperations.map((o) => (
+                                <option key={o.id} value={o.id}>
+                                  #{o.id} - {o.frecuencia} (${(o.montoTotal || o.montoPrestamo || 0).toLocaleString('es-AR')}) [{o.estado}]
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         )}
                       </div>
 
-                      {/* Dropdown to switch credit if client has multiple */}
-                      {allClientOperations.length > 1 && (
-                        <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-xl border border-white/10">
-                          <span className="text-[10px] font-bold text-emerald-300 uppercase shrink-0">
-                            Ver Crédito:
-                          </span>
-                          <select
-                            value={selectedOperacionId || (selectedOp ? selectedOp.id : '')}
-                            onChange={(e) => setSelectedOperacionId(e.target.value)}
-                            className="bg-emerald-950/90 text-white font-bold text-xs px-2.5 py-1 rounded-lg border border-emerald-600 focus:outline-none cursor-pointer"
-                          >
-                            {allClientOperations.map((o) => (
-                              <option key={o.id} value={o.id}>
-                                #{o.id} - {o.frecuencia} (${(o.montoTotal || o.montoPrestamo || 0).toLocaleString('es-AR')}) [{o.estado}]
-                              </option>
-                            ))}
-                          </select>
+                      {/* Main Grid */}
+                      {selectedOp ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs relative z-10">
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Estado Crédito</span>
+                            <strong className="text-white font-bold uppercase">{selectedOp.estado} ({selectedOp.diasMora > 0 ? 'Mora' : 'Al Día'})</strong>
+                          </div>
+
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Valor Cuota</span>
+                            <strong className="text-white font-bold">${(selectedOp.valorCuota || 0).toLocaleString('es-AR')}</strong>
+                          </div>
+
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Totales</span>
+                            <strong className="text-white font-bold font-mono">{totalCuotasCount} cuotas ({selectedOp.frecuencia?.toLowerCase() || 'diaria'})</strong>
+                          </div>
+
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Pagadas</span>
+                            <strong className="text-emerald-300 font-bold font-mono">{cuotasPagadasCount} pagadas</strong>
+                          </div>
+
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 sm:col-span-2">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Pendientes</span>
+                            <strong className="text-amber-300 font-bold font-mono">{cuotasPendientesCount} restantes</strong>
+                          </div>
+
+                          {/* 3-line debt breakdown requested by operator */}
+                          <div className="bg-rose-950/70 p-3 rounded-xl border border-rose-500/40 sm:col-span-2 space-y-2">
+                            <span className="text-[9px] uppercase tracking-widest text-rose-300 font-black block">
+                              📊 Desglose para Estar al Día
+                            </span>
+                            <div className="text-[11px] space-y-1 text-slate-100 font-medium">
+                              <div className="flex justify-between items-center">
+                                <span className="text-rose-200">Cuotas Vencidas (Mora):</span>
+                                <span className="font-mono font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">
+                                  {countOverdue} (${sumOverdue.toLocaleString('es-AR')})
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-emerald-200">Cuota de Hoy:</span>
+                                <span className="font-mono font-bold text-white bg-emerald-900/60 px-1.5 py-0.5 rounded">
+                                  {countToday} (${sumToday.toLocaleString('es-AR')})
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-t border-rose-500/30 pt-1.5 mt-1">
+                                <span className="text-white font-extrabold uppercase text-[10px]">Monto para Estar al Día:</span>
+                                <span className="font-mono font-black text-rose-300 text-xs">
+                                  ${exigTotal.toLocaleString('es-AR')} ARS
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 sm:col-span-2">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Próximo Vencimiento</span>
+                            <strong className="text-white font-bold font-mono flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                              {selectedOp.proximoVencimiento || 'N/A'}
+                            </strong>
+                          </div>
+
+                          {/* Domicilio del cliente con botón Google Maps */}
+                          {(() => {
+                            const address = getFullAddress(selectedCliente);
+                            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+                            return (
+                              <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/50 sm:col-span-2 space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[9px] uppercase tracking-wider text-emerald-300 font-extrabold flex items-center gap-1">
+                                    <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                                    Domicilio del Cliente
+                                  </span>
+                                  <a 
+                                    href={mapsUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1 uppercase tracking-wider cursor-pointer"
+                                  >
+                                    🗺️ Google Maps
+                                  </a>
+                                </div>
+                                <div className="text-[11px] text-white font-semibold">
+                                  {address}
+                                </div>
+                                {selectedCliente.observaciones && (
+                                  <div className="text-[10px] text-emerald-200/80 italic font-medium leading-normal border-t border-slate-800 pt-1.5">
+                                    📌 {selectedCliente.observaciones}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 text-[11px]">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">¿Apto Renovación?</span>
+                            <strong className={selectedOp.elegibleRenovacion ? "text-emerald-300 font-bold" : "text-emerald-100/50 font-medium"}>
+                              {selectedOp.elegibleRenovacion ? '✅ Sí, Elegible' : '❌ No'}
+                            </strong>
+                          </div>
+
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 text-[11px]">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">¿Apto Ampliación?</span>
+                            <strong className={selectedOp.elegibleAmpliacion ? "text-emerald-300 font-bold" : "text-emerald-100/50 font-medium"}>
+                              {selectedOp.elegibleAmpliacion ? '✅ Sí, Elegible' : '❌ No'}
+                            </strong>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Cliente sin operación activa (INACTIVO o PROSPECTO) */
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs relative z-10">
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Estado Cliente</span>
+                            <strong className="text-amber-300 font-bold uppercase">{selectedCliente.estado}</strong>
+                          </div>
+
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cobrador Asignado</span>
+                            <strong className="text-white font-bold">{selectedCliente.cobradorAsignadoNombre || 'Sin asignar'}</strong>
+                          </div>
+
+                          {(selectedCliente.montoDeudaInactivo || 0) > 0 && (
+                            <div className="bg-rose-950/70 p-3 rounded-xl border border-rose-500/40 sm:col-span-2 space-y-1">
+                              <span className="text-[9px] uppercase tracking-widest text-rose-300 font-black block">
+                                ⚠️ Deuda Histórica Registrada (Inactivo)
+                              </span>
+                              <div className="text-lg font-black text-white">
+                                ${(selectedCliente.montoDeudaInactivo || 0).toLocaleString('es-AR')} ARS
+                              </div>
+                              <div className="text-[10px] text-rose-200">
+                                Pago Inicial Sugerido para Refinanciación: <strong className="text-amber-300">${(selectedCliente.montoPagoInicialRefinanciacion || Math.round((selectedCliente.montoDeudaInactivo || 0) * 0.3)).toLocaleString('es-AR')}</strong>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Domicilio */}
+                          {(() => {
+                            const address = getFullAddress(selectedCliente);
+                            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+                            return (
+                              <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/50 sm:col-span-2 space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[9px] uppercase tracking-wider text-emerald-300 font-extrabold flex items-center gap-1">
+                                    <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                                    Domicilio del Cliente
+                                  </span>
+                                  <a 
+                                    href={mapsUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1 uppercase tracking-wider cursor-pointer"
+                                  >
+                                    🗺️ Google Maps
+                                  </a>
+                                </div>
+                                <div className="text-[11px] text-white font-semibold">
+                                  {address}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
 
-                    {/* Main Grid */}
-                    {selectedOp ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs relative z-10">
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Estado Crédito</span>
-                          <strong className="text-white font-bold uppercase">{selectedOp.estado} ({selectedOp.diasMora > 0 ? 'Mora' : 'Al Día'})</strong>
-                        </div>
-
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Valor Cuota</span>
-                          <strong className="text-white font-bold">${(selectedOp.valorCuota || 0).toLocaleString('es-AR')}</strong>
-                        </div>
-
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Totales</span>
-                          <strong className="text-white font-bold font-mono">{totalCuotasCount} cuotas ({selectedOp.frecuencia?.toLowerCase() || 'diaria'})</strong>
-                        </div>
-
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Pagadas</span>
-                          <strong className="text-emerald-300 font-bold font-mono">{cuotasPagadasCount} pagadas</strong>
-                        </div>
-
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 sm:col-span-2">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Pendientes</span>
-                          <strong className="text-amber-300 font-bold font-mono">{cuotasPendientesCount} restantes</strong>
-                        </div>
-
-                        {/* 3-line debt breakdown requested by operator */}
-                        <div className="bg-rose-950/70 p-3 rounded-xl border border-rose-500/40 sm:col-span-2 space-y-2">
-                          <span className="text-[9px] uppercase tracking-widest text-rose-300 font-black block">
-                            📊 Desglose para Estar al Día
+                    {/* Integrated Amortization Cronograma Table for Selected Op */}
+                    {selectedOp && (
+                      <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                          <h4 className="text-xs font-black uppercase text-emerald-400 flex items-center gap-1.5">
+                            <Calendar className="w-4 h-4 text-emerald-400" />
+                            <span>Cronograma Detallado de Cuotas (#{selectedOp.id})</span>
+                          </h4>
+                          <span className="text-[10px] font-mono font-semibold text-slate-400">
+                            {clientCuotas.filter(c => c.idOperacion === selectedOp.id).length} Cuotas Totales
                           </span>
-                          <div className="text-[11px] space-y-1 text-slate-100 font-medium">
-                            <div className="flex justify-between items-center">
-                              <span className="text-rose-200">Cuotas Vencidas (Mora):</span>
-                              <span className="font-mono font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">
-                                {countOverdue} (${sumOverdue.toLocaleString('es-AR')})
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-emerald-200">Cuota de Hoy:</span>
-                              <span className="font-mono font-bold text-white bg-emerald-900/60 px-1.5 py-0.5 rounded">
-                                {countToday} (${sumToday.toLocaleString('es-AR')})
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center border-t border-rose-500/30 pt-1.5 mt-1">
-                              <span className="text-white font-extrabold uppercase text-[10px]">Monto para Estar al Día:</span>
-                              <span className="font-mono font-black text-rose-300 text-xs">
-                                ${exigTotal.toLocaleString('es-AR')} ARS
-                              </span>
-                            </div>
-                          </div>
                         </div>
 
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 sm:col-span-2">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Próximo Vencimiento</span>
-                          <strong className="text-white font-bold font-mono flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                            {selectedOp.proximoVencimiento || 'N/A'}
-                          </strong>
+                        <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
+                          <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                            <thead className="bg-slate-900 text-[10px] uppercase font-black text-emerald-400 sticky top-0 border-b border-slate-800">
+                              <tr>
+                                <th className="p-2.5">N° Cuota</th>
+                                <th className="p-2.5">Vencimiento</th>
+                                <th className="p-2.5 text-right">Valor Cuota</th>
+                                <th className="p-2.5 text-right">Abonado</th>
+                                <th className="p-2.5 text-right">Saldo</th>
+                                <th className="p-2.5 text-center">Estado</th>
+                                <th className="p-2.5 text-center">Días Mora</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60 font-medium">
+                              {clientCuotas.filter(c => c.idOperacion === selectedOp.id).map(cuo => {
+                                const isPagada = cuo.estado === 'PAGADA';
+                                const isMora = !isPagada && (cuo.estado === 'VENCIDA' || cuo.fechaVencimiento < todayStr);
+                                const isHoy = !isPagada && cuo.fechaVencimiento === todayStr;
+                                const isParcial = cuo.estado === 'PAGO_PARCIAL';
+
+                                let badgeClass = 'bg-amber-950 text-amber-300 border-amber-800';
+                                let badgeLabel = '⚪ PENDIENTE';
+
+                                if (isPagada) {
+                                  badgeClass = 'bg-emerald-950 text-emerald-300 border-emerald-800 font-bold';
+                                  badgeLabel = '🟢 PAGADA';
+                                } else if (isMora) {
+                                  badgeClass = 'bg-rose-950 text-rose-300 border-rose-800 font-black';
+                                  badgeLabel = '🔴 EN MORA';
+                                } else if (isHoy) {
+                                  badgeClass = 'bg-yellow-950 text-yellow-300 border-yellow-800 font-black';
+                                  badgeLabel = '🟡 VENCE HOY';
+                                } else if (isParcial) {
+                                  badgeClass = 'bg-cyan-950 text-cyan-300 border-cyan-800 font-bold';
+                                  badgeLabel = '⚡ PARCIAL';
+                                }
+
+                                const dias = cuo.diasAtraso || (!isPagada && cuo.fechaVencimiento < todayStr ? calcularDiasAtrasoSinDomingos(cuo.fechaVencimiento, todayStr) : 0);
+
+                                return (
+                                  <tr key={cuo.id} className="hover:bg-slate-900/50">
+                                    <td className="p-2.5 font-bold text-white font-mono">Cuota #{cuo.numeroCuota}</td>
+                                    <td className="p-2.5 font-mono text-slate-300">{cuo.fechaVencimiento}</td>
+                                    <td className="p-2.5 text-right font-mono text-white">${(cuo.valorTotalCuota || 0).toLocaleString('es-AR')}</td>
+                                    <td className="p-2.5 text-right font-mono text-emerald-300">${(cuo.importePagado || 0).toLocaleString('es-AR')}</td>
+                                    <td className="p-2.5 text-right font-mono text-rose-300">${(cuo.saldoPendiente || 0).toLocaleString('es-AR')}</td>
+                                    <td className="p-2.5 text-center">
+                                      <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${badgeClass}`}>
+                                        {badgeLabel}
+                                      </span>
+                                    </td>
+                                    <td className="p-2.5 text-center font-mono text-slate-300 font-bold">
+                                      {dias > 0 ? <span className="text-rose-400 font-black">{dias}d</span> : '0d'}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
-
-                        {/* Domicilio del cliente con botón Google Maps */}
-                        {(() => {
-                          const address = getFullAddress(selectedCliente);
-                          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-                          return (
-                            <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/50 sm:col-span-2 space-y-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] uppercase tracking-wider text-emerald-300 font-extrabold flex items-center gap-1">
-                                  <MapPin className="w-3.5 h-3.5 text-rose-400" />
-                                  Domicilio del Cliente
-                                </span>
-                                <a 
-                                  href={mapsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1 uppercase tracking-wider cursor-pointer"
-                                >
-                                  🗺️ Google Maps
-                                </a>
-                              </div>
-                              <div className="text-[11px] text-white font-semibold">
-                                {address}
-                              </div>
-                              {selectedCliente.observaciones && (
-                                <div className="text-[10px] text-emerald-200/80 italic font-medium leading-normal border-t border-slate-800 pt-1.5">
-                                  📌 {selectedCliente.observaciones}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 text-[11px]">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">¿Apto Renovación?</span>
-                          <strong className={selectedOp.elegibleRenovacion ? "text-emerald-300 font-bold" : "text-emerald-100/50 font-medium"}>
-                            {selectedOp.elegibleRenovacion ? '✅ Sí, Elegible' : '❌ No'}
-                          </strong>
-                        </div>
-
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 text-[11px]">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">¿Apto Ampliación?</span>
-                          <strong className={selectedOp.elegibleAmpliacion ? "text-emerald-300 font-bold" : "text-emerald-100/50 font-medium"}>
-                            {selectedOp.elegibleAmpliacion ? '✅ Sí, Elegible' : '❌ No'}
-                          </strong>
-                        </div>
-                      </div>
-                    ) : (
-                      /* Cliente sin operación activa (INACTIVO o PROSPECTO) */
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs relative z-10">
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Estado Cliente</span>
-                          <strong className="text-amber-300 font-bold uppercase">{selectedCliente.estado}</strong>
-                        </div>
-
-                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
-                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cobrador Asignado</span>
-                          <strong className="text-white font-bold">{selectedCliente.cobradorAsignadoNombre || 'Sin asignar'}</strong>
-                        </div>
-
-                        {(selectedCliente.montoDeudaInactivo || 0) > 0 && (
-                          <div className="bg-rose-950/70 p-3 rounded-xl border border-rose-500/40 sm:col-span-2 space-y-1">
-                            <span className="text-[9px] uppercase tracking-widest text-rose-300 font-black block">
-                              ⚠️ Deuda Histórica Registrada (Inactivo)
-                            </span>
-                            <div className="text-lg font-black text-white">
-                              ${(selectedCliente.montoDeudaInactivo || 0).toLocaleString('es-AR')} ARS
-                            </div>
-                            <div className="text-[10px] text-rose-200">
-                              Pago Inicial Sugerido para Refinanciación: <strong className="text-amber-300">${(selectedCliente.montoPagoInicialRefinanciacion || Math.round((selectedCliente.montoDeudaInactivo || 0) * 0.3)).toLocaleString('es-AR')}</strong>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Domicilio */}
-                        {(() => {
-                          const address = getFullAddress(selectedCliente);
-                          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-                          return (
-                            <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/50 sm:col-span-2 space-y-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] uppercase tracking-wider text-emerald-300 font-extrabold flex items-center gap-1">
-                                  <MapPin className="w-3.5 h-3.5 text-rose-400" />
-                                  Domicilio del Cliente
-                                </span>
-                                <a 
-                                  href={mapsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1 uppercase tracking-wider cursor-pointer"
-                                >
-                                  🗺️ Google Maps
-                                </a>
-                              </div>
-                              <div className="text-[11px] text-white font-semibold">
-                                {address}
-                              </div>
-                            </div>
-                          );
-                        })()}
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* TAB CONTENT 2: VISUALIZACION DE CUOTAS (Reused from PagosView) */}
+                {/* TAB CONTENT 2: VISUALIZACION COMPLETA DE CUOTAS */}
                 {activeTabFicha === 'CUOTAS' && (
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-black uppercase text-slate-300 flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-emerald-400" />
-                      <span>Desglose General de Cuotas ({clientCuotas.length})</span>
-                    </h4>
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                      <div>
+                        <h4 className="text-xs font-black uppercase text-white flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-emerald-400" />
+                          <span>Desglose Completo de Cuotas del Cliente</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-400">
+                          {selectedCliente.nombre} {selectedCliente.apellido} - Total de {clientCuotas.length} cuotas registradas
+                        </p>
+                      </div>
+
+                      {selectedOp && (
+                        <button
+                          type="button"
+                          onClick={() => exportComprobanteGestionDiariaPDF({
+                            pago: {
+                              id: `CRONO-${selectedOp.id}`,
+                              idOperacion: selectedOp.id,
+                              idCliente: selectedCliente.id,
+                              nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido || ''}`,
+                              fechaPago: todayStr,
+                              importe: selectedOp.valorCuota || 0,
+                              cobrador: selectedOp.cobrador || 'Oficina',
+                              metodoPago: 'EFECTIVO',
+                              observaciones: 'Cronograma de Amortización Impreso'
+                            },
+                            cliente: selectedCliente,
+                            operacion: selectedOp,
+                            cuotasActualizadas: clientCuotas.filter(c => c.idOperacion === selectedOp.id)
+                          })}
+                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Imprimir PDF Plan de Cuotas</span>
+                        </button>
+                      )}
+                    </div>
 
                     {clientCuotas.length === 0 ? (
-                      <div className="p-6 text-center text-slate-400 text-xs bg-slate-950 rounded-xl border border-slate-800">
+                      <div className="p-8 text-center text-slate-400 text-xs bg-slate-950 rounded-xl border border-slate-800">
                         No hay cuotas registradas para este cliente.
                       </div>
                     ) : (
-                      <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden max-h-[350px] overflow-y-auto">
+                      <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden max-h-[450px] overflow-y-auto">
                         <table className="w-full text-left text-xs text-slate-300 border-collapse">
                           <thead className="bg-slate-900 text-[10px] uppercase font-black text-emerald-400 sticky top-0 border-b border-slate-800">
                             <tr>
@@ -1623,29 +1740,36 @@ export default function GestionAdministracionView({
                               <th className="p-2.5">Vencimiento</th>
                               <th className="p-2.5 text-right">Valor Cuota</th>
                               <th className="p-2.5 text-right">Abonado</th>
-                              <th className="p-2.5 text-right">Saldo</th>
+                              <th className="p-2.5 text-right">Saldo Pendiente</th>
                               <th className="p-2.5 text-center">Estado</th>
+                              <th className="p-2.5 text-center">Días Atraso</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800/60 font-medium">
                             {clientCuotas.map(cuo => {
                               const isPagada = cuo.estado === 'PAGADA';
                               const isMora = !isPagada && (cuo.estado === 'VENCIDA' || cuo.fechaVencimiento < todayStr);
+                              const isHoy = !isPagada && cuo.fechaVencimiento === todayStr;
                               const isParcial = cuo.estado === 'PAGO_PARCIAL';
 
                               let badge = 'bg-amber-950 text-amber-300 border-amber-800';
-                              let badgeTxt = 'PENDIENTE';
+                              let badgeTxt = '⚪ PENDIENTE';
 
                               if (isPagada) {
-                                badge = 'bg-emerald-950 text-emerald-300 border-emerald-800';
-                                badgeTxt = 'PAGADA';
+                                badge = 'bg-emerald-950 text-emerald-300 border-emerald-800 font-bold';
+                                badgeTxt = '🟢 PAGADA';
                               } else if (isMora) {
                                 badge = 'bg-rose-950 text-rose-300 border-rose-800 font-black';
-                                badgeTxt = 'EN MORA';
+                                badgeTxt = '🔴 EN MORA';
+                              } else if (isHoy) {
+                                badge = 'bg-yellow-950 text-yellow-300 border-yellow-800 font-black';
+                                badgeTxt = '🟡 VENCE HOY';
                               } else if (isParcial) {
-                                badge = 'bg-amber-950 text-yellow-300 border-amber-800';
-                                badgeTxt = 'PARCIAL';
+                                badge = 'bg-cyan-950 text-cyan-300 border-cyan-800 font-bold';
+                                badgeTxt = '⚡ PARCIAL';
                               }
+
+                              const dias = cuo.diasAtraso || (!isPagada && cuo.fechaVencimiento < todayStr ? calcularDiasAtrasoSinDomingos(cuo.fechaVencimiento, todayStr) : 0);
 
                               return (
                                 <tr key={cuo.id} className="hover:bg-slate-900/50">
@@ -1656,9 +1780,12 @@ export default function GestionAdministracionView({
                                   <td className="p-2.5 text-right font-mono text-emerald-300">${(cuo.importePagado || 0).toLocaleString('es-AR')}</td>
                                   <td className="p-2.5 text-right font-mono text-rose-300">${(cuo.saldoPendiente || 0).toLocaleString('es-AR')}</td>
                                   <td className="p-2.5 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${badge}`}>
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${badge}`}>
                                       {badgeTxt}
                                     </span>
+                                  </td>
+                                  <td className="p-2.5 text-center font-mono font-bold">
+                                    {dias > 0 ? <span className="text-rose-400 font-black">{dias}d</span> : <span className="text-slate-500">0d</span>}
                                   </td>
                                 </tr>
                               );
@@ -1670,98 +1797,210 @@ export default function GestionAdministracionView({
                   </div>
                 )}
 
-                {/* TAB CONTENT 3: HISTORIAL DE CREDITO Y PAGOS (Reused from PagosView) */}
+                {/* TAB CONTENT 3: AUDITORÍA E HISTORIAL COMPLETO DE PAGOS (Exact model from PagosView) */}
                 {activeTabFicha === 'HISTORIAL' && (
-                  <div className="space-y-4">
-                    
-                    {/* Operaciones del cliente */}
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-black uppercase text-slate-300 flex items-center gap-1.5">
-                        <FileText className="w-4 h-4 text-emerald-400" />
-                        <span>Créditos Otorgados ({allClientOperations.length})</span>
-                      </h4>
+                  <div className="space-y-5">
+                    {/* Stats summary cards matching PagosView */}
+                    {(() => {
+                      const totalHistPagos = clientPagos.reduce((acc, p) => acc + (p.importe || 0), 0);
+                      const modBPagos = clientPagos.filter(p => (p as any).modalidadImputada === 'B_PAGO_ATRASO' || (p as any).modalidadImputada === 'MODALIDAD_B').reduce((acc, p) => acc + (p.importe || 0), 0);
+                      const modAPagos = totalHistPagos - modBPagos;
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        {allClientOperations.map(op => (
-                          <div key={op.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-                            <div className="flex justify-between items-center">
-                              <span className="font-black text-white">{op.id}</span>
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 uppercase">
-                                {op.estado}
-                              </span>
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="bg-emerald-950/80 p-3.5 rounded-2xl border border-emerald-800 shadow-sm">
+                            <span className="text-[10px] font-extrabold uppercase text-emerald-400 block tracking-wider">Total Pagos Registrados</span>
+                            <div className="text-lg font-black text-white font-mono mt-0.5">
+                              ${totalHistPagos.toLocaleString('es-AR')} ARS
                             </div>
-                            <div className="text-[10px] text-slate-400 space-y-0.5">
-                              <div>Otorgado: <strong>{op.fechaOtorgamiento}</strong> | Frec.: <strong>{op.frecuencia}</strong></div>
-                              <div>Total Financiado: <strong className="text-white">${(op.totalFinanciado || 0).toLocaleString('es-AR')}</strong> ({op.cantidadCuotas} cuotas)</div>
-                            </div>
+                            <span className="text-[10px] text-emerald-300/80 mt-1 block">
+                              {clientPagos.length} transacciones procesadas
+                            </span>
                           </div>
-                        ))}
+
+                          <div className="bg-emerald-950/80 p-3.5 rounded-2xl border border-emerald-800 shadow-sm">
+                            <span className="text-[10px] font-extrabold uppercase text-emerald-400 block tracking-wider">Imputación Modalidad A (Consecutiva)</span>
+                            <div className="text-lg font-black text-emerald-300 font-mono mt-0.5">
+                              ${modAPagos.toLocaleString('es-AR')} ARS
+                            </div>
+                            <span className="text-[10px] text-slate-400 mt-1 block">
+                              Abonos a cuota actual / ordinaria
+                            </span>
+                          </div>
+
+                          <div className="bg-amber-950/60 p-3.5 rounded-2xl border border-amber-800 shadow-sm">
+                            <span className="text-[10px] font-extrabold uppercase text-amber-400 block tracking-wider">Imputación Modalidad B (Atraso/Atrás)</span>
+                            <div className="text-lg font-black text-amber-300 font-mono mt-0.5">
+                              ${modBPagos.toLocaleString('es-AR')} ARS
+                            </div>
+                            <span className="text-[10px] text-slate-400 mt-1 block">
+                              Abonos a última cuota o mora previa
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Filter and Search Bar for Historial */}
+                    <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          placeholder="Buscar por ID Pago, Operación o Cobrador..."
+                          value={pagoSearchTerm}
+                          onChange={(e) => setPagoSearchTerm(e.target.value)}
+                          className="w-full bg-slate-900 text-white pl-9 pr-3 py-1.5 rounded-xl border border-slate-700 text-xs focus:outline-none focus:border-emerald-500 font-medium"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <select
+                          value={pagoFilterModalidad}
+                          onChange={(e) => setPagoFilterModalidad(e.target.value)}
+                          className="bg-slate-900 text-slate-200 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-700 focus:outline-none cursor-pointer"
+                        >
+                          <option value="TODOS">Todas las Modalidades</option>
+                          <option value="A_CONSECUTIVO">Modalidad A (Consecutivo)</option>
+                          <option value="B_ATRAS">Modalidad B (Atraso/Atrás)</option>
+                        </select>
+
+                        <select
+                          value={pagoFilterMetodo}
+                          onChange={(e) => setPagoFilterMetodo(e.target.value)}
+                          className="bg-slate-900 text-slate-200 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-700 focus:outline-none cursor-pointer"
+                        >
+                          <option value="TODOS">Todos los Medios</option>
+                          <option value="EFECTIVO">Efectivo</option>
+                          <option value="TRANSFERENCIA">Transferencia</option>
+                          <option value="DEPOSITO">Depósito</option>
+                        </select>
                       </div>
                     </div>
 
-                    {/* Historial de Pagos con relación a cuotas afectadas */}
-                    <div className="space-y-2 pt-2 border-t border-slate-800">
-                      <h4 className="text-xs font-black uppercase text-slate-300 flex items-center gap-1.5">
-                        <History className="w-4 h-4 text-amber-400" />
-                        <span>Historial de Pagos e Imputaciones ({clientPagos.length})</span>
-                      </h4>
+                    {/* Detailed Payments Table */}
+                    {(() => {
+                      const filteredPagos = clientPagos.filter(p => {
+                        const matchesSearch = !pagoSearchTerm || 
+                          p.id.toLowerCase().includes(pagoSearchTerm.toLowerCase()) ||
+                          p.idOperacion.toLowerCase().includes(pagoSearchTerm.toLowerCase()) ||
+                          (p.cobrador && p.cobrador.toLowerCase().includes(pagoSearchTerm.toLowerCase()));
+                        
+                        const matchesMetodo = pagoFilterMetodo === 'TODOS' || p.metodoPago === pagoFilterMetodo;
+                        const modVal = (p as any).modalidadImputada;
+                        const matchesModalidad = pagoFilterModalidad === 'TODOS' || 
+                          (pagoFilterModalidad === 'B_ATRAS' && (modVal === 'B_PAGO_ATRASO' || modVal === 'MODALIDAD_B')) ||
+                          (pagoFilterModalidad === 'A_CONSECUTIVO' && modVal !== 'B_PAGO_ATRASO' && modVal !== 'MODALIDAD_B');
 
-                      {clientPagos.length === 0 ? (
-                        <div className="p-6 text-center text-slate-400 text-xs bg-slate-950 rounded-xl border border-slate-800">
-                          No se registran pagos previos para este cliente.
-                        </div>
-                      ) : (
-                        <div className="space-y-2 max-h-[320px] overflow-y-auto">
-                          {clientPagos.map(pago => {
-                            // Find cuotas covered or partially covered on this payment date / operation
-                            const opCuotas = cuotas.filter(c => c.idOperacion === pago.idOperacion);
-                            const cuotasCubiertas = opCuotas.filter(c => c.fechaPago === pago.fechaPago || (c.importePagado && c.importePagado > 0));
+                        return matchesSearch && matchesMetodo && matchesModalidad;
+                      });
 
-                            return (
-                              <div key={pago.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2 text-xs">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-800/80 pb-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-black text-white">#Pago {pago.id}</span>
-                                    <span className="text-[10px] text-emerald-400 font-mono font-bold">[{pago.fechaPago}]</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-mono font-black text-emerald-300 text-sm">
+                      if (filteredPagos.length === 0) {
+                        return (
+                          <div className="p-8 text-center text-slate-400 text-xs bg-slate-950 rounded-2xl border border-slate-800">
+                            No se encontraron registros de pago en este historial.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-lg max-h-[420px] overflow-y-auto">
+                          <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                            <thead className="bg-slate-900 text-[10px] uppercase font-black text-emerald-400 sticky top-0 border-b border-slate-800">
+                              <tr>
+                                <th className="p-3">ID Pago / Hora</th>
+                                <th className="p-3">Crédito N°</th>
+                                <th className="p-3 text-right">Importe Cobrado</th>
+                                <th className="p-3">Medio de Pago</th>
+                                <th className="p-3">Modalidad Imputada</th>
+                                <th className="p-3">Cuotas Impactadas</th>
+                                <th className="p-3">Cobrador / Registrado por</th>
+                                <th className="p-3 text-center">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60 font-medium">
+                              {filteredPagos.map(pago => {
+                                const opCuotas = cuotas.filter(c => c.idOperacion === pago.idOperacion);
+                                const cuotasCubiertas = opCuotas.filter(c => c.fechaPago === pago.fechaPago || (c.importePagado && c.importePagado > 0));
+                                const op = operaciones.find(o => o.id === pago.idOperacion);
+                                const isModB = (pago as any).modalidadImputada === 'B_PAGO_ATRASO' || (pago as any).modalidadImputada === 'MODALIDAD_B';
+
+                                return (
+                                  <tr key={pago.id} className="hover:bg-slate-900/50 transition-colors">
+                                    <td className="p-3">
+                                      <span className="font-bold text-white block">#{pago.id}</span>
+                                      <span className="text-[10px] text-emerald-400 font-mono font-bold">[{pago.fechaPago}]</span>
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-slate-200">
+                                      {pago.idOperacion}
+                                    </td>
+                                    <td className="p-3 text-right font-mono font-black text-emerald-300 text-sm">
                                       ${pago.importe.toLocaleString('es-AR')}
-                                    </span>
-                                    <span className="text-[9px] bg-slate-900 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
-                                      {pago.metodoPago}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] text-slate-400">
-                                  <div>Operación: <strong className="text-white">{pago.idOperacion}</strong></div>
-                                  <div>Cobrador / Registrado por: <strong className="text-emerald-300">{pago.cobrador || 'Oficina'}</strong></div>
-                                  {pago.observaciones && (
-                                    <div className="col-span-2 italic text-slate-300">{pago.observaciones}</div>
-                                  )}
-                                </div>
-
-                                {/* Relación de cuotas afectadas */}
-                                {cuotasCubiertas.length > 0 && (
-                                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800 text-[10px]">
-                                    <span className="font-bold text-amber-300 block mb-1">Cuotas Imputadas / Afectadas por este Pago:</span>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {cuotasCubiertas.map(cu => (
-                                        <span key={cu.id} className="bg-slate-950 border border-slate-700 text-slate-200 px-2 py-0.5 rounded font-mono">
-                                          Cuota #{cu.numeroCuota} (Venc: {cu.fechaVencimiento}) - Abonado: ${cu.importePagado?.toLocaleString('es-AR')}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                                    </td>
+                                    <td className="p-3">
+                                      <span className="px-2 py-0.5 rounded bg-slate-900 text-slate-200 border border-slate-700 text-[10px] font-bold">
+                                        {pago.metodoPago}
+                                      </span>
+                                    </td>
+                                    <td className="p-3">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
+                                        isModB 
+                                          ? 'bg-amber-950 text-amber-300 border-amber-800' 
+                                          : 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                      }`}>
+                                        {isModB ? 'Modalidad B (Atraso)' : 'Modalidad A (Consecutivo)'}
+                                      </span>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="flex flex-wrap gap-1">
+                                        {cuotasCubiertas.length > 0 ? (
+                                          cuotasCubiertas.map(cu => (
+                                            <span key={cu.id} className="bg-slate-900 border border-slate-700 text-slate-200 px-1.5 py-0.5 rounded text-[9px] font-mono">
+                                              Cuota #{cu.numeroCuota}
+                                            </span>
+                                          ))
+                                        ) : (
+                                          <span className="text-slate-500 italic text-[10px]">Abono general al saldo</span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="p-3 text-slate-300 font-semibold">
+                                      {pago.cobrador || 'Oficina Administración'}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => exportComprobanteGestionDiariaPDF({
+                                          pago: pago,
+                                          cliente: selectedCliente,
+                                          operacion: op || {
+                                            id: pago.idOperacion,
+                                            idCliente: selectedCliente.id,
+                                            nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido || ''}`,
+                                            estado: 'ACTIVA',
+                                            totalFinanciado: 0,
+                                            frecuencia: 'DIARIA',
+                                            cantidadCuotas: 0,
+                                            valorCuota: 0,
+                                            cuotasGeneradas: true
+                                          } as Operacion,
+                                          cuotasActualizadas: cuotasCubiertas
+                                        })}
+                                        className="p-1.5 bg-slate-900 hover:bg-emerald-900 text-emerald-400 hover:text-emerald-200 rounded-lg transition-colors border border-slate-700 hover:border-emerald-600 flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                                        title="Imprimir Comprobante PDF"
+                                      >
+                                        <Printer className="w-3.5 h-3.5" />
+                                        <span className="text-[10px] font-bold">PDF</span>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
-                      )}
-                    </div>
-
+                      );
+                    })()}
                   </div>
                 )}
 

@@ -163,6 +163,37 @@ const SEED_CLIENTES: Cliente[] = [
     analista: 'Héctor Delgado',
     estado: 'SOLICITANTE',
     fechaRegistro: '2026-07-10',
+  },
+  {
+    id: 'CLI-004',
+    nombre: 'Liliana Beatriz',
+    apellido: 'Fernández',
+    dni: '32184920',
+    telefono: '+54 9 11 4920-1122',
+    direccion: 'Av. San Martín 2100, Morón',
+    trabajo: 'Comerciante (Boutique)',
+    ingresos: 300000,
+    captador: 'Sofía Martínez',
+    analista: 'Héctor Delgado',
+    estado: 'INACTIVO',
+    elegibleRenovacion: true,
+    fechaRegistro: '2026-05-10',
+  },
+  {
+    id: 'CLI-005',
+    nombre: 'Claudia',
+    apellido: 'Vera Cabral',
+    dni: '29841029',
+    telefono: '+54 9 11 5821-9033',
+    direccion: 'Calle Rivadavia 850, Quilmes',
+    trabajo: 'Docente Primaria',
+    ingresos: 280000,
+    captador: 'Pedro Alarcón',
+    analista: 'Héctor Delgado',
+    estado: 'INACTIVO',
+    montoDeudaInactivo: 25000,
+    montoPagoInicialRefinanciacion: 7500,
+    fechaRegistro: '2026-05-12',
   }
 ];
 
@@ -339,6 +370,72 @@ const seedOperacion1: Operacion = {
   cuotasGeneradas: true,
 };
 
+// Liliana: Finished credit without delays -> Apto para Renovación Directa
+const seedOperacionLiliana: Operacion = {
+  id: 'OPE-004',
+  fechaOtorgamiento: '2026-05-15',
+  idCliente: 'CLI-004',
+  nombreCliente: 'Liliana Beatriz Fernández',
+  estado: 'FINALIZADA',
+  tipoOperacion: 'NUEVO',
+  descripcion: 'Crédito anterior finalizado 100% sin mora',
+  capitalEntregado: 80000,
+  totalFinanciado: 120000,
+  frecuencia: 'DIARIA',
+  cantidadCuotas: 10,
+  valorCuota: 12000,
+  primerVencimiento: '2026-05-16',
+  ultimoVencimiento: '2026-05-27',
+  cobrador: 'Rodrigo Gómez',
+  capitalRecuperado: 80000,
+  interesCobrado: 40000,
+  capitalPendiente: 0,
+  totalPendiente: 0,
+  cuotasPagadas: 10,
+  cuotasPendientes: 0,
+  proximoVencimiento: 'PAGADO TOTAL',
+  ultimoPago: '2026-05-27',
+  diasMora: 0,
+  nivelMora: 'Sano',
+  numeroCredito: 1,
+  elegibleRenovacion: true,
+  fechaFinalizacion: '2026-05-27',
+  cuotasGeneradas: true,
+};
+
+// Claudia Vera Cabral: Finished credit WITH DELAYS -> Calculates interest for Refinanciación
+const seedOperacionClaudia: Operacion = {
+  id: 'OPE-005',
+  fechaOtorgamiento: '2026-05-15',
+  idCliente: 'CLI-005',
+  nombreCliente: 'Claudia Vera Cabral',
+  estado: 'FINALIZADA',
+  tipoOperacion: 'NUEVO',
+  descripcion: 'Crédito anterior finalizado con retraso en cuotas finales',
+  capitalEntregado: 80000,
+  totalFinanciado: 120000,
+  frecuencia: 'DIARIA',
+  cantidadCuotas: 10,
+  valorCuota: 12000,
+  primerVencimiento: '2026-05-16',
+  ultimoVencimiento: '2026-05-27',
+  cobrador: 'Rodrigo Gómez',
+  capitalRecuperado: 80000,
+  interesCobrado: 40000,
+  capitalPendiente: 0,
+  totalPendiente: 0,
+  cuotasPagadas: 10,
+  cuotasPendientes: 0,
+  proximoVencimiento: 'PAGADO TOTAL',
+  ultimoPago: '2026-06-15',
+  diasMora: 0,
+  nivelMora: 'Sano',
+  numeroCredito: 1,
+  elegibleRenovacion: false,
+  fechaFinalizacion: '2026-06-15',
+  cuotasGeneradas: true,
+};
+
 // Generate seed cuotas list
 const generateSeedCuotas = (): Cuota[] => {
   const list: Cuota[] = [];
@@ -375,6 +472,61 @@ const generateSeedCuotas = (): Cuota[] => {
       observaciones: isPaid ? 'Abonado en terminal' : '',
     });
   }
+
+  // 10 cuotas for Liliana (All paid on time)
+  for (let i = 0; i < 10; i++) {
+    const dueDate = `2026-05-${String(16 + i).padStart(2, '0')}`;
+    list.push({
+      id: `OPE-004-CUO-${String(i + 1).padStart(2, '0')}`,
+      idOperacion: 'OPE-004',
+      idCliente: 'CLI-004',
+      nombreCliente: 'Liliana Beatriz Fernández',
+      numeroCredito: 1,
+      numeroCuota: i + 1,
+      frecuencia: 'DIARIA',
+      fechaVencimiento: dueDate,
+      capitalCuota: 8000,
+      interesCuota: 4000,
+      valorTotalCuota: 12000,
+      estado: 'PAGADA',
+      fechaPago: dueDate, // Paid strictly on time
+      importePagado: 12000,
+      saldoPendiente: 0,
+      diasAtraso: 0,
+      cobrador: 'Rodrigo Gómez',
+      observaciones: 'Pago puntual',
+    });
+  }
+
+  // 10 cuotas for Claudia Vera Cabral (Cuotas 7, 8, 9, 10 paid late)
+  for (let i = 0; i < 10; i++) {
+    const dueDate = `2026-05-${String(16 + i).padStart(2, '0')}`;
+    const isLate = i >= 6; // Cuotas 7..10 paid late
+    const paymentDate = isLate ? `2026-06-${String(5 + i).padStart(2, '0')}` : dueDate;
+    const daysLate = isLate ? (10 + i * 2) : 0;
+
+    list.push({
+      id: `OPE-005-CUO-${String(i + 1).padStart(2, '0')}`,
+      idOperacion: 'OPE-005',
+      idCliente: 'CLI-005',
+      nombreCliente: 'Claudia Vera Cabral',
+      numeroCredito: 1,
+      numeroCuota: i + 1,
+      frecuencia: 'DIARIA',
+      fechaVencimiento: dueDate,
+      capitalCuota: 8000,
+      interesCuota: 4000,
+      valorTotalCuota: 12000,
+      estado: 'PAGADA',
+      fechaPago: paymentDate,
+      importePagado: 12000,
+      saldoPendiente: 0,
+      diasAtraso: daysLate,
+      cobrador: 'Rodrigo Gómez',
+      observaciones: isLate ? `Abonado con ${daysLate} días de atraso` : 'Pago puntual',
+    });
+  }
+
   return list;
 };
 
@@ -788,9 +940,27 @@ export default function App() {
     const loadedClientes = getOrSeed(STORAGE_KEYS.CLIENTES, SEED_CLIENTES);
     const loadedFeriados = getOrSeed(STORAGE_KEYS.FERIADOS, SEED_FERIADOS);
     const loadedConfig = getOrSeed(STORAGE_KEYS.CONFIGURACION, SEED_CONFIGURACION);
-    const loadedOperaciones = getOrSeed(STORAGE_KEYS.OPERACIONES, [seedOperacion1]);
+    const loadedOperaciones = getOrSeed(STORAGE_KEYS.OPERACIONES, [seedOperacion1, seedOperacionLiliana, seedOperacionClaudia]);
     const loadedCuotas = getOrSeed(STORAGE_KEYS.CUOTAS, generateSeedCuotas());
     const loadedPagos = getOrSeed(STORAGE_KEYS.PAGOS, SEED_PAGOS);
+
+    // Guarantee presence of test cases Liliana (CLI-004 / OPE-004) and Claudia Vera Cabral (CLI-005 / OPE-005)
+    SEED_CLIENTES.forEach(sc => {
+      if (!loadedClientes.some(c => c.id === sc.id)) {
+        loadedClientes.push(sc);
+      }
+    });
+    [seedOperacion1, seedOperacionLiliana, seedOperacionClaudia].forEach(so => {
+      if (!loadedOperaciones.some(o => o.id === so.id)) {
+        loadedOperaciones.push(so);
+      }
+    });
+    const defaultCuotas = generateSeedCuotas();
+    defaultCuotas.forEach(sc => {
+      if (!loadedCuotas.some(c => c.id === sc.id)) {
+        loadedCuotas.push(sc);
+      }
+    });
     const loadedTransacciones = getOrSeed(STORAGE_KEYS.TRANSACCIONES, SEED_TRANSACCIONES);
     const loadedLiquidaciones = getOrSeed(STORAGE_KEYS.LIQUIDACIONES, SEED_LIQUIDACIONES);
     const loadedUsuarios = getOrSeed(STORAGE_KEYS.USUARIOS, DEFAULT_USUARIOS);
