@@ -222,7 +222,6 @@ export default function GestionAdministracionView({
     const parts = [
       cli.direccion || cli.calle,
       cli.barrio ? `B° ${cli.barrio}` : '',
-      cli.localidad,
       cli.provincia
     ].filter(Boolean);
     return parts.length > 0 ? parts.join(', ') : 'Sin domicilio registrado';
@@ -302,7 +301,7 @@ export default function GestionAdministracionView({
   // Pending Alerts Count for Top Indicator Badge
   const alertasPendientesCount = useMemo(() => {
     let count = 0;
-    const effectiveConfig = configuracion || {
+    const effectiveConfig: Configuracion = configuracion || {
       interesAtrasoDiario: 0.5,
       interesAtrasoSemanal: 0.5,
       interesAtrasoQuincenal: 0.5,
@@ -311,8 +310,7 @@ export default function GestionAdministracionView({
       interesSemanal: 50,
       interesQuincenal: 50,
       interesMensual: 50,
-      diasInactividadAlerta: 3,
-      montoMinimoCuota: 100
+      tasaMensualBase: 30
     };
 
     (clientes || []).forEach(cli => {
@@ -610,12 +608,12 @@ export default function GestionAdministracionView({
     }
     const stage = getInstanciaCobroCliente(selectedCliente);
     const mesaMap: Record<string, MesaGestionCompromiso> = {
-      'DIARIA': 'GESTIÓN DIARIA',
-      'TELEFONICA': 'GESTIÓN TELEFÓNICA',
-      'DOMICILIARIA': 'GESTIÓN DOMICILIARIA'
+      'DIARIA': 'GESTION DIARIA',
+      'TELEFONICA': 'GESTION TELEFONICA',
+      'DOMICILIARIA': 'GESTION DOMICILIARIA'
     };
-    setCompMesaGestion(mesaMap[stage] || 'GESTIÓN DIARIA');
-    setCompFinalidad('REFINANCIACIÓN');
+    setCompMesaGestion(mesaMap[stage] || 'GESTION DIARIA');
+    setCompFinalidad('REFINANCIACION');
 
     const clientActiveOps = clientOperations.filter(o => o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
     setCompOperacionId(clientActiveOps.length > 0 ? clientActiveOps[0].id : '');
@@ -1433,7 +1431,7 @@ export default function GestionAdministracionView({
                             >
                               {allClientOperations.map((o) => (
                                 <option key={o.id} value={o.id}>
-                                  #{o.id} - {o.frecuencia} (${(o.montoTotal || o.montoPrestamo || 0).toLocaleString('es-AR')}) [{o.estado}]
+                                  #{o.id} - {o.frecuencia} (${(o.totalFinanciado || o.capitalEntregado || 0).toLocaleString('es-AR')}) [{o.estado}]
                                 </option>
                               ))}
                             </select>
@@ -1702,22 +1700,13 @@ export default function GestionAdministracionView({
                       {selectedOp && (
                         <button
                           type="button"
-                          onClick={() => exportComprobanteGestionDiariaPDF({
-                            pago: {
-                              id: `CRONO-${selectedOp.id}`,
-                              idOperacion: selectedOp.id,
-                              idCliente: selectedCliente.id,
-                              nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido || ''}`,
-                              fechaPago: todayStr,
-                              importe: selectedOp.valorCuota || 0,
-                              cobrador: selectedOp.cobrador || 'Oficina',
-                              metodoPago: 'EFECTIVO',
-                              observaciones: 'Cronograma de Amortización Impreso'
-                            },
-                            cliente: selectedCliente,
-                            operacion: selectedOp,
-                            cuotasActualizadas: clientCuotas.filter(c => c.idOperacion === selectedOp.id)
-                          })}
+                          onClick={() => exportComprobanteGestionDiariaPDF(
+                            selectedCliente,
+                            [selectedOp],
+                            clientCuotas.filter(c => c.idOperacion === selectedOp.id),
+                            pagos.filter(p => p.idCliente === selectedCliente.id),
+                            compromisosPago
+                          )}
                           className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <Printer className="w-3.5 h-3.5" />
@@ -1970,22 +1959,13 @@ export default function GestionAdministracionView({
                                     <td className="p-3 text-center">
                                       <button
                                         type="button"
-                                        onClick={() => exportComprobanteGestionDiariaPDF({
-                                          pago: pago,
-                                          cliente: selectedCliente,
-                                          operacion: op || {
-                                            id: pago.idOperacion,
-                                            idCliente: selectedCliente.id,
-                                            nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido || ''}`,
-                                            estado: 'ACTIVA',
-                                            totalFinanciado: 0,
-                                            frecuencia: 'DIARIA',
-                                            cantidadCuotas: 0,
-                                            valorCuota: 0,
-                                            cuotasGeneradas: true
-                                          } as Operacion,
-                                          cuotasActualizadas: cuotasCubiertas
-                                        })}
+                                        onClick={() => exportComprobanteGestionDiariaPDF(
+                                          selectedCliente,
+                                          operaciones.filter(o => o.idCliente === selectedCliente.id),
+                                          cuotas,
+                                          [pago],
+                                          compromisosPago
+                                        )}
                                         className="p-1.5 bg-slate-900 hover:bg-emerald-900 text-emerald-400 hover:text-emerald-200 rounded-lg transition-colors border border-slate-700 hover:border-emerald-600 flex items-center justify-center gap-1 mx-auto cursor-pointer"
                                         title="Imprimir Comprobante PDF"
                                       >

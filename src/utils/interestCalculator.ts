@@ -6,6 +6,7 @@ export interface DetalleInteresCuota {
   fechaVencimiento: string;
   fechaPago: string;
   diasAtraso: number;
+  umbralDiasAplicado: number;
   periodosAtraso: number;
   unidadPeriodo: string;
   porcentajeAplicado: number;
@@ -17,12 +18,15 @@ export interface ResumenInteresesCredito {
   idCliente: string;
   nombreCliente: string;
   frecuencia: FrecuenciaPago;
+  valorCuota: number;
   cuotasTotales: number;
   cuotasConAtraso: number;
   totalDiasAtraso: number;
   detalles: DetalleInteresCuota[];
   totalIntereses: number;
+  cuotasInteresEquivalentes: number;
   esAptoRenovacionDirecta: boolean;
+  requiereRefinanciacionMora: boolean;
 }
 
 /**
@@ -36,12 +40,19 @@ export function calcularInteresesAtrasoCredito(
 ): ResumenInteresesCredito {
   const hoyStr = new Date().toISOString().split('T')[0];
   const frecuencia = operacion.frecuencia || 'DIARIA';
+  const valorCuota = operacion.valorCuota || (cuotasOperacion[0]?.valorTotalCuota || 0);
 
   // Configured rates (default 50%)
   const rateDiario = configuracion?.interesAtrasoDiario ?? 50;
   const rateSemanal = configuracion?.interesAtrasoSemanal ?? 50;
   const rateQuincenal = configuracion?.interesAtrasoQuincenal ?? 50;
   const rateMensual = configuracion?.interesAtrasoMensual ?? 50;
+
+  // Configured grace thresholds (default: 3 días diario, 4 semanal, 5 quincenal, 7 mensual)
+  const umbralDiario = configuracion?.moraDiarioAplicaDesdeDias ?? 3;
+  const umbralSemanal = configuracion?.moraSemanalAplicaDesdeDias ?? 4;
+  const umbralQuincenal = configuracion?.moraQuincenalAplicaDesdeDias ?? 5;
+  const umbralMensual = configuracion?.moraMensualAplicaDesdeDias ?? 7;
 
   const detalles: DetalleInteresCuota[] = [];
   let totalIntereses = 0;
@@ -62,36 +73,43 @@ export function calcularInteresesAtrasoCredito(
       dias = c.diasAtraso;
     }
 
-    if (dias > 0) {
+    let umbral = umbralDiario;
+    let pct = rateDiario;
+    let periodos = 0;
+    let unidad = 'días';
+
+    switch (frecuencia) {
+      case 'DIARIA':
+        umbral = umbralDiario;
+        pct = rateDiario;
+        periodos = dias;
+        unidad = 'días';
+        break;
+      case 'SEMANAL':
+        umbral = umbralSemanal;
+        pct = rateSemanal;
+        periodos = Math.max(1, Math.ceil(dias / 7));
+        unidad = 'semanas';
+        break;
+      case 'QUINCENAL':
+        umbral = umbralQuincenal;
+        pct = rateQuincenal;
+        periodos = Math.max(1, Math.ceil(dias / 15));
+        unidad = 'quincenas';
+        break;
+      case 'MENSUAL':
+        umbral = umbralMensual;
+        pct = rateMensual;
+        periodos = Math.max(1, Math.ceil(dias / 30));
+        unidad = 'meses';
+        break;
+    }
+
+    // A partir del umbral configurable (ej. a partir del día 3 de atraso) se aplica el interés
+    if (dias >= umbral && dias > 0) {
       totalDiasAtraso += dias;
-      let periodos = 0;
-      let unidad = 'días';
-      let pct = 50;
-
-      switch (frecuencia) {
-        case 'DIARIA':
-          periodos = dias;
-          unidad = 'días';
-          pct = rateDiario;
-          break;
-        case 'SEMANAL':
-          periodos = Math.max(1, Math.ceil(dias / 7));
-          unidad = 'semanas';
-          pct = rateSemanal;
-          break;
-        case 'QUINCENAL':
-          periodos = Math.max(1, Math.ceil(dias / 15));
-          unidad = 'quincenas';
-          pct = rateQuincenal;
-          break;
-        case 'MENSUAL':
-          periodos = Math.max(1, Math.ceil(dias / 30));
-          unidad = 'meses';
-          pct = rateMensual;
-          break;
-      }
-
-      const interes = Math.round((c.valorTotalCuota || 0) * (pct / 100) * periodos);
+      const cuotaRef = c.valorTotalCuota || valorCuota || 0;
+      const interes = Math.round(cuotaRef * (pct / 100) * periodos);
       totalIntereses += interes;
 
       detalles.push({
@@ -99,6 +117,7 @@ export function calcularInteresesAtrasoCredito(
         fechaVencimiento: c.fechaVencimiento,
         fechaPago: fechaPagoFinal || 'PENDIENTE',
         diasAtraso: dias,
+        umbralDiasAplicado: umbral,
         periodosAtraso: periodos,
         unidadPeriodo: unidad,
         porcentajeAplicado: pct,
@@ -107,18 +126,23 @@ export function calcularInteresesAtrasoCredito(
     }
   });
 
-  const esAptoRenovacionDirecta = detalles.length === 0;
+  const cuotasInteresEquivalentes = valorCuota > 0 ? Math.round((totalIntereses / valorCuota) * 10) / 10 : 0;
+  const esAptoRenovacionDirecta = detalles.length === 0 || totalIntereses === 0;
+  const requiereRefinanciacionMora = detalles.length > 0 && totalIntereses > 0;
 
   return {
     idOperacion: operacion.id,
     idCliente: operacion.idCliente,
     nombreCliente: operacion.nombreCliente,
     frecuencia: frecuencia,
+    valorCuota,
     cuotasTotales: cuotasOperacion.length || operacion.cantidadCuotas || 0,
     cuotasConAtraso: detalles.length,
     totalDiasAtraso,
     detalles,
     totalIntereses,
-    esAptoRenovacionDirecta
+    cuotasInteresEquivalentes,
+    esAptoRenovacionDirecta,
+    requiereRefinanciacionMora
   };
 }

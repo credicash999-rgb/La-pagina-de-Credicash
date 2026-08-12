@@ -289,14 +289,24 @@ export default function AlertasOportunidadesView({
       setTipoOperacionForm('REFINANCIACION');
       const capitalSugerido = item.montoDeudaRestante && item.montoDeudaRestante > 0 ? item.montoDeudaRestante : 100000;
       setCapitalEntregadoForm(capitalSugerido);
+      setCantidadCuotasForm(20);
+    } else if (item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO') {
+      setTipoOperacionForm('REFINANCIACION');
+      const totalMora = item.resumenIntereses?.totalIntereses || 50000;
+      setCapitalEntregadoForm(totalMora);
+      if (item.resumenIntereses?.cuotasInteresEquivalentes) {
+        setCantidadCuotasForm(Math.max(1, Math.round(item.resumenIntereses.cuotasInteresEquivalentes)));
+      } else {
+        setCantidadCuotasForm(4);
+      }
     } else {
       setTipoOperacionForm('RENOVACION');
       const capitalPrevio = item.operacionAsociada?.capitalEntregado || 100000;
       setCapitalEntregadoForm(capitalPrevio);
+      setCantidadCuotasForm(20);
     }
 
-    setFrecuenciaForm('DIARIA');
-    setCantidadCuotasForm(20);
+    setFrecuenciaForm(item.operacionAsociada?.frecuencia || 'DIARIA');
     const today = new Date().toISOString().split('T')[0];
     setFechaOtorgamientoForm(today);
 
@@ -307,7 +317,11 @@ export default function AlertasOportunidadesView({
     setPrimerVencimientoForm(calculatedFirst.toISOString().split('T')[0]);
 
     setCobradorAsignadoForm(item.cliente.cobradorAsignadoNombre || item.operacionAsociada?.cobrador || activeUser.nombre);
-    setObservacionesForm(`Otorgado desde Alertas & Oportunidades (${item.tipoAlerta})`);
+    setObservacionesForm(
+      item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO'
+        ? `Refinanciación de Mora Crédito #${item.operacionAsociada?.id || ''} ($${item.resumenIntereses?.totalIntereses.toLocaleString('es-AR')} = ${item.resumenIntereses?.cuotasInteresEquivalentes} cuotas)`
+        : `Otorgado desde Alertas & Oportunidades (${item.tipoAlerta})`
+    );
   };
 
   // Submit Credit Creation
@@ -988,20 +1002,22 @@ export default function AlertasOportunidadesView({
         </div>
       )}
 
-      {/* MODAL 3: DESGLOSE DE INTERESES POR ATRASO DE CRÉDITO FINALIZADO */}
+      {/* MODAL 3: REPORTE DE MORA Y DESGLOSE DE INTERESES DE CRÉDITO FINALIZADO */}
       {selectedResumenInteresesModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-slate-900 border-2 border-purple-500/80 w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="bg-slate-900 border-2 border-rose-500/80 w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             
             {/* Modal Header */}
-            <div className="bg-slate-950 p-4 border-b border-purple-800/60 flex items-center justify-between">
+            <div className="bg-slate-950 p-4 border-b border-rose-800/60 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-900 text-purple-200 rounded-xl flex items-center justify-center font-black">
-                  <DollarSign className="w-5 h-5 text-purple-300" />
+                <div className="w-10 h-10 bg-rose-950 text-rose-300 rounded-xl flex items-center justify-center font-black border border-rose-700/60">
+                  <AlertTriangle className="w-5 h-5 text-rose-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white">Desglose de Intereses por Atraso</h3>
-                  <p className="text-xs text-purple-300 font-medium">Crédito #{selectedResumenInteresesModal.op.id} ({selectedResumenInteresesModal.op.frecuencia})</p>
+                  <h3 className="text-base font-black text-white">Reporte de Mora y Desglose de Cuotas</h3>
+                  <p className="text-xs text-rose-300 font-medium">
+                    Crédito #{selectedResumenInteresesModal.op.id} ({selectedResumenInteresesModal.op.frecuencia}) — Cliente: {selectedResumenInteresesModal.resumen.nombreCliente}
+                  </p>
                 </div>
               </div>
               <button 
@@ -1014,20 +1030,34 @@ export default function AlertasOportunidadesView({
 
             {/* Modal Content */}
             <div className="p-5 space-y-4 overflow-y-auto">
-              {/* Summary Header */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Summary KPIs */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="bg-rose-950/60 border border-rose-500/40 p-3 rounded-xl text-center">
+                  <span className="text-[10px] font-black uppercase text-rose-300 block">Total Intereses Generados</span>
+                  <span className="text-lg font-black text-white">${selectedResumenInteresesModal.resumen.totalIntereses.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="bg-amber-950/60 border border-amber-500/40 p-3 rounded-xl text-center">
+                  <span className="text-[10px] font-black uppercase text-amber-300 block">Valor Cuota Referencia</span>
+                  <span className="text-lg font-black text-white">${selectedResumenInteresesModal.resumen.valorCuota.toLocaleString('es-AR')}</span>
+                </div>
                 <div className="bg-purple-950/60 border border-purple-500/40 p-3 rounded-xl text-center">
-                  <span className="text-[10px] font-black uppercase text-purple-300 block">Total Intereses Generados</span>
-                  <span className="text-xl font-black text-white">${selectedResumenInteresesModal.resumen.totalIntereses.toLocaleString('es-AR')}</span>
+                  <span className="text-[10px] font-black uppercase text-purple-300 block">Equivalente en Cuotas</span>
+                  <span className="text-lg font-black text-purple-200">{selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas</span>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
-                  <span className="text-[10px] font-black uppercase text-slate-400 block">Cuotas con Atraso</span>
-                  <span className="text-xl font-black text-amber-400">{selectedResumenInteresesModal.resumen.cuotasConAtraso}</span>
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">Cuotas en Mora</span>
+                  <span className="text-lg font-black text-amber-400">{selectedResumenInteresesModal.resumen.cuotasConAtraso}</span>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
-                  <span className="text-[10px] font-black uppercase text-slate-400 block">Tasa Atraso Aplicada</span>
-                  <span className="text-xl font-black text-emerald-400">{selectedResumenInteresesModal.resumen.porcentajeDiarioAplicado}% / día</span>
-                </div>
+              </div>
+
+              {/* Detail banner */}
+              <div className="bg-rose-950/40 border border-rose-800/80 p-3 rounded-xl text-xs text-rose-200 flex items-center justify-between">
+                <span>
+                  <b>Fórmula de Política:</b> Aplica interés a partir del día <b>{selectedResumenInteresesModal.resumen.detalles[0]?.umbralDiasAplicado || 3}</b> de atraso ({selectedResumenInteresesModal.resumen.detalles[0]?.porcentajeAplicado || 50}% sobre la cuota por {selectedResumenInteresesModal.resumen.detalles[0]?.unidadPeriodo || 'días'}).
+                </span>
+                <span className="font-extrabold text-amber-300 text-xs">
+                  {selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas de interés
+                </span>
               </div>
 
               {/* Table of Late Cuotas */}
@@ -1038,23 +1068,27 @@ export default function AlertasOportunidadesView({
                       <th className="p-3">N° Cuota</th>
                       <th className="p-3">Vencimiento</th>
                       <th className="p-3">Fecha Pago</th>
-                      <th className="p-3 text-center">Días Atraso</th>
+                      <th className="p-3 text-center">Atraso</th>
+                      <th className="p-3 text-center">Umbral Aplicado</th>
                       <th className="p-3 text-right">Interés Generado</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-xs font-medium">
-                    {selectedResumenInteresesModal.resumen.desgloseCuotas.map((item) => (
+                    {selectedResumenInteresesModal.resumen.detalles.map((item) => (
                       <tr key={item.numeroCuota} className="hover:bg-slate-900/50">
                         <td className="p-3 text-white font-bold">Cuota #{item.numeroCuota}</td>
                         <td className="p-3 text-slate-300">{item.fechaVencimiento || '-'}</td>
                         <td className="p-3 text-slate-300">{item.fechaPago || '-'}</td>
                         <td className="p-3 text-center">
                           <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[11px] font-bold">
-                            {item.diasAtraso} días
+                            {item.diasAtraso} días ({item.periodosAtraso} {item.unidadPeriodo})
                           </span>
                         </td>
-                        <td className="p-3 text-right text-purple-300 font-extrabold">
-                          ${item.montoInteres.toLocaleString('es-AR')}
+                        <td className="p-3 text-center text-slate-400 text-[11px]">
+                          Día {item.umbralDiasAplicado}+ ({item.porcentajeAplicado}%)
+                        </td>
+                        <td className="p-3 text-right text-rose-300 font-extrabold">
+                          ${item.interesGenerado.toLocaleString('es-AR')}
                         </td>
                       </tr>
                     ))}
@@ -1064,12 +1098,27 @@ export default function AlertasOportunidadesView({
             </div>
 
             {/* Footer */}
-            <div className="p-4 bg-slate-950 border-t border-slate-800 flex justify-end">
+            <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
               <button
                 onClick={() => setSelectedResumenInteresesModal(null)}
-                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md"
+                className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
               >
-                Cerrar Desglose
+                Cerrar Reporte
+              </button>
+
+              <button
+                onClick={() => {
+                  const op = selectedResumenInteresesModal.op;
+                  const itemOpp = oportunidades.find(o => o.operacionAsociada?.id === op.id);
+                  setSelectedResumenInteresesModal(null);
+                  if (itemOpp) {
+                    handleOpenCreditoModal(itemOpp);
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs font-black transition-all cursor-pointer shadow-md flex items-center gap-2"
+              >
+                <Briefcase className="w-4 h-4 text-white" />
+                <span>Generar Nuevo Crédito / Refinanciación por Mora ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas)</span>
               </button>
             </div>
 
