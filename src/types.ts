@@ -140,6 +140,28 @@ export interface Pago {
   observaciones: string;
 }
 
+export type FinalidadCompromiso = 'REFINANCIACION' | 'RENOVACION' | 'OTRA';
+export type MesaGestionCompromiso = 'GESTION DIARIA' | 'GESTION TELEFONICA' | 'GESTION DOMICILIARIA';
+export type EstadoCompromiso = 'PENDIENTE' | 'REALIZADO' | 'EN MORA' | 'CANCELADO';
+
+export interface CompromisoPago {
+  id: string;
+  idCliente: string;
+  nombreCliente: string;
+  dniCliente: string;
+  idOperacion?: string;
+  fechaCompromiso: string;
+  montoComprometido: number;
+  finalidad: FinalidadCompromiso;
+  mesaGestion: MesaGestionCompromiso;
+  estado: EstadoCompromiso;
+  observaciones?: string;
+  usuarioRegistro: string;
+  fechaHoraRegistro: string;
+  fechaRealizado?: string;
+  pagoIdRelacionado?: string;
+}
+
 export interface Feriado {
   fecha: string; // YYYY-MM-DD
   descripcion: string;

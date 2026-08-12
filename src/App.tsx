@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Cliente, Operacion, Cuota, Pago, Feriado, 
+  Cliente, Operacion, Cuota, Pago, Feriado, CompromisoPago,
   Configuracion, TransaccionTesoreria, PermisosRol, UsuarioRol, LiquidacionPersonal, FichajeAsistencia,
   ConfiguracionComisiones, ConfiguracionRecorrido, ComisionCobrador, VisitaDomicilio, VisitaReprogramada,
   LiquidacionSemanal, LiquidacionMensual, SolicitudReintegroDesayuno
@@ -74,7 +74,8 @@ const STORAGE_KEYS = {
   VISITAS_REPROGRAMADAS: 'credicash_visitas_reprogramadas',
   LIQUIDACIONES_SEMANALES: 'credicash_liquidaciones_semanales',
   LIQUIDACIONES_MENSUALES: 'credicash_liquidaciones_mensuales',
-  REINTEGROS_DESAYUNO: 'credicash_reintegros_desayuno'
+  REINTEGROS_DESAYUNO: 'credicash_reintegros_desayuno',
+  COMPROMISOS_PAGO: 'credicash_compromisos_pago'
 };
 
 const SEED_CONFIG_COMISIONES: ConfiguracionComisiones = {
@@ -538,6 +539,7 @@ export default function App() {
   const [operaciones, setOperaciones] = useState<Operacion[]>([]);
   const [cuotas, setCuotas] = useState<Cuota[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
+  const [compromisosPago, setCompromisosPago] = useState<CompromisoPago[]>([]);
   const [liquidaciones, setLiquidaciones] = useState<LiquidacionPersonal[]>([]);
   const [configuracion, setConfiguracion] = useState<Configuracion>({
     interesDiario: 50,
@@ -820,6 +822,7 @@ export default function App() {
     const loadedLiquidacionesSemanales = getOrSeed<LiquidacionSemanal[]>(STORAGE_KEYS.LIQUIDACIONES_SEMANALES, []);
     const loadedLiquidacionesMensuales = getOrSeed<LiquidacionMensual[]>(STORAGE_KEYS.LIQUIDACIONES_MENSUALES, []);
     const loadedReintegrosDesayuno = getOrSeed<SolicitudReintegroDesayuno[]>(STORAGE_KEYS.REINTEGROS_DESAYUNO, []);
+    const loadedCompromisosRaw = getOrSeed<CompromisoPago[]>(STORAGE_KEYS.COMPROMISOS_PAGO, []);
     
     // Force latest hardcoded role configurations for system defaults, allowing custom roles to merge
     const loadedRoles = loadedRolesRaw.map(r => {
@@ -993,6 +996,14 @@ export default function App() {
     setLiquidacionesMensuales(loadedLiquidacionesMensuales);
     setReintegrosDesayuno(loadedReintegrosDesayuno);
 
+    const reconciledCompromisos = loadedCompromisosRaw.map(comp => {
+      if (comp.estado === 'PENDIENTE' && comp.fechaCompromiso < todayStr) {
+        return { ...comp, estado: 'EN MORA' as const };
+      }
+      return comp;
+    });
+    setCompromisosPago(reconciledCompromisos);
+
     // Active user setup
     const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
     const userFound = loadedUsuarios.find(u => u.id === savedActiveUserId);
@@ -1135,6 +1146,33 @@ export default function App() {
 
     if (isFirebaseEnabled() && isAutoSyncEnabled()) {
       nuevasCuotas.forEach(c => uploadDocToFirestore('cuotas', c.id, c));
+    }
+  };
+
+  const handleAddCompromisoPago = (nuevoCompromiso: CompromisoPago) => {
+    const updated = [nuevoCompromiso, ...compromisosPago];
+    setCompromisosPago(updated);
+    saveToLocalStorage(STORAGE_KEYS.COMPROMISOS_PAGO, updated);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('compromisos_pago', nuevoCompromiso.id, nuevoCompromiso);
+    }
+  };
+
+  const handleAddCompromisosPagoBatch = (nuevosCompromisos: CompromisoPago[]) => {
+    const updated = [...nuevosCompromisos, ...compromisosPago];
+    setCompromisosPago(updated);
+    saveToLocalStorage(STORAGE_KEYS.COMPROMISOS_PAGO, updated);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      nuevosCompromisos.forEach(c => uploadDocToFirestore('compromisos_pago', c.id, c));
+    }
+  };
+
+  const handleUpdateCompromisoPago = (updatedCompromiso: CompromisoPago) => {
+    const updated = compromisosPago.map(c => c.id === updatedCompromiso.id ? updatedCompromiso : c);
+    setCompromisosPago(updated);
+    saveToLocalStorage(STORAGE_KEYS.COMPROMISOS_PAGO, updated);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('compromisos_pago', updatedCompromiso.id, updatedCompromiso);
     }
   };
 
@@ -2780,6 +2818,7 @@ export default function App() {
               operaciones={operaciones}
               cuotas={cuotas}
               pagos={pagos}
+              compromisosPago={compromisosPago}
               usuarios={usuarios}
               activeUser={activeUser}
               configuracion={configuracion}
@@ -2787,6 +2826,9 @@ export default function App() {
               onUpdateCliente={handleUpdateCliente}
               onUpdateOperacion={handleUpdateOperacionWithCuotas}
               onAddOperacion={handleAddOperacion}
+              onAddCompromisoPago={handleAddCompromisoPago}
+              onAddCompromisosPagoBatch={handleAddCompromisosPagoBatch}
+              onUpdateCompromisoPago={handleUpdateCompromisoPago}
               onNavigateTab={setActiveTab}
             />
           )}

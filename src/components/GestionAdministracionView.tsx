@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Cliente, Operacion, Cuota, Pago, UsuarioRol, 
-  TransaccionTesoreria, Configuracion, FrecuenciaPago 
+  TransaccionTesoreria, Configuracion, FrecuenciaPago,
+  CompromisoPago, FinalidadCompromiso, MesaGestionCompromiso, EstadoCompromiso
 } from '../types';
 import { 
   sortCuotasByPaymentPriority, 
@@ -22,7 +23,8 @@ import {
   Printer, ArrowRight, UserPlus, Phone, MapPin, 
   ChevronRight, Filter, RefreshCw, UserX, History,
   Divide, Layers, Smartphone, Home, Calculator, X,
-  FileCheck2, Building2
+  FileCheck2, Building2, Plus, Clock, Trash2, Eye,
+  CheckCircle, XCircle, AlertCircle, BookmarkCheck
 } from 'lucide-react';
 
 interface GestionAdministracionViewProps {
@@ -30,6 +32,7 @@ interface GestionAdministracionViewProps {
   operaciones: Operacion[];
   cuotas: Cuota[];
   pagos: Pago[];
+  compromisosPago?: CompromisoPago[];
   usuarios?: UsuarioRol[];
   activeUser: UsuarioRol | null;
   configuracion?: Configuracion;
@@ -42,6 +45,9 @@ interface GestionAdministracionViewProps {
   onUpdateCliente?: (cliente: Cliente) => void;
   onUpdateOperacion?: (operacion: Operacion) => void;
   onAddOperacion?: (operacion: Operacion, cuotasGeneradas: Cuota[]) => void;
+  onAddCompromisoPago?: (compromiso: CompromisoPago) => void;
+  onAddCompromisosPagoBatch?: (compromisos: CompromisoPago[]) => void;
+  onUpdateCompromisoPago?: (compromiso: CompromisoPago) => void;
   onNavigateTab?: (tab: string) => void;
 }
 
@@ -50,6 +56,7 @@ export default function GestionAdministracionView({
   operaciones = [],
   cuotas = [],
   pagos = [],
+  compromisosPago = [],
   usuarios = [],
   activeUser,
   configuracion,
@@ -57,17 +64,21 @@ export default function GestionAdministracionView({
   onUpdateCliente,
   onUpdateOperacion,
   onAddOperacion,
+  onAddCompromisoPago,
+  onAddCompromisosPagoBatch,
+  onUpdateCompromisoPago,
   onNavigateTab
 }: GestionAdministracionViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<'TODOS' | 'ACTIVOS' | 'INACTIVOS'>('TODOS');
   const [filterStage, setFilterStage] = useState<'TODOS' | 'DIARIA' | 'TELEFONICA' | 'DOMICILIARIA'>('TODOS');
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
-  const [activeTabFicha, setActiveTabFicha] = useState<'FICHA' | 'CUOTAS' | 'HISTORIAL'>('FICHA');
+  const [activeTabFicha, setActiveTabFicha] = useState<'FICHA' | 'CUOTAS' | 'HISTORIAL' | 'COMPROMISOS'>('FICHA');
 
   // Modal / Form state for payment
   const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
   const [selectedOperacionId, setSelectedOperacionId] = useState<string>('');
+  const [selectedCompromisoId, setSelectedCompromisoId] = useState<string>('');
   const [tipoPago, setTipoPago] = useState<'REGULAR' | 'PARCIAL' | 'ADELANTADO'>('REGULAR');
   const [imputacionEstrategia, setImputacionEstrategia] = useState<'CONSECUTIVO' | 'FINAL_ATRAS'>('CONSECUTIVO');
   const [fechaPagoInput, setFechaPagoInput] = useState<string>('');
@@ -76,6 +87,16 @@ export default function GestionAdministracionView({
   const [canalCobro, setCanalCobro] = useState<string>('ADMINISTRACION');
   const [cobradorComisionId, setCobradorComisionId] = useState<string>('');
   const [observacionesPago, setObservacionesPago] = useState('');
+
+  // Compromiso de Pago Modal State
+  const [isCompromisoModalOpen, setIsCompromisoModalOpen] = useState(false);
+  const [compOperacionId, setCompOperacionId] = useState<string>('');
+  const [compFinalidad, setCompFinalidad] = useState<FinalidadCompromiso>('REFINANCIACIÓN');
+  const [compMesaGestion, setCompMesaGestion] = useState<MesaGestionCompromiso>('GESTIÓN DIARIA');
+  const [compItems, setCompItems] = useState<Array<{ id: string; fecha: string; monto: string; observaciones: string }>>([]);
+  const [compUsuario, setCompUsuario] = useState<string>('');
+  const [selectedCompromisoDetail, setSelectedCompromisoDetail] = useState<CompromisoPago | null>(null);
+  const [compFilterEstado, setCompFilterEstado] = useState<'TODOS' | 'PENDIENTE' | 'REALIZADO' | 'EN MORA' | 'CANCELADO'>('TODOS');
 
   // Modal state for Refinancing / Simulator / Debt Splitting ("DIVIDIR DEUDA")
   const [isRefinanciarModalOpen, setIsRefinanciarModalOpen] = useState(false);
@@ -218,15 +239,23 @@ export default function GestionAdministracionView({
     ? pagos.filter(p => p.idCliente === selectedCliente.id)
     : [];
 
+  // All client commitments
+  const clientCompromisos = useMemo(() => {
+    if (!selectedCliente) return [];
+    return (compromisosPago || [])
+      .filter(c => c.idCliente === selectedCliente.id)
+      .sort((a, b) => b.fechaHoraRegistro.localeCompare(a.fechaHoraRegistro));
+  }, [selectedCliente, compromisosPago]);
+
   // PDF Export Handlers
   const handleExportComprobanteDiaria = () => {
     if (!selectedCliente) return;
-    exportComprobanteGestionDiariaPDF(selectedCliente, operaciones, cuotas, pagos);
+    exportComprobanteGestionDiariaPDF(selectedCliente, operaciones, cuotas, pagos, compromisosPago);
   };
 
   const handleExportComprobanteDomiciliaria = () => {
     if (!selectedCliente) return;
-    exportComprobanteGestionDomiciliariaPDF(selectedCliente, operaciones, cuotas);
+    exportComprobanteGestionDomiciliariaPDF(selectedCliente, operaciones, cuotas, compromisosPago);
   };
 
   // Open Payment Modal for selected client
@@ -478,6 +507,107 @@ export default function GestionAdministracionView({
     return items;
   }, [montoIngresado, selectedOperacionId, operaciones, cuotas, fechaPagoInput, todayStr, imputacionEstrategia]);
 
+  // Open Commitment Modal
+  const handleOpenCompromisoModal = () => {
+    if (!selectedCliente) {
+      alert('Por favor seleccione un cliente primero.');
+      return;
+    }
+    const stage = getInstanciaCobroCliente(selectedCliente);
+    const mesaMap: Record<string, MesaGestionCompromiso> = {
+      'DIARIA': 'GESTIÓN DIARIA',
+      'TELEFONICA': 'GESTIÓN TELEFÓNICA',
+      'DOMICILIARIA': 'GESTIÓN DOMICILIARIA'
+    };
+    setCompMesaGestion(mesaMap[stage] || 'GESTIÓN DIARIA');
+    setCompFinalidad('REFINANCIACIÓN');
+
+    const clientActiveOps = clientOperations.filter(o => o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
+    setCompOperacionId(clientActiveOps.length > 0 ? clientActiveOps[0].id : '');
+    setCompUsuario(activeUser?.nombre || 'Administración');
+
+    setCompItems([
+      { id: String(Date.now()), fecha: todayStr, monto: '', observaciones: '' }
+    ]);
+
+    setIsCompromisoModalOpen(true);
+  };
+
+  const handleAddCompromisoRow = () => {
+    setCompItems(prev => [
+      ...prev,
+      { id: String(Date.now() + Math.random()), fecha: todayStr, monto: '', observaciones: '' }
+    ]);
+  };
+
+  const handleRemoveCompromisoRow = (id: string) => {
+    if (compItems.length <= 1) {
+      alert('Debe haber al menos un compromiso en la lista.');
+      return;
+    }
+    setCompItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleUpdateCompromisoRow = (id: string, field: 'fecha' | 'monto' | 'observaciones', val: string) => {
+    setCompItems(prev => prev.map(item => item.id === id ? { ...item, [field]: val } : item));
+  };
+
+  const handleSaveCompromisos = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCliente) return;
+
+    const validItems = compItems.filter(item => {
+      const m = parseFloat(item.monto);
+      return !isNaN(m) && m > 0 && item.fecha.trim() !== '';
+    });
+
+    if (validItems.length === 0) {
+      alert('Por favor complete al menos un compromiso con fecha e importe mayor a $0.');
+      return;
+    }
+
+    const timestampNow = new Date().toISOString();
+    const newCompromisos: CompromisoPago[] = validItems.map((item, idx) => ({
+      id: `COM-${Date.now()}-${idx + 1}`,
+      idCliente: selectedCliente.id,
+      nombreCliente: `${selectedCliente.nombre} ${selectedCliente.apellido || ''}`.trim(),
+      dniCliente: selectedCliente.dni || '',
+      idOperacion: compOperacionId || undefined,
+      fechaCompromiso: normalizeDateToISO(item.fecha),
+      montoComprometido: parseFloat(item.monto),
+      finalidad: compFinalidad,
+      mesaGestion: compMesaGestion,
+      estado: normalizeDateToISO(item.fecha) < todayStr ? 'EN MORA' : 'PENDIENTE',
+      observaciones: item.observaciones.trim(),
+      usuarioRegistro: compUsuario || activeUser?.nombre || 'Administración',
+      fechaHoraRegistro: timestampNow
+    }));
+
+    if (newCompromisos.length === 1 && onAddCompromisoPago) {
+      onAddCompromisoPago(newCompromisos[0]);
+    } else if (onAddCompromisosPagoBatch) {
+      onAddCompromisosPagoBatch(newCompromisos);
+    } else if (onAddCompromisoPago) {
+      newCompromisos.forEach(c => onAddCompromisoPago(c));
+    }
+
+    setIsCompromisoModalOpen(false);
+    alert(`✅ ¡Se registraron ${newCompromisos.length} compromiso(s) de pago correctamente para ${selectedCliente.nombre}!\n\nRECUERDE: El compromiso de pago NO descuenta deuda ni altera Tesorería/Caja hasta que el pago real sea registrado.`);
+  };
+
+  const handleOpenPagoModalWithCompromiso = (comp: CompromisoPago) => {
+    if (!selectedCliente) return;
+    setSelectedCompromisoId(comp.id);
+    setMontoIngresado(String(comp.montoComprometido));
+    setFechaPagoInput(todayStr);
+    setSelectedOperacionId(comp.idOperacion || (clientOperations.length > 0 ? clientOperations[0].id : 'DEUDA_INACTIVO'));
+    setTipoPago('REGULAR');
+    setMetodoPago('EFECTIVO');
+    setCanalCobro('ADMINISTRACION');
+    setObservacionesPago(`Cumplimiento de Compromiso #${comp.id} (${comp.finalidad} - ${comp.mesaGestion})`);
+    setIsPagoModalOpen(true);
+  };
+
   // Submit Payment
   const handleSubmitPago = (e: React.FormEvent) => {
     e.preventDefault();
@@ -697,6 +827,18 @@ export default function GestionAdministracionView({
         estado: nuevaDeudaInactivo === 0 ? 'ACTIVO' : selectedCliente.estado,
       };
       if (onUpdateCliente) onUpdateCliente(updatedCli);
+    }
+
+    if (selectedCompromisoId && onUpdateCompromisoPago) {
+      const targetComp = (compromisosPago || []).find(c => c.id === selectedCompromisoId);
+      if (targetComp) {
+        onUpdateCompromisoPago({
+          ...targetComp,
+          estado: 'REALIZADO',
+          fechaRealizado: effectiveFechaPago,
+          pagoIdRelacionado: newPagoId
+        });
+      }
     }
 
     setIsPagoModalOpen(false);
@@ -1046,6 +1188,15 @@ export default function GestionAdministracionView({
                   {/* Top Action Buttons */}
                   <div className="flex flex-wrap items-center gap-2">
                     <button
+                      onClick={handleOpenCompromisoModal}
+                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-black border border-amber-400 shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                      title="Registrar Ficha de Compromiso de Pago"
+                    >
+                      <BookmarkCheck className="w-4 h-4 text-amber-200" />
+                      <span>Compromiso de Pago</span>
+                    </button>
+
+                    <button
                       onClick={handleOpenRefinanciarModal}
                       className="px-3 py-2 rounded-xl bg-purple-900/80 hover:bg-purple-800 text-purple-200 text-xs font-black border border-purple-500 shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
                       title="Refinanciar o Dividir Deuda"
@@ -1090,7 +1241,7 @@ export default function GestionAdministracionView({
                 </div>
 
                 {/* Client Sheet Tabs Navigation */}
-                <div className="flex border-b border-slate-800 text-xs font-bold gap-4">
+                <div className="flex flex-wrap border-b border-slate-800 text-xs font-bold gap-4">
                   <button
                     onClick={() => setActiveTabFicha('FICHA')}
                     className={`pb-2.5 transition-all border-b-2 flex items-center gap-1.5 cursor-pointer ${
@@ -1125,6 +1276,18 @@ export default function GestionAdministracionView({
                   >
                     <History className="w-4 h-4" />
                     <span>Historial de Crédito ({clientPagos.length} pagos)</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTabFicha('COMPROMISOS')}
+                    className={`pb-2.5 transition-all border-b-2 flex items-center gap-1.5 cursor-pointer ${
+                      activeTabFicha === 'COMPROMISOS'
+                        ? 'text-amber-400 border-amber-400 font-black'
+                        : 'text-slate-400 border-transparent hover:text-slate-200'
+                    }`}
+                  >
+                    <BookmarkCheck className="w-4 h-4 text-amber-400" />
+                    <span>Compromisos de Pago ({clientCompromisos.length})</span>
                   </button>
                 </div>
 
@@ -1340,6 +1503,185 @@ export default function GestionAdministracionView({
                   </div>
                 )}
 
+                {/* TAB CONTENT 4: COMPROMISOS DE PAGO */}
+                {activeTabFicha === 'COMPROMISOS' && (
+                  <div className="space-y-4 pt-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                      <div>
+                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                          <BookmarkCheck className="w-4 h-4 text-amber-400" />
+                          <span>Ficha de Compromisos de Pago</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-400">
+                          Registro formal de acuerdos de pago diferido ({clientCompromisos.length} totales)
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={handleOpenCompromisoModal}
+                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-black border border-amber-400 shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4 text-amber-200" />
+                        <span>Nuevo Compromiso</span>
+                      </button>
+                    </div>
+
+                    {/* Filter Buttons */}
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {(['TODOS', 'PENDIENTE', 'REALIZADO', 'EN MORA', 'CANCELADO'] as const).map(st => {
+                        const count = st === 'TODOS'
+                          ? clientCompromisos.length
+                          : clientCompromisos.filter(c => c.estado === st).length;
+                        return (
+                          <button
+                            key={st}
+                            onClick={() => setCompFilterEstado(st)}
+                            className={`px-2.5 py-1 rounded-lg font-bold border transition-all cursor-pointer text-[11px] ${
+                              compFilterEstado === st
+                                ? 'bg-amber-950 text-amber-200 border-amber-600 font-black'
+                                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                            }`}
+                          >
+                            {st} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Compromisos List */}
+                    {clientCompromisos.filter(c => compFilterEstado === 'TODOS' || c.estado === compFilterEstado).length === 0 ? (
+                      <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs space-y-2">
+                        <BookmarkCheck className="w-8 h-8 text-slate-600 mx-auto" />
+                        <p className="font-bold text-white">No hay compromisos de pago en esta categoría.</p>
+                        <p className="text-[11px]">Haga clic en "Nuevo Compromiso" para registrar un acuerdo de pago diferido.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                        {clientCompromisos
+                          .filter(c => compFilterEstado === 'TODOS' || c.estado === compFilterEstado)
+                          .map(comp => {
+                            const isPendingOrMora = comp.estado === 'PENDIENTE' || comp.estado === 'EN MORA';
+                            return (
+                              <div
+                                key={comp.id}
+                                className={`p-4 rounded-xl border transition-all space-y-3 ${
+                                  comp.estado === 'REALIZADO'
+                                    ? 'bg-emerald-950/20 border-emerald-800/80'
+                                    : comp.estado === 'EN MORA'
+                                    ? 'bg-rose-950/20 border-rose-800/80'
+                                    : comp.estado === 'CANCELADO'
+                                    ? 'bg-slate-950 border-slate-800 opacity-60'
+                                    : 'bg-slate-950 border-amber-800/60'
+                                }`}
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-black text-white text-xs font-mono">#{comp.id}</span>
+                                    
+                                    {/* Finalidad Badge */}
+                                    <span className="bg-purple-950 text-purple-300 border border-purple-800 text-[10px] font-black px-2 py-0.5 rounded">
+                                      {comp.finalidad}
+                                    </span>
+
+                                    {/* Mesa Badge */}
+                                    <span className="bg-slate-900 text-slate-300 border border-slate-700 text-[10px] font-bold px-2 py-0.5 rounded">
+                                      {comp.mesaGestion}
+                                    </span>
+                                  </div>
+
+                                  {/* Estado Badge */}
+                                  <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
+                                    comp.estado === 'REALIZADO'
+                                      ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                                      : comp.estado === 'EN MORA'
+                                      ? 'bg-rose-950 text-rose-300 border-rose-700 animate-pulse'
+                                      : comp.estado === 'CANCELADO'
+                                      ? 'bg-slate-900 text-slate-400 border-slate-700'
+                                      : 'bg-amber-950 text-amber-300 border-amber-700'
+                                  }`}>
+                                    {comp.estado}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 block uppercase font-semibold">Fecha Acordada:</span>
+                                    <strong className="text-white font-mono text-sm">{comp.fechaCompromiso}</strong>
+                                  </div>
+
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 block uppercase font-semibold">Monto Comprometido:</span>
+                                    <strong className="text-amber-300 font-mono text-sm">${comp.montoComprometido.toLocaleString('es-AR')}</strong>
+                                  </div>
+
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 block uppercase font-semibold">Registrado Por:</span>
+                                    <span className="text-slate-200 font-medium">{comp.usuarioRegistro}</span>
+                                  </div>
+
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 block uppercase font-semibold">Fecha y Hora:</span>
+                                    <span className="text-slate-400 text-[10px]">{new Date(comp.fechaHoraRegistro).toLocaleDateString('es-AR')}</span>
+                                  </div>
+                                </div>
+
+                                {comp.observaciones && (
+                                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800 text-[11px] text-slate-300 italic">
+                                    Obs: "{comp.observaciones}"
+                                  </div>
+                                )}
+
+                                {comp.estado === 'REALIZADO' && (
+                                  <div className="bg-emerald-950/60 p-2 rounded-lg border border-emerald-800/80 text-[11px] text-emerald-300 flex items-center justify-between font-bold">
+                                    <span>✅ Cumplido mediante Pago Real</span>
+                                    {comp.fechaRealizado && <span>Fecha Pago: {comp.fechaRealizado}</span>}
+                                  </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-800/60">
+                                  {isPendingOrMora && (
+                                    <>
+                                      <button
+                                        onClick={() => handleOpenPagoModalWithCompromiso(comp)}
+                                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                                      >
+                                        <DollarSign className="w-3.5 h-3.5" />
+                                        <span>Cobrar (Registrar Pago Real)</span>
+                                      </button>
+
+                                      <button
+                                        onClick={() => {
+                                          if (confirm(`¿Marcar como CANCELADO el compromiso #${comp.id}?`)) {
+                                            if (onUpdateCompromisoPago) {
+                                              onUpdateCompromisoPago({ ...comp, estado: 'CANCELADO' });
+                                            }
+                                          }
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-rose-950 text-rose-300 hover:text-rose-200 border border-slate-800 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
+                                      >
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        <span>Cancelar</span>
+                                      </button>
+                                    </>
+                                  )}
+
+                                  <button
+                                    onClick={() => setSelectedCompromisoDetail(comp)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold text-xs flex items-center gap-1 border border-slate-800 transition-all cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Ver Detalle</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
 
             </div>
@@ -1373,6 +1715,43 @@ export default function GestionAdministracionView({
 
             <form onSubmit={handleSubmitPago} className="space-y-4 text-xs">
               
+              {/* Link Commitment if any */}
+              {clientCompromisos.some(c => c.estado === 'PENDIENTE' || c.estado === 'EN MORA') && (
+                <div className="space-y-1 bg-amber-950/40 p-2.5 rounded-xl border border-amber-800/80">
+                  <label className="font-extrabold text-amber-300 block flex items-center gap-1.5">
+                    <BookmarkCheck className="w-4 h-4 text-amber-400" />
+                    Vincular a Compromiso de Pago Pendiente:
+                  </label>
+                  <select
+                    value={selectedCompromisoId}
+                    onChange={(e) => {
+                      const compId = e.target.value;
+                      setSelectedCompromisoId(compId);
+                      if (compId) {
+                        const targetComp = clientCompromisos.find(c => c.id === compId);
+                        if (targetComp) {
+                          setMontoIngresado(String(targetComp.montoComprometido));
+                          if (targetComp.idOperacion) {
+                            setSelectedOperacionId(targetComp.idOperacion);
+                          }
+                          setObservacionesPago(`Cumplimiento de Compromiso #${targetComp.id} (${targetComp.finalidad} - ${targetComp.mesaGestion})`);
+                        }
+                      }
+                    }}
+                    className="w-full bg-slate-950 text-amber-200 font-bold p-2 rounded-lg border border-amber-700/80 text-xs"
+                  >
+                    <option value="">-- Ninguno (Pago Regular) --</option>
+                    {clientCompromisos
+                      .filter(c => c.estado === 'PENDIENTE' || c.estado === 'EN MORA')
+                      .map(comp => (
+                        <option key={comp.id} value={comp.id}>
+                          #{comp.id} | Fecha: {comp.fechaCompromiso} | Monto: ${comp.montoComprometido.toLocaleString('es-AR')} | {comp.finalidad} ({comp.estado})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
               {/* Select Operation */}
               <div className="space-y-1">
                 <label className="font-extrabold text-slate-300 block">Seleccionar Crédito Afectado:</label>
@@ -1958,6 +2337,323 @@ export default function GestionAdministracionView({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FICHA COMPROMISO DE PAGO (CREAR NUEVO COMPROMISO) */}
+      {isCompromisoModalOpen && selectedCliente && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-slate-900 border-2 border-amber-500/80 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 my-8">
+            
+            <div className="flex items-center justify-between border-b border-amber-800/80 pb-3">
+              <div>
+                <span className="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-950 px-2.5 py-0.5 rounded border border-amber-700">
+                  Ficha de Compromiso de Pago
+                </span>
+                <h3 className="text-xl font-black text-white mt-1 flex items-center gap-2">
+                  <BookmarkCheck className="w-6 h-6 text-amber-400" />
+                  Acuerdo de Pago — {selectedCliente.nombre} {selectedCliente.apellido || ''}
+                </h3>
+              </div>
+
+              <button
+                onClick={() => setIsCompromisoModalOpen(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Explanatory Banner */}
+            <div className="bg-amber-950/40 border border-amber-700/80 p-3 rounded-xl text-xs text-amber-200 flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-amber-300 font-extrabold uppercase text-[11px]">Aviso Importante — Compromiso de Pago vs Pago Real:</strong>
+                <span>
+                  El registro de un compromiso de pago NO cancela deuda, NO modifica el saldo de cuotas ni altera la Tesorería/Caja. Registra el compromiso del cliente para su seguimiento en las Mesas de Gestión.
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveCompromisos} className="space-y-4 text-xs">
+              
+              {/* Header Grid: DNI, Finalidad, Mesa, Crédito, Usuario */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Cliente & DNI:</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${selectedCliente.nombre} ${selectedCliente.apellido || ''} (DNI: ${selectedCliente.dni || 'S/D'})`}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-bold cursor-not-allowed opacity-90"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-amber-300 uppercase block mb-1">Finalidad del Compromiso (*):</label>
+                  <select
+                    value={compFinalidad}
+                    onChange={e => setCompFinalidad(e.target.value as FinalidadCompromiso)}
+                    className="w-full bg-slate-900 border border-amber-700 rounded-lg px-3 py-2 text-amber-200 font-black focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="REFINANCIACIÓN">REFINANCIACIÓN</option>
+                    <option value="RENOVACIÓN">RENOVACIÓN</option>
+                    <option value="OTRA">OTRA (ACUERDO REGULAR / ESPECIAL)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-amber-300 uppercase block mb-1">Mesa de Gestión Destino (*):</label>
+                  <select
+                    value={compMesaGestion}
+                    onChange={e => setCompMesaGestion(e.target.value as MesaGestionCompromiso)}
+                    className="w-full bg-slate-900 border border-amber-700 rounded-lg px-3 py-2 text-amber-200 font-black focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="GESTIÓN DIARIA">GESTIÓN DIARIA</option>
+                    <option value="GESTIÓN TELEFÓNICA">GESTIÓN TELEFÓNICA</option>
+                    <option value="GESTIÓN DOMICILIARIA">GESTIÓN DOMICILIARIA</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Crédito Asociado (Opcional):</label>
+                  <select
+                    value={compOperacionId}
+                    onChange={e => setCompOperacionId(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-bold"
+                  >
+                    <option value="">-- Sin Crédito Específico / General --</option>
+                    {clientOperations.map(op => (
+                      <option key={op.id} value={op.id}>
+                        Crédito N° {op.id} ({op.frecuencia} - Otorgado: {op.fechaOtorgamiento})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Usuario que Registra:</label>
+                  <input
+                    type="text"
+                    value={compUsuario}
+                    onChange={e => setCompUsuario(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic List of Compromise Items */}
+              <div className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-xs font-black text-amber-300 uppercase flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-amber-400" />
+                    Fechas e Importes de Compromisos Acordados ({compItems.length})
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleAddCompromisoRow}
+                    className="px-2.5 py-1 rounded-lg bg-amber-950 hover:bg-amber-900 text-amber-200 font-bold border border-amber-700 text-xs flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Agregar otra fecha</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                  {compItems.map((item, idx) => (
+                    <div key={item.id} className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2 relative">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-amber-400 uppercase bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                          Fecha / Compromiso #{idx + 1}
+                        </span>
+                        {compItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCompromisoRow(item.id)}
+                            className="text-rose-400 hover:text-rose-300 p-1 rounded hover:bg-rose-950/50 transition-all cursor-pointer"
+                            title="Eliminar esta fecha"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-300 uppercase block mb-1">Fecha Acordada de Pago (*):</label>
+                          <input
+                            type="date"
+                            value={item.fecha}
+                            onChange={e => handleUpdateCompromisoRow(item.id, 'fecha', e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-amber-300 uppercase block mb-1">Monto Comprometido ($) (*):</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={item.monto}
+                            onChange={e => handleUpdateCompromisoRow(item.id, 'monto', e.target.value)}
+                            placeholder="Ej: 25000"
+                            className="w-full bg-slate-950 border border-amber-700 rounded-lg px-2.5 py-1.5 text-amber-200 font-mono font-bold"
+                            required
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Observaciones / Nota del Compromiso:</label>
+                          <input
+                            type="text"
+                            value={item.observaciones}
+                            onChange={e => handleUpdateCompromisoRow(item.id, 'observaciones', e.target.value)}
+                            placeholder="Ej: Prometió abonar por transferencia antes del mediodía"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCompromisoModalOpen(false)}
+                  className="bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-4 py-2.5 rounded-xl cursor-pointer border border-slate-800"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black px-6 py-2.5 rounded-xl shadow-lg shadow-amber-950/80 cursor-pointer flex items-center gap-2 transition-all"
+                >
+                  <BookmarkCheck className="w-4 h-4 text-amber-200" />
+                  <span>Guardar Compromiso(s) de Pago</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* DETAIL MODAL FOR COMPROMISO DE PAGO */}
+      {selectedCompromisoDetail && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border-2 border-amber-500/80 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest bg-amber-950 px-2 py-0.5 rounded border border-amber-800">
+                  Detalle Ficha Compromiso
+                </span>
+                <h3 className="text-lg font-black text-white mt-1">
+                  Compromiso #{selectedCompromisoDetail.id}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedCompromisoDetail(null)}
+                className="text-slate-400 hover:text-white text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400 font-semibold">Cliente:</span>
+                <strong className="text-white">{selectedCompromisoDetail.nombreCliente} (DNI: {selectedCompromisoDetail.dniCliente || 'S/D'})</strong>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400 font-semibold">Finalidad:</span>
+                <span className="bg-purple-950 text-purple-300 font-black px-2 py-0.5 rounded border border-purple-800">
+                  {selectedCompromisoDetail.finalidad}
+                </span>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400 font-semibold">Mesa de Gestión:</span>
+                <span className="bg-slate-900 text-slate-200 font-bold px-2 py-0.5 rounded border border-slate-700">
+                  {selectedCompromisoDetail.mesaGestion}
+                </span>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400 font-semibold">Estado Actual:</span>
+                <span className={`font-black uppercase px-2 py-0.5 rounded border ${
+                  selectedCompromisoDetail.estado === 'REALIZADO'
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                    : selectedCompromisoDetail.estado === 'EN MORA'
+                    ? 'bg-rose-950 text-rose-300 border-rose-700'
+                    : selectedCompromisoDetail.estado === 'CANCELADO'
+                    ? 'bg-slate-900 text-slate-400 border-slate-700'
+                    : 'bg-amber-950 text-amber-300 border-amber-700'
+                }`}>
+                  {selectedCompromisoDetail.estado}
+                </span>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400 font-semibold">Fecha Acordada de Pago:</span>
+                <strong className="text-white font-mono text-sm">{selectedCompromisoDetail.fechaCompromiso}</strong>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400 font-semibold">Monto Comprometido:</span>
+                <strong className="text-amber-300 font-mono text-base">${selectedCompromisoDetail.montoComprometido.toLocaleString('es-AR')}</strong>
+              </div>
+
+              {selectedCompromisoDetail.idOperacion && (
+                <div className="flex justify-between border-b border-slate-800 pb-2">
+                  <span className="text-slate-400 font-semibold">Crédito Asociado:</span>
+                  <strong className="text-white font-mono">{selectedCompromisoDetail.idOperacion}</strong>
+                </div>
+              )}
+
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400 font-semibold">Registrado Por:</span>
+                <span className="text-slate-200">{selectedCompromisoDetail.usuarioRegistro}</span>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400 font-semibold">Fecha y Hora Registro:</span>
+                <span className="text-slate-300">{new Date(selectedCompromisoDetail.fechaHoraRegistro).toLocaleString('es-AR')}</span>
+              </div>
+
+              {selectedCompromisoDetail.fechaRealizado && (
+                <div className="flex justify-between border-b border-slate-800 pb-2">
+                  <span className="text-emerald-400 font-bold">Fecha de Pago Real:</span>
+                  <strong className="text-emerald-300 font-mono">{selectedCompromisoDetail.fechaRealizado}</strong>
+                </div>
+              )}
+
+              {selectedCompromisoDetail.observaciones && (
+                <div className="pt-1">
+                  <span className="text-slate-400 block font-semibold mb-1">Observaciones:</span>
+                  <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 italic text-slate-300">
+                    "{selectedCompromisoDetail.observaciones}"
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setSelectedCompromisoDetail(null)}
+                className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-5 py-2 rounded-xl cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

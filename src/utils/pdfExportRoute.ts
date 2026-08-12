@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { Cliente, Operacion, Cuota } from '../types';
+import { Cliente, Operacion, Cuota, Pago, CompromisoPago } from '../types';
 import { generarPlanCuotas } from './cuotasGenerator';
 
 export function exportDailyRoutePDF(
@@ -186,7 +186,8 @@ export function exportComprobanteGestionDiariaPDF(
   cliente: Cliente,
   operaciones: Operacion[],
   cuotas: Cuota[],
-  pagos: Pago[]
+  pagos: Pago[],
+  compromisosPago?: CompromisoPago[]
 ) {
   const doc = new jsPDF({
     orientation: 'p',
@@ -356,6 +357,60 @@ export function exportComprobanteGestionDiariaPDF(
     });
   }
 
+  // Compromisos de Pago Acordados Section
+  const clientCompromisos = (compromisosPago || []).filter(c => c.idCliente === cliente.id);
+  if (clientCompromisos.length > 0) {
+    if (y > 230) {
+      doc.addPage();
+      y = 15;
+    } else {
+      y += 5;
+    }
+
+    doc.setFillColor(30, 41, 59);
+    doc.rect(10, y, 190, 7, 'F');
+    doc.setTextColor(245, 158, 11);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text(`COMPROMISOS DE PAGO ACORDADOS (${clientCompromisos.length})`, 12, y + 5);
+
+    y += 9;
+
+    doc.setFillColor(226, 232, 240);
+    doc.rect(10, y, 190, 6, 'F');
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(7.5);
+    doc.text('Fecha', 12, y + 4.5);
+    doc.text('Monto', 40, y + 4.5);
+    doc.text('Finalidad', 75, y + 4.5);
+    doc.text('Mesa de Gestión', 115, y + 4.5);
+    doc.text('Estado', 160, y + 4.5);
+
+    y += 7;
+
+    clientCompromisos.forEach(comp => {
+      if (y > 270) {
+        doc.addPage();
+        y = 15;
+      }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(comp.fechaCompromiso, 12, y + 4);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`$${comp.montoComprometido.toLocaleString('es-AR')}`, 40, y + 4);
+      doc.setFont('helvetica', 'normal');
+      doc.text(comp.finalidad, 75, y + 4);
+      doc.text(comp.mesaGestion, 115, y + 4);
+      doc.text(comp.estado, 160, y + 4);
+
+      doc.setDrawColor(241, 245, 249);
+      doc.line(10, y + 5.5, 200, y + 5.5);
+      y += 6;
+    });
+  }
+
   // Footer / Signatures
   if (y > 250) {
     doc.addPage();
@@ -383,7 +438,8 @@ export function exportComprobanteGestionDiariaPDF(
 export function exportComprobanteGestionDomiciliariaPDF(
   cliente: Cliente,
   operaciones: Operacion[],
-  cuotas: Cuota[]
+  cuotas: Cuota[],
+  compromisosPago?: CompromisoPago[]
 ) {
   const doc = new jsPDF({
     orientation: 'p',
