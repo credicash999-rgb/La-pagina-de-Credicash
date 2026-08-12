@@ -182,6 +182,10 @@ const SEED_CONFIGURACION: Configuracion = {
   metaCobranzaMonto: 1500000,
   metaCobranzaPlazo: 'Julio 2026',
   pagoMinimoCuotas: 1,
+  interesAtrasoDiario: 50,
+  interesAtrasoSemanal: 50,
+  interesAtrasoQuincenal: 50,
+  interesAtrasoMensual: 50,
 };
 
 const DEFAULT_ROLES: PermisosRol[] = [

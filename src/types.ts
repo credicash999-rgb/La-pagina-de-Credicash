@@ -196,6 +196,11 @@ export interface Configuracion {
   lugarFinRecorridoPredeterminado?: string;
   puntoSalida?: string;
   puntoLlegada?: string;
+  // Política de Intereses por Atraso (configurable, default 50%)
+  interesAtrasoDiario?: number;
+  interesAtrasoSemanal?: number;
+  interesAtrasoQuincenal?: number;
+  interesAtrasoMensual?: number;
 }
 
 export interface TransaccionTesoreria {

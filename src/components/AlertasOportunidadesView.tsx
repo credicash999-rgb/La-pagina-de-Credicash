@@ -6,10 +6,11 @@
 import React, { useState, useMemo } from 'react';
 import { Cliente, Operacion, Cuota, Pago, UsuarioRol, Configuracion, FrecuenciaPago } from '../types';
 import { generarPlanCuotas, calcularMesesFinanciados, obtenerProximoDiaHabil } from '../utils/cuotasGenerator';
+import { calcularInteresesAtrasoCredito, ResumenInteresesCredito } from '../utils/interestCalculator';
 import { 
   Bell, RefreshCw, Briefcase, UserCheck, ShieldCheck, CheckCircle2, 
   AlertCircle, DollarSign, Calendar, Search, Filter, Phone, MessageCircle, 
-  X, Eye, User, Award, ArrowRight, TrendingUp, Sparkles, AlertTriangle
+  X, Eye, User, Award, ArrowRight, TrendingUp, Sparkles, AlertTriangle, UserPlus, Clock
 } from 'lucide-react';
 
 interface AlertasOportunidadesViewProps {
@@ -26,7 +27,7 @@ interface AlertasOportunidadesViewProps {
   onUpdateOperacion?: (operacion: Operacion) => void;
 }
 
-export type TipoAlerta = 'REFINANCIACION_LISTA' | 'RENOVACION_ELEGIBLE' | 'PROXIMO_A_FINALIZAR';
+export type TipoAlerta = 'REFINANCIACION_LISTA' | 'RENOVACION_ELEGIBLE' | 'PROXIMO_A_FINALIZAR' | 'CREDITO_FINALIZADO_ATRASO' | 'NUEVA_ALTA';
 
 export interface ItemOportunidad {
   id: string;
@@ -40,6 +41,9 @@ export interface ItemOportunidad {
   cuotasPagadas?: number;
   totalCuotas?: number;
   detalleEstado: string;
+  resumenIntereses?: ResumenInteresesCredito;
+  esAptoRenovacion?: boolean;
+  categoriaAlertas?: 'RENOVACIONES' | 'REFINANCIACIONES' | 'ALTAS';
 }
 
 export default function AlertasOportunidadesView({
@@ -57,13 +61,14 @@ export default function AlertasOportunidadesView({
 }: AlertasOportunidadesViewProps) {
 
   // State Filters
-  const [categoriaFiltro, setCategoriaFiltro] = useState<'TODAS' | 'REFINANCIACION' | 'RENOVACION' | 'PROXIMOS'>('TODAS');
+  const [categoriaFiltro, setCategoriaFiltro] = useState<'TODAS' | 'RENOVACION' | 'REFINANCIACION' | 'ALTAS'>('TODAS');
   const [searchTerm, setSearchTerm] = useState('');
   const [cobradorFiltro, setCobradorFiltro] = useState<string>('TODOS');
 
   // Modal States
   const [selectedItemFicha, setSelectedItemFicha] = useState<ItemOportunidad | null>(null);
   const [selectedItemCredito, setSelectedItemCredito] = useState<ItemOportunidad | null>(null);
+  const [selectedResumenInteresesModal, setSelectedResumenInteresesModal] = useState<{ op: Operacion; resumen: ResumenInteresesCredito } | null>(null);
 
   // Form State for "Otorgar Nuevo Crédito / Renovación" Modal
   const [tipoOperacionForm, setTipoOperacionForm] = useState<'NUEVO' | 'RENOVACION' | 'AMPLIACION' | 'REFINANCIACION'>('RENOVACION');
@@ -104,6 +109,7 @@ export default function AlertasOportunidadesView({
           list.push({
             id: `OPORT-REFIN-${cli.id}`,
             tipoAlerta: 'REFINANCIACION_LISTA',
+            categoriaAlertas: 'REFINANCIACIONES',
             cliente: cli,
             montoPagoInicialAbonado: totalAbonado,
             montoDeudaRestante: cli.montoDeudaInactivo || 0,
@@ -114,7 +120,59 @@ export default function AlertasOportunidadesView({
         }
       });
 
-      // B. ELEGIBLES PARA RENOVACIÓN O AMPLIACIÓN / PRÓXIMOS A VENCER
+      // B. REVISIÓN DE CRÉDITOS FINALIZADOS (Rule 9 & Rule 14)
+      (operaciones || []).forEach(op => {
+        if (!op) return;
+        const cli = (clientes || []).find(c => c && c.id === op.idCliente);
+        if (!cli) return;
+
+        const opCuotas = (cuotas || []).filter(cu => cu && cu.idOperacion === op.id);
+        const isFullyPaid = op.estado === 'FINALIZADA' || (opCuotas.length > 0 && opCuotas.every(c => c.estado === 'PAGADA'));
+
+        if (isFullyPaid) {
+          // Calculate late interest
+          const resumen = calcularInteresesAtrasoCredito(op, opCuotas, configuracion);
+
+          if (resumen.totalIntereses === 0 || resumen.esAptoRenovacionDirecta) {
+            // CASO A: Finalizado SIN ATRASOS -> RENOVACIONES (Apto para Renovación)
+            if (!list.some(item => item.cliente.id === cli.id && item.operacionAsociada?.id === op.id)) {
+              list.push({
+                id: `OPORT-FIN-NOATRASO-${op.id}`,
+                tipoAlerta: 'RENOVACION_ELEGIBLE',
+                categoriaAlertas: 'RENOVACIONES',
+                cliente: cli,
+                operacionAsociada: op,
+                porcentajePagado: 100,
+                cuotasPagadas: opCuotas.length || op.cantidadCuotas || 0,
+                cuotasPendientes: 0,
+                totalCuotas: opCuotas.length || op.cantidadCuotas || 0,
+                esAptoRenovacion: true,
+                resumenIntereses: resumen,
+                detalleEstado: `🌟 Crédito Finalizado #${op.id} (100% abonado sin atraso). APTO PARA RENOVACIÓN DIRECTA.`
+              });
+            }
+          } else {
+            // CASO B: Finalizado CON ATRASOS -> REFINANCIACIONES (Calcular Intereses)
+            if (!list.some(item => item.cliente.id === cli.id && item.operacionAsociada?.id === op.id)) {
+              list.push({
+                id: `OPORT-FIN-CONATRASO-${op.id}`,
+                tipoAlerta: 'CREDITO_FINALIZADO_ATRASO',
+                categoriaAlertas: 'REFINANCIACIONES',
+                cliente: cli,
+                operacionAsociada: op,
+                porcentajePagado: 100,
+                cuotasPagadas: opCuotas.length || op.cantidadCuotas || 0,
+                cuotasPendientes: 0,
+                totalCuotas: opCuotas.length || op.cantidadCuotas || 0,
+                resumenIntereses: resumen,
+                detalleEstado: `⚠️ Crédito Finalizado #${op.id} CON ATRASO. Se generaron $${resumen.totalIntereses.toLocaleString('es-AR')} en intereses por atraso (${resumen.cuotasConAtraso} cuotas atrasadas).`
+              });
+            }
+          }
+        }
+      });
+
+      // C. ELEGIBLES PARA RENOVACIÓN O AMPLIACIÓN / PRÓXIMOS A VENCER (Créditos Activos)
       (operaciones || []).forEach(op => {
         if (!op || (op.estado !== 'ACTIVA' && op.estado !== 'CONGELADA')) return;
 
@@ -125,58 +183,77 @@ export default function AlertasOportunidadesView({
         const totalCuo = op.cantidadCuotas || opCuotas.length || 1;
         const pagadasCount = op.cuotasPagadas || opCuotas.filter(cu => cu && cu.estado === 'PAGADA').length;
         const pendientesCount = totalCuo - pagadasCount;
-
         const pctPagado = Math.round((pagadasCount / totalCuo) * 100);
 
         // 1. Elegible Renovación: >= 70% pagado o flag elegibleRenovacion
         if (pctPagado >= 70 || op.elegibleRenovacion || op.elegibleAmpliacion) {
-          // Prevent duplicate if already listed under refinanciacion
-          if (!list.some(item => item.cliente.id === cli.id && item.tipoAlerta === 'REFINANCIACION_LISTA')) {
+          if (!list.some(item => item.cliente.id === cli.id && item.id.includes(op.id))) {
             list.push({
               id: `OPORT-RENOV-${op.id}`,
               tipoAlerta: 'RENOVACION_ELEGIBLE',
+              categoriaAlertas: 'RENOVACIONES',
               cliente: cli,
               operacionAsociada: op,
               porcentajePagado: pctPagado,
               cuotasPagadas: pagadasCount,
               cuotasPendientes: pendientesCount,
               totalCuotas: totalCuo,
-              detalleEstado: `🔄 Completó el ${pctPagado}% del crédito (#${op.id}). Elegible para renovación con/sin ampliación.`,
+              detalleEstado: `🔄 Completó el ${pctPagado}% del crédito activo (#${op.id}). Elegible para renovación.`,
             });
           }
         }
-
-        // 2. Próximos a finalizar: Restan <= 5 cuotas y aún no agregado como renovación
+        // 2. Próximos a finalizar: Restan <= 5 cuotas
         else if (pendientesCount <= 5 && pendientesCount > 0) {
-          if (!list.some(item => item.cliente.id === cli.id)) {
+          if (!list.some(item => item.cliente.id === cli.id && item.id.includes(op.id))) {
             list.push({
               id: `OPORT-PROX-${op.id}`,
               tipoAlerta: 'PROXIMO_A_FINALIZAR',
+              categoriaAlertas: 'RENOVACIONES',
               cliente: cli,
               operacionAsociada: op,
               porcentajePagado: pctPagado,
               cuotasPagadas: pagadasCount,
               cuotasPendientes: pendientesCount,
               totalCuotas: totalCuo,
-              detalleEstado: `⏱️ Restan solo ${pendientesCount} cuotas para finalizar su crédito (#${op.id}). Preparar propuesta de renovación.`,
+              detalleEstado: `⏱️ Restan solo ${pendientesCount} cuotas para finalizar su crédito (#${op.id}). Preparar propuesta.`,
             });
           }
         }
       });
+
+      // D. ALTAS / NUEVOS CRÉDITOS (Clientes en estado SOLICITANTE, PROSPECTO o sin operaciones)
+      (clientes || []).forEach(cli => {
+        if (!cli) return;
+        const cliOps = (operaciones || []).filter(o => o && o.idCliente === cli.id);
+        const isProspect = cli.estado === 'SOLICITANTE' || cli.estado === 'PROSPECTO' || cliOps.length === 0;
+
+        if (isProspect) {
+          if (!list.some(item => item.cliente.id === cli.id)) {
+            list.push({
+              id: `OPORT-ALTA-${cli.id}`,
+              tipoAlerta: 'NUEVA_ALTA',
+              categoriaAlertas: 'ALTAS',
+              cliente: cli,
+              detalleEstado: `✨ Cliente registrado listo para Otorgamiento de Primer Crédito (Estado: ${cli.estado || 'PROSPECTO'}).`
+            });
+          }
+        }
+      });
+
     } catch (err) {
       console.error("Error al calcular oportunidades:", err);
     }
 
     return list;
-  }, [clientes, operaciones, cuotas, pagos]);
+  }, [clientes, operaciones, cuotas, pagos, configuracion]);
 
   // Filtered Opportunities list
   const oportunidadesFiltradas = useMemo(() => {
     return oportunidades.filter(item => {
       // Category Filter
-      if (categoriaFiltro === 'REFINANCIACION' && item.tipoAlerta !== 'REFINANCIACION_LISTA') return false;
-      if (categoriaFiltro === 'RENOVACION' && item.tipoAlerta !== 'RENOVACION_ELEGIBLE') return false;
-      if (categoriaFiltro === 'PROXIMOS' && item.tipoAlerta !== 'PROXIMO_A_FINALIZAR') return false;
+      if (categoriaFiltro === 'REFINANCIACION' && item.categoriaAlertas !== 'REFINANCIACIONES') return false;
+      if (categoriaFiltro === 'RENOVACION' && item.categoriaAlertas !== 'RENOVACIONES') return false;
+      if (categoriaFiltro === 'ALTAS' && item.categoriaAlertas !== 'ALTAS') return false;
 
       // Collector Filter
       if (cobradorFiltro !== 'TODOS') {
@@ -199,9 +276,9 @@ export default function AlertasOportunidadesView({
   }, [oportunidades, categoriaFiltro, cobradorFiltro, searchTerm]);
 
   // Counts for summary cards
-  const countRefinanciaciones = oportunidades.filter(o => o.tipoAlerta === 'REFINANCIACION_LISTA').length;
-  const countRenovaciones = oportunidades.filter(o => o.tipoAlerta === 'RENOVACION_ELEGIBLE').length;
-  const countProximos = oportunidades.filter(o => o.tipoAlerta === 'PROXIMO_A_FINALIZAR').length;
+  const countRenovaciones = oportunidades.filter(o => o.categoriaAlertas === 'RENOVACIONES').length;
+  const countRefinanciaciones = oportunidades.filter(o => o.categoriaAlertas === 'REFINANCIACIONES').length;
+  const countAltas = oportunidades.filter(o => o.categoriaAlertas === 'ALTAS').length;
 
   // Open Credit Generator Modal initialized with opportunity data
   const handleOpenCreditoModal = (item: ItemOportunidad) => {
@@ -363,28 +440,6 @@ export default function AlertasOportunidadesView({
       {/* Summary Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <button
-          onClick={() => setCategoriaFiltro(categoriaFiltro === 'REFINANCIACION' ? 'TODAS' : 'REFINANCIACION')}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
-            categoriaFiltro === 'REFINANCIACION'
-              ? 'bg-purple-950/80 border-purple-400 ring-2 ring-purple-500/30'
-              : 'bg-slate-900 border-slate-800 hover:border-purple-600/60'
-          }`}
-        >
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block mb-1">
-              Refinanciaciones Listas
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black text-white">{countRefinanciaciones}</span>
-              <span className="text-xs text-purple-300 font-medium">con pago inicial ok</span>
-            </div>
-          </div>
-          <div className="w-10 h-10 bg-purple-900/60 border border-purple-500/40 text-purple-300 rounded-xl flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-        </button>
-
-        <button
           onClick={() => setCategoriaFiltro(categoriaFiltro === 'RENOVACION' ? 'TODAS' : 'RENOVACION')}
           className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
             categoriaFiltro === 'RENOVACION'
@@ -394,11 +449,11 @@ export default function AlertasOportunidadesView({
         >
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block mb-1">
-              Elegibles Renovación
+              RENOVACIONES ({countRenovaciones})
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-black text-white">{countRenovaciones}</span>
-              <span className="text-xs text-emerald-300 font-medium">≥70% o autorizados</span>
+              <span className="text-xs text-emerald-300 font-medium">Aptos / Sin atraso</span>
             </div>
           </div>
           <div className="w-10 h-10 bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 rounded-xl flex items-center justify-center">
@@ -407,24 +462,46 @@ export default function AlertasOportunidadesView({
         </button>
 
         <button
-          onClick={() => setCategoriaFiltro(categoriaFiltro === 'PROXIMOS' ? 'TODAS' : 'PROXIMOS')}
+          onClick={() => setCategoriaFiltro(categoriaFiltro === 'REFINANCIACION' ? 'TODAS' : 'REFINANCIACION')}
           className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
-            categoriaFiltro === 'PROXIMOS'
+            categoriaFiltro === 'REFINANCIACION'
+              ? 'bg-purple-950/80 border-purple-400 ring-2 ring-purple-500/30'
+              : 'bg-slate-900 border-slate-800 hover:border-purple-600/60'
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block mb-1">
+              REFINANCIACIONES ({countRefinanciaciones})
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black text-white">{countRefinanciaciones}</span>
+              <span className="text-xs text-purple-300 font-medium">Con atraso / Deuda inactiva</span>
+            </div>
+          </div>
+          <div className="w-10 h-10 bg-purple-900/60 border border-purple-500/40 text-purple-300 rounded-xl flex items-center justify-center">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => setCategoriaFiltro(categoriaFiltro === 'ALTAS' ? 'TODAS' : 'ALTAS')}
+          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+            categoriaFiltro === 'ALTAS'
               ? 'bg-amber-950/80 border-amber-400 ring-2 ring-amber-500/30'
               : 'bg-slate-900 border-slate-800 hover:border-amber-600/60'
           }`}
         >
           <div>
             <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block mb-1">
-              Próximos a Finalizar
+              ALTAS / NUEVOS CRÉDITOS ({countAltas})
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black text-white">{countProximos}</span>
-              <span className="text-xs text-amber-300 font-medium">≤ 5 cuotas restan</span>
+              <span className="text-2xl font-black text-white">{countAltas}</span>
+              <span className="text-xs text-amber-300 font-medium">Primer crédito</span>
             </div>
           </div>
           <div className="w-10 h-10 bg-amber-900/60 border border-amber-500/40 text-amber-300 rounded-xl flex items-center justify-center">
-            <Calendar className="w-5 h-5" />
+            <UserPlus className="w-5 h-5" />
           </div>
         </button>
       </div>
@@ -481,7 +558,7 @@ export default function AlertasOportunidadesView({
               <div 
                 key={item.id}
                 className={`bg-slate-900 border rounded-2xl p-5 shadow-lg transition-all hover:border-slate-600 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative overflow-hidden ${
-                  item.tipoAlerta === 'REFINANCIACION_LISTA'
+                  item.tipoAlerta === 'REFINANCIACION_LISTA' || item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO'
                     ? 'border-purple-500/60 bg-gradient-to-r from-purple-950/30 via-slate-900 to-slate-900'
                     : item.tipoAlerta === 'RENOVACION_ELEGIBLE'
                     ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/30 via-slate-900 to-slate-900'
@@ -497,14 +574,24 @@ export default function AlertasOportunidadesView({
                         <ShieldCheck className="w-3 h-3 text-purple-300" /> Refinanciación Lista
                       </span>
                     )}
+                    {item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO' && (
+                      <span className="bg-rose-500/20 text-rose-300 border border-rose-400/40 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-rose-300" /> Crédito Finalizado CON ATRASO
+                      </span>
+                    )}
                     {item.tipoAlerta === 'RENOVACION_ELEGIBLE' && (
                       <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <RefreshCw className="w-3 h-3 text-emerald-300" /> Renovación Elegible ({item.porcentajePagado}%)
+                        <RefreshCw className="w-3 h-3 text-emerald-300" /> {item.esAptoRenovacion ? 'APTO RENOVACIÓN DIRECTA' : `Renovación Elegible (${item.porcentajePagado}%)`}
                       </span>
                     )}
                     {item.tipoAlerta === 'PROXIMO_A_FINALIZAR' && (
                       <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
                         <Calendar className="w-3 h-3 text-amber-300" /> Restan {item.cuotasPendientes} cuotas
+                      </span>
+                    )}
+                    {item.tipoAlerta === 'NUEVA_ALTA' && (
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <UserPlus className="w-3 h-3 text-amber-300" /> Alta / Nuevo Cliente
                       </span>
                     )}
 
@@ -565,6 +652,16 @@ export default function AlertasOportunidadesView({
 
                 {/* Right side: Action Buttons */}
                 <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
+                  {item.resumenIntereses && item.resumenIntereses.totalIntereses > 0 && op && (
+                    <button
+                      onClick={() => setSelectedResumenInteresesModal({ op, resumen: item.resumenIntereses! })}
+                      className="px-4 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/50 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                    >
+                      <DollarSign className="w-4 h-4 text-purple-300" />
+                      <span>Ver Intereses por Atraso (${item.resumenIntereses.totalIntereses.toLocaleString('es-AR')})</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => setSelectedItemFicha(item)}
                     className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
@@ -887,6 +984,95 @@ export default function AlertasOportunidadesView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: DESGLOSE DE INTERESES POR ATRASO DE CRÉDITO FINALIZADO */}
+      {selectedResumenInteresesModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-purple-500/80 w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="bg-slate-950 p-4 border-b border-purple-800/60 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-900 text-purple-200 rounded-xl flex items-center justify-center font-black">
+                  <DollarSign className="w-5 h-5 text-purple-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Desglose de Intereses por Atraso</h3>
+                  <p className="text-xs text-purple-300 font-medium">Crédito #{selectedResumenInteresesModal.op.id} ({selectedResumenInteresesModal.op.frecuencia})</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedResumenInteresesModal(null)}
+                className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 space-y-4 overflow-y-auto">
+              {/* Summary Header */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-purple-950/60 border border-purple-500/40 p-3 rounded-xl text-center">
+                  <span className="text-[10px] font-black uppercase text-purple-300 block">Total Intereses Generados</span>
+                  <span className="text-xl font-black text-white">${selectedResumenInteresesModal.resumen.totalIntereses.toLocaleString('es-AR')}</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">Cuotas con Atraso</span>
+                  <span className="text-xl font-black text-amber-400">{selectedResumenInteresesModal.resumen.cuotasConAtraso}</span>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">Tasa Atraso Aplicada</span>
+                  <span className="text-xl font-black text-emerald-400">{selectedResumenInteresesModal.resumen.porcentajeDiarioAplicado}% / día</span>
+                </div>
+              </div>
+
+              {/* Table of Late Cuotas */}
+              <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase text-slate-400">
+                      <th className="p-3">N° Cuota</th>
+                      <th className="p-3">Vencimiento</th>
+                      <th className="p-3">Fecha Pago</th>
+                      <th className="p-3 text-center">Días Atraso</th>
+                      <th className="p-3 text-right">Interés Generado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 text-xs font-medium">
+                    {selectedResumenInteresesModal.resumen.desgloseCuotas.map((item) => (
+                      <tr key={item.numeroCuota} className="hover:bg-slate-900/50">
+                        <td className="p-3 text-white font-bold">Cuota #{item.numeroCuota}</td>
+                        <td className="p-3 text-slate-300">{item.fechaVencimiento || '-'}</td>
+                        <td className="p-3 text-slate-300">{item.fechaPago || '-'}</td>
+                        <td className="p-3 text-center">
+                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[11px] font-bold">
+                            {item.diasAtraso} días
+                          </span>
+                        </td>
+                        <td className="p-3 text-right text-purple-300 font-extrabold">
+                          ${item.montoInteres.toLocaleString('es-AR')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-950 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setSelectedResumenInteresesModal(null)}
+                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md"
+              >
+                Cerrar Desglose
+              </button>
+            </div>
+
           </div>
         </div>
       )}

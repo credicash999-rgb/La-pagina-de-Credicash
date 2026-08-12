@@ -17,6 +17,7 @@ import {
   exportComprobanteGestionDiariaPDF, 
   exportComprobanteGestionDomiciliariaPDF 
 } from '../utils/pdfExportRoute';
+import { calcularInteresesAtrasoCredito } from '../utils/interestCalculator';
 import { 
   Users, Search, DollarSign, Calendar, FileText, 
   CheckCircle2, AlertTriangle, UserCheck, ShieldCheck, 
@@ -212,6 +213,16 @@ export default function GestionAdministracionView({
 
   const selectedCliente = clientes.find(c => c.id === selectedClienteId) || null;
 
+  const getFullAddress = (cli: Cliente) => {
+    const parts = [
+      cli.direccion || cli.calle,
+      cli.barrio ? `B° ${cli.barrio}` : '',
+      cli.localidad,
+      cli.provincia
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : 'Sin domicilio registrado';
+  };
+
   // Selected client loans & cuotas
   const clientOperations = selectedCliente 
     ? operaciones.filter(o => o.idCliente === selectedCliente.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA')
@@ -220,6 +231,42 @@ export default function GestionAdministracionView({
   const allClientOperations = selectedCliente
     ? operaciones.filter(o => o.idCliente === selectedCliente.id)
     : [];
+
+  const selectedOp = useMemo(() => {
+    if (!selectedCliente) return null;
+    if (selectedOperacionId && selectedOperacionId !== 'DEUDA_INACTIVO') {
+      const found = allClientOperations.find(o => o.id === selectedOperacionId);
+      if (found) return found;
+    }
+    return clientOperations[0] || allClientOperations[0] || null;
+  }, [selectedCliente, selectedOperacionId, allClientOperations, clientOperations]);
+
+  const selectedOpCuotas = useMemo(() => {
+    if (!selectedOp) return [];
+    const directCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
+    if (directCuotas.length > 0) return directCuotas;
+    return generarPlanCuotas(selectedOp, []);
+  }, [selectedOp, cuotas]);
+
+  const opOverdueCuotas = useMemo(() => {
+    return selectedOpCuotas.filter(c => c.estado !== 'PAGADA' && c.fechaVencimiento < todayStr);
+  }, [selectedOpCuotas, todayStr]);
+
+  const countOverdue = opOverdueCuotas.length;
+  const sumOverdue = opOverdueCuotas.reduce((sum, c) => sum + (c.saldoPendiente > 0 ? c.saldoPendiente : c.valorTotalCuota || 0), 0);
+
+  const opTodayCuotas = useMemo(() => {
+    return selectedOpCuotas.filter(c => c.estado !== 'PAGADA' && c.fechaVencimiento === todayStr);
+  }, [selectedOpCuotas, todayStr]);
+
+  const countToday = opTodayCuotas.length;
+  const sumToday = opTodayCuotas.reduce((sum, c) => sum + (c.saldoPendiente > 0 ? c.saldoPendiente : c.valorTotalCuota || 0), 0);
+
+  const exigTotal = sumOverdue + sumToday;
+
+  const totalCuotasCount = selectedOp?.cantidadCuotas || selectedOpCuotas.length || 0;
+  const cuotasPagadasCount = selectedOp?.cuotasPagadas || selectedOpCuotas.filter(c => c.estado === 'PAGADA').length || 0;
+  const cuotasPendientesCount = totalCuotasCount - cuotasPagadasCount;
 
   // Active cuotas
   let clientCuotas = selectedCliente
@@ -246,6 +293,49 @@ export default function GestionAdministracionView({
       .filter(c => c.idCliente === selectedCliente.id)
       .sort((a, b) => b.fechaHoraRegistro.localeCompare(a.fechaHoraRegistro));
   }, [selectedCliente, compromisosPago]);
+
+  // Pending Alerts Count for Top Indicator Badge
+  const alertasPendientesCount = useMemo(() => {
+    let count = 0;
+    const effectiveConfig = configuracion || {
+      interesAtrasoDiario: 0.5,
+      interesAtrasoSemanal: 0.5,
+      interesAtrasoQuincenal: 0.5,
+      interesAtrasoMensual: 0.5,
+      interesDiario: 50,
+      interesSemanal: 50,
+      interesQuincenal: 50,
+      interesMensual: 50,
+      diasInactividadAlerta: 3,
+      montoMinimoCuota: 100
+    };
+
+    (clientes || []).forEach(cli => {
+      if (!cli) return;
+      if (cli.estado === 'INACTIVO' || (cli.montoDeudaInactivo && cli.montoDeudaInactivo > 0)) {
+        count++;
+      } else if (cli.estado === 'SOLICITANTE' || cli.estado === 'PROSPECTO') {
+        count++;
+      }
+    });
+    (operaciones || []).forEach(op => {
+      if (!op) return;
+      const opCuotas = (cuotas || []).filter(cu => cu && cu.idOperacion === op.id);
+      const totalCuo = op.cantidadCuotas || opCuotas.length || 1;
+      const pagadasCount = op.cuotasPagadas || opCuotas.filter(cu => cu && cu.estado === 'PAGADA').length;
+      const pct = Math.round((pagadasCount / totalCuo) * 100);
+      if ((op.estado === 'ACTIVA' || op.estado === 'CONGELADA') && pct >= 70) {
+        count++;
+      }
+      if (op.estado === 'FINALIZADA' || (opCuotas.length > 0 && opCuotas.every(c => c.estado === 'PAGADA'))) {
+        const resumen = calcularInteresesAtrasoCredito(op, opCuotas, effectiveConfig);
+        if (resumen.cuotasConAtraso > 0) {
+          count++;
+        }
+      }
+    });
+    return count;
+  }, [clientes, operaciones, cuotas, configuracion]);
 
   // PDF Export Handlers
   const handleExportComprobanteDiaria = () => {
@@ -990,10 +1080,19 @@ export default function GestionAdministracionView({
 
           <button
             onClick={() => onNavigateTab('alertas-oportunidades')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-amber-900/60 text-amber-300 hover:text-white border border-slate-700 hover:border-amber-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              alertasPendientesCount > 0
+                ? 'bg-amber-950/90 text-amber-300 border-amber-500 hover:bg-amber-900 shadow-md animate-pulse ring-2 ring-amber-500/40'
+                : 'bg-slate-800 text-amber-300 border-slate-700 hover:bg-slate-700 hover:border-amber-600'
+            }`}
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-            <span>ALERTAS</span>
+            <AlertTriangle className={`w-3.5 h-3.5 text-amber-400 ${alertasPendientesCount > 0 ? 'animate-bounce' : ''}`} />
+            <span>ALERTAS ({alertasPendientesCount})</span>
+            {alertasPendientesCount > 0 && (
+              <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                ¡NUEVAS!
+              </span>
+            )}
           </button>
 
           <button
@@ -1291,51 +1390,214 @@ export default function GestionAdministracionView({
                   </button>
                 </div>
 
-                {/* TAB CONTENT 1: RESUMEN FICHA */}
+                {/* TAB CONTENT 1: RESUMEN FICHA (Exact Ficha de Resumen Rápido design and model from Gestión Diaria) */}
                 {activeTabFicha === 'FICHA' && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                      <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-0.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Domicilio</span>
-                        <span className="font-semibold text-white truncate block">{selectedCliente.direccion || selectedCliente.calle || 'No registrado'}</span>
-                      </div>
-
-                      <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-0.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Teléfono / WhatsApp</span>
-                        <span className="font-semibold text-white truncate block">{selectedCliente.telefono || 'Sin teléfono'}</span>
-                      </div>
-
-                      <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-0.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Cobrador Asignado</span>
-                        <span className="font-semibold text-emerald-300 truncate block">{selectedCliente.cobradorAsignadoNombre || 'Sin asignar'}</span>
-                      </div>
+                  <div className="bg-[#0B4B27] text-emerald-50 p-5 rounded-2xl border border-emerald-800 shadow-lg space-y-4 relative overflow-hidden">
+                    <div className="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4 pointer-events-none">
+                      <DollarSign className="w-40 h-40 text-emerald-300" />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="bg-gradient-to-r from-emerald-950 to-slate-950 p-3 rounded-xl border border-emerald-800/80 flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] font-black text-emerald-300 uppercase block">Deuda Total Activa (Cuotas)</span>
-                          <span className="text-lg font-black text-white">${totalDeudaCuotas.toLocaleString('es-AR')}</span>
-                        </div>
-                        <span className="text-xs font-bold bg-emerald-900/80 text-emerald-300 px-2 py-1 rounded border border-emerald-700">
-                          {unpaidCuotas.length} cuotas pend.
+                    {/* Card Header & Credit Switcher */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-3 gap-2 relative z-10">
+                      <div>
+                        <span className="text-[10px] font-extrabold tracking-widest text-emerald-300 uppercase block mb-0.5">
+                          Ficha de Resumen Rápido
                         </span>
+                        <h3 className="text-base font-extrabold text-white tracking-tight">
+                          {selectedCliente.nombre} {selectedCliente.apellido || ''}
+                        </h3>
+                        {selectedOp && (
+                          <span className="text-[11px] text-emerald-200/80 font-mono">
+                            Crédito Nro: #{selectedOp.id}
+                          </span>
+                        )}
                       </div>
 
-                      {(selectedCliente.estado === 'INACTIVO' || (selectedCliente.montoDeudaInactivo && selectedCliente.montoDeudaInactivo > 0)) && (
-                        <div className="bg-gradient-to-r from-amber-950 to-slate-950 p-3 rounded-xl border border-amber-800/80 flex items-center justify-between">
-                          <div>
-                            <span className="text-[10px] font-black text-amber-300 uppercase block">Pago Inicial Refinanciación</span>
-                            <span className="text-lg font-black text-yellow-300">
-                              ${(selectedCliente.montoPagoInicialRefinanciacion || Math.round((selectedCliente.montoDeudaInactivo || 150000) * 0.3)).toLocaleString('es-AR')}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-bold bg-amber-900/80 text-amber-300 px-2 py-1 rounded border border-amber-700">
-                            INACTIVO
+                      {/* Dropdown to switch credit if client has multiple */}
+                      {allClientOperations.length > 1 && (
+                        <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-xl border border-white/10">
+                          <span className="text-[10px] font-bold text-emerald-300 uppercase shrink-0">
+                            Ver Crédito:
                           </span>
+                          <select
+                            value={selectedOperacionId || (selectedOp ? selectedOp.id : '')}
+                            onChange={(e) => setSelectedOperacionId(e.target.value)}
+                            className="bg-emerald-950/90 text-white font-bold text-xs px-2.5 py-1 rounded-lg border border-emerald-600 focus:outline-none cursor-pointer"
+                          >
+                            {allClientOperations.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                #{o.id} - {o.frecuencia} (${(o.montoTotal || o.montoPrestamo || 0).toLocaleString('es-AR')}) [{o.estado}]
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       )}
                     </div>
+
+                    {/* Main Grid */}
+                    {selectedOp ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs relative z-10">
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Estado Crédito</span>
+                          <strong className="text-white font-bold uppercase">{selectedOp.estado} ({selectedOp.diasMora > 0 ? 'Mora' : 'Al Día'})</strong>
+                        </div>
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Valor Cuota</span>
+                          <strong className="text-white font-bold">${(selectedOp.valorCuota || 0).toLocaleString('es-AR')}</strong>
+                        </div>
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Totales</span>
+                          <strong className="text-white font-bold font-mono">{totalCuotasCount} cuotas ({selectedOp.frecuencia?.toLowerCase() || 'diaria'})</strong>
+                        </div>
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Pagadas</span>
+                          <strong className="text-emerald-300 font-bold font-mono">{cuotasPagadasCount} pagadas</strong>
+                        </div>
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 sm:col-span-2">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cuotas Pendientes</span>
+                          <strong className="text-amber-300 font-bold font-mono">{cuotasPendientesCount} restantes</strong>
+                        </div>
+
+                        {/* 3-line debt breakdown requested by operator */}
+                        <div className="bg-rose-950/70 p-3 rounded-xl border border-rose-500/40 sm:col-span-2 space-y-2">
+                          <span className="text-[9px] uppercase tracking-widest text-rose-300 font-black block">
+                            📊 Desglose para Estar al Día
+                          </span>
+                          <div className="text-[11px] space-y-1 text-slate-100 font-medium">
+                            <div className="flex justify-between items-center">
+                              <span className="text-rose-200">Cuotas Vencidas (Mora):</span>
+                              <span className="font-mono font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">
+                                {countOverdue} (${sumOverdue.toLocaleString('es-AR')})
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-emerald-200">Cuota de Hoy:</span>
+                              <span className="font-mono font-bold text-white bg-emerald-900/60 px-1.5 py-0.5 rounded">
+                                {countToday} (${sumToday.toLocaleString('es-AR')})
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center border-t border-rose-500/30 pt-1.5 mt-1">
+                              <span className="text-white font-extrabold uppercase text-[10px]">Monto para Estar al Día:</span>
+                              <span className="font-mono font-black text-rose-300 text-xs">
+                                ${exigTotal.toLocaleString('es-AR')} ARS
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 sm:col-span-2">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Próximo Vencimiento</span>
+                          <strong className="text-white font-bold font-mono flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                            {selectedOp.proximoVencimiento || 'N/A'}
+                          </strong>
+                        </div>
+
+                        {/* Domicilio del cliente con botón Google Maps */}
+                        {(() => {
+                          const address = getFullAddress(selectedCliente);
+                          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+                          return (
+                            <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/50 sm:col-span-2 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] uppercase tracking-wider text-emerald-300 font-extrabold flex items-center gap-1">
+                                  <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                                  Domicilio del Cliente
+                                </span>
+                                <a 
+                                  href={mapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1 uppercase tracking-wider cursor-pointer"
+                                >
+                                  🗺️ Google Maps
+                                </a>
+                              </div>
+                              <div className="text-[11px] text-white font-semibold">
+                                {address}
+                              </div>
+                              {selectedCliente.observaciones && (
+                                <div className="text-[10px] text-emerald-200/80 italic font-medium leading-normal border-t border-slate-800 pt-1.5">
+                                  📌 {selectedCliente.observaciones}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 text-[11px]">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">¿Apto Renovación?</span>
+                          <strong className={selectedOp.elegibleRenovacion ? "text-emerald-300 font-bold" : "text-emerald-100/50 font-medium"}>
+                            {selectedOp.elegibleRenovacion ? '✅ Sí, Elegible' : '❌ No'}
+                          </strong>
+                        </div>
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 text-[11px]">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">¿Apto Ampliación?</span>
+                          <strong className={selectedOp.elegibleAmpliacion ? "text-emerald-300 font-bold" : "text-emerald-100/50 font-medium"}>
+                            {selectedOp.elegibleAmpliacion ? '✅ Sí, Elegible' : '❌ No'}
+                          </strong>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Cliente sin operación activa (INACTIVO o PROSPECTO) */
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs relative z-10">
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Estado Cliente</span>
+                          <strong className="text-amber-300 font-bold uppercase">{selectedCliente.estado}</strong>
+                        </div>
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+                          <span className="text-[9px] uppercase tracking-wider text-emerald-300 block mb-0.5">Cobrador Asignado</span>
+                          <strong className="text-white font-bold">{selectedCliente.cobradorAsignadoNombre || 'Sin asignar'}</strong>
+                        </div>
+
+                        {(selectedCliente.montoDeudaInactivo || 0) > 0 && (
+                          <div className="bg-rose-950/70 p-3 rounded-xl border border-rose-500/40 sm:col-span-2 space-y-1">
+                            <span className="text-[9px] uppercase tracking-widest text-rose-300 font-black block">
+                              ⚠️ Deuda Histórica Registrada (Inactivo)
+                            </span>
+                            <div className="text-lg font-black text-white">
+                              ${(selectedCliente.montoDeudaInactivo || 0).toLocaleString('es-AR')} ARS
+                            </div>
+                            <div className="text-[10px] text-rose-200">
+                              Pago Inicial Sugerido para Refinanciación: <strong className="text-amber-300">${(selectedCliente.montoPagoInicialRefinanciacion || Math.round((selectedCliente.montoDeudaInactivo || 0) * 0.3)).toLocaleString('es-AR')}</strong>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Domicilio */}
+                        {(() => {
+                          const address = getFullAddress(selectedCliente);
+                          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+                          return (
+                            <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/50 sm:col-span-2 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] uppercase tracking-wider text-emerald-300 font-extrabold flex items-center gap-1">
+                                  <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                                  Domicilio del Cliente
+                                </span>
+                                <a 
+                                  href={mapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1 uppercase tracking-wider cursor-pointer"
+                                >
+                                  🗺️ Google Maps
+                                </a>
+                              </div>
+                              <div className="text-[11px] text-white font-semibold">
+                                {address}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                 )}
 

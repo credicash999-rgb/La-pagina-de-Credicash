@@ -88,6 +88,12 @@ export default function ConfiguracionView({
   const [interesMensual, setInteresMensual] = useState(configuracion.interesMensual);
   const [tasaMensualBase, setTasaMensualBase] = useState(configuracion.tasaMensualBase);
 
+  // Política de Intereses por Atraso states
+  const [interesAtrasoDiario, setInteresAtrasoDiario] = useState(configuracion.interesAtrasoDiario ?? 50);
+  const [interesAtrasoSemanal, setInteresAtrasoSemanal] = useState(configuracion.interesAtrasoSemanal ?? 50);
+  const [interesAtrasoQuincenal, setInteresAtrasoQuincenal] = useState(configuracion.interesAtrasoQuincenal ?? 50);
+  const [interesAtrasoMensual, setInteresAtrasoMensual] = useState(configuracion.interesAtrasoMensual ?? 50);
+
   // Commission Module States
   const [modoComisionCobranza, setModoComisionCobranza] = useState<'PORCENTAJE' | 'MONTO_FIJO'>(configComisiones?.modoComisionCobranza || 'PORCENTAJE');
   const [porcentajeComisionCobranza, setPorcentajeComisionCobranza] = useState(configComisiones?.porcentajeComisionCobranza ?? 5);
@@ -259,7 +265,11 @@ export default function ConfiguracionView({
       lugarInicioRecorridoPredeterminado,
       lugarFinRecorridoPredeterminado,
       puntoSalida: lugarInicioRecorridoPredeterminado,
-      puntoLlegada: lugarFinRecorridoPredeterminado
+      puntoLlegada: lugarFinRecorridoPredeterminado,
+      interesAtrasoDiario,
+      interesAtrasoSemanal,
+      interesAtrasoQuincenal,
+      interesAtrasoMensual
     });
     alert('¡Configuración de Tasas, Puntos de Recorrido y Políticas guardada con éxito!');
   };
@@ -446,6 +456,85 @@ export default function ConfiguracionView({
                     className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-sm font-bold text-white pr-10 focus:outline-hidden focus:border-emerald-400 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20"
                   />
                   <span className="absolute right-3 top-2.5 text-xs font-bold text-emerald-400">%</span>
+                </div>
+              </div>
+
+              {/* Sub-section: Política de Intereses por Atraso */}
+              <div className="pt-4 border-t border-emerald-800/80 space-y-4 bg-emerald-950/40 p-3.5 rounded-xl border border-emerald-800">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-[11px] font-black text-amber-300 uppercase tracking-wider">
+                    POLÍTICA DE INTERESES POR ATRASO (Configurable)
+                  </h4>
+                </div>
+                <p className="text-[10px] text-emerald-200/80">
+                  Porcentaje de penalización aplicado a cuotas atrasadas según la modalidad del préstamo al momento de calcular intereses de refinanciación / liquidación de mora. (Valor inicial predeterminado: 50%).
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                      Diario (% por día de atraso)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={interesAtrasoDiario}
+                        onChange={(e) => setInteresAtrasoDiario(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-slate-900 border border-emerald-700 rounded-lg text-sm font-bold text-white pr-8 focus:outline-none focus:border-amber-400"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-bold text-amber-400">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                      Semanal (% por semana de atraso)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={interesAtrasoSemanal}
+                        onChange={(e) => setInteresAtrasoSemanal(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-slate-900 border border-emerald-700 rounded-lg text-sm font-bold text-white pr-8 focus:outline-none focus:border-amber-400"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-bold text-amber-400">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                      Quincenal (% por período quincenal de atraso)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={interesAtrasoQuincenal}
+                        onChange={(e) => setInteresAtrasoQuincenal(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-slate-900 border border-emerald-700 rounded-lg text-sm font-bold text-white pr-8 focus:outline-none focus:border-amber-400"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-bold text-amber-400">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                      Mensual (% por mes de atraso)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={interesAtrasoMensual}
+                        onChange={(e) => setInteresAtrasoMensual(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-slate-900 border border-emerald-700 rounded-lg text-sm font-bold text-white pr-8 focus:outline-none focus:border-amber-400"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-bold text-amber-400">%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
