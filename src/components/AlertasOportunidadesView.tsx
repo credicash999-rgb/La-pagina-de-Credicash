@@ -335,13 +335,13 @@ export default function AlertasOportunidadesView({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-white tracking-wide">Alertas y Oportunidades Comercial/Admin</h1>
+              <h1 className="text-xl font-black text-white tracking-wide">ALERTAS</h1>
               <span className="bg-amber-400/20 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-400/40 animate-pulse flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-amber-300" /> Atenciones Pendientes
               </span>
             </div>
             <p className="text-xs text-emerald-200/90 font-medium mt-1">
-              Listado en tiempo real de clientes con pago inicial refinanciado listo, aptos para renovación y próximos a finalizar crédito.
+              Refinanciaciones · Renovaciones · Nuevos Créditos
             </p>
           </div>
         </div>

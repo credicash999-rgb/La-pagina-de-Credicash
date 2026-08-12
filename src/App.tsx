@@ -2120,7 +2120,7 @@ export default function App() {
     switch (activeTab) {
       case 'dashboard': return 'Consola Dashboard';
       case 'gestion-admin': return 'Gestión Administración';
-      case 'alertas-oportunidades': return 'Alertas & Oportunidades';
+      case 'alertas-oportunidades': return 'ALERTAS';
       case 'clientes': return 'Buscador de Clientes';
       case 'clientes-todos': return 'Todos los Clientes';
       case 'clientes-inactivos': return 'Clientes Inactivos con Deuda';
@@ -2786,6 +2786,7 @@ export default function App() {
               onAddPago={handleAddPago}
               onUpdateCliente={handleUpdateCliente}
               onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onAddOperacion={handleAddOperacion}
               onNavigateTab={setActiveTab}
             />
           )}
