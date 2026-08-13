@@ -35,12 +35,14 @@ export default class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleClearAllAndReload = () => {
-    try {
-      localStorage.clear();
-    } catch (e) {
-      console.error(e);
+    if (window.confirm('⚠️ ATENCIÓN: Esta acción borrará el caché local de este navegador.\n\nSi tiene sincronización con Firebase Firestore, sus datos se volverán a descargar de la nube al iniciar sesión.\n\n¿Está seguro de que desea continuar?')) {
+      try {
+        localStorage.clear();
+      } catch (e) {
+        console.error(e);
+      }
+      window.location.reload();
     }
-    window.location.reload();
   };
 
   public render() {

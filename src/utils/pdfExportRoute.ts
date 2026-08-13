@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { Cliente, Operacion, Cuota, Pago, CompromisoPago } from '../types';
 import { generarPlanCuotas } from './cuotasGenerator';
+import { ResumenInteresesCredito } from './interestCalculator';
 
 export function exportDailyRoutePDF(
   cobradorNombre: string,
@@ -563,5 +564,150 @@ export function exportComprobanteGestionDomiciliariaPDF(
   doc.text('Firma Cobrador de Campo', 142, y + 4);
 
   doc.save(`FICHA_DOMICILIARIA_${cliente.nombre.replace(/\s+/g, '_')}_${todayStr}.pdf`);
+}
+
+export function exportReporteMoraPDF(
+  cliente: Cliente,
+  operacion: Operacion,
+  resumen: ResumenInteresesCredito
+) {
+  const doc = new jsPDF({
+    orientation: 'p',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Header Banner - Emerald/Dark Corporate
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, 210, 32, 'F');
+
+  doc.setTextColor(245, 158, 11); // amber-500
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text('CREDICASH - REPORTE DETALLADO DE MORA Y DESGLOSE', 10, 13);
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  const clienteNombreFull = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim().toUpperCase();
+  doc.text(`Cliente: ${clienteNombreFull} | DNI: ${cliente.dni || '-'} | Tel: ${cliente.telefono || '-'}`, 10, 21);
+  doc.text(`Fecha Emisión: ${todayStr} | Crédito Orig: #${operacion.id} (${operacion.frecuencia})`, 10, 27);
+
+  // Subheader Summary Card
+  doc.setFillColor(254, 242, 242); // rose-50
+  doc.rect(10, 36, 190, 22, 'F');
+  doc.setDrawColor(248, 113, 113); // rose-400
+  doc.rect(10, 36, 190, 22, 'S');
+
+  doc.setTextColor(153, 27, 27); // rose-800
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`RESUMEN DE LIQUIDACIÓN DE MORA REFINANCIADA`, 14, 43);
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Total Intereses Generados: $${resumen.totalIntereses.toLocaleString('es-AR')}`, 14, 51);
+  doc.text(`Valor Cuota Anterior: $${resumen.valorCuota.toLocaleString('es-AR')}`, 85, 51);
+  doc.text(`Cuotas de Mora Equivalentes: ${resumen.cuotasInteresEquivalentes} cuotas`, 145, 51);
+
+  let y = 65;
+
+  // Table Headers
+  doc.setFillColor(30, 41, 59); // slate-800
+  doc.rect(10, y, 190, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('N° CUOTA', 14, y + 5.5);
+  doc.text('VENCIMIENTO', 40, y + 5.5);
+  doc.text('FECHA PAGO', 75, y + 5.5);
+  doc.text('ATRASO (DÍAS)', 110, y + 5.5);
+  doc.text('TASA / UMBRAL', 145, y + 5.5);
+  doc.text('INTERÉS ($)', 180, y + 5.5);
+
+  y += 10;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(15, 23, 42);
+
+  resumen.detalles.forEach((det, idx) => {
+    if (y > 260) {
+      doc.addPage();
+      y = 20;
+      // Header repeated
+      doc.setFillColor(30, 41, 59);
+      doc.rect(10, y, 190, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('N° CUOTA', 14, y + 5.5);
+      doc.text('VENCIMIENTO', 40, y + 5.5);
+      doc.text('FECHA PAGO', 75, y + 5.5);
+      doc.text('ATRASO (DÍAS)', 110, y + 5.5);
+      doc.text('TASA / UMBRAL', 145, y + 5.5);
+      doc.text('INTERÉS ($)', 180, y + 5.5);
+      y += 10;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(15, 23, 42);
+    }
+
+    if (idx % 2 === 1) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(10, y - 4, 190, 7, 'F');
+    }
+
+    doc.setFontSize(8);
+    doc.text(`Cuota #${det.numeroCuota}`, 14, y);
+    doc.text(`${det.fechaVencimiento || '-'}`, 40, y);
+    doc.text(`${det.fechaPago || '-'}`, 75, y);
+    doc.text(`${det.diasAtraso} días (${det.periodosAtraso} ${det.unidadPeriodo})`, 110, y);
+    doc.text(`Día ${det.umbralDiasAplicado}+ (${det.porcentajeAplicado}%)`, 145, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`$${det.interesGenerado.toLocaleString('es-AR')}`, 180, y);
+    doc.setFont('helvetica', 'normal');
+
+    y += 7;
+  });
+
+  // Total Summary Footer
+  y += 5;
+  if (y > 245) {
+    doc.addPage();
+    y = 20;
+  }
+
+  doc.setFillColor(241, 245, 249);
+  doc.rect(10, y, 190, 25, 'F');
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(10, y, 190, 25, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`FÓRMULA DE REFINANCIACIÓN APLICADA:`, 14, y + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text(`Total Mora Acumulada ($${resumen.totalIntereses.toLocaleString('es-AR')}) ÷ Valor Cuota ($${resumen.valorCuota.toLocaleString('es-AR')}) = ${resumen.cuotasInteresEquivalentes} cuotas de mora.`, 14, y + 13);
+  doc.text(`Propuesta de Crédito por Mora: Estructurar nueva ficha de ${resumen.cuotasInteresEquivalentes} cuotas de $${resumen.valorCuota.toLocaleString('es-AR')}.`, 14, y + 19);
+
+  // Signatures
+  y += 35;
+  if (y > 260) {
+    doc.addPage();
+    y = 30;
+  }
+
+  doc.setDrawColor(148, 163, 184);
+  doc.line(20, y, 90, y);
+  doc.line(120, y, 190, y);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FIRMA CONFORMIDAD CLIENTE', 30, y + 5);
+  doc.text('FIRMA AUTORIZADA CREDICASH', 130, y + 5);
+
+  doc.save(`credicash_reporte_mora_${cliente.dni || operacion.id}_${todayStr}.pdf`);
 }
 

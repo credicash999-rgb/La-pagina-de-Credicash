@@ -7,10 +7,12 @@ import React, { useState, useMemo } from 'react';
 import { Cliente, Operacion, Cuota, Pago, UsuarioRol, Configuracion, FrecuenciaPago } from '../types';
 import { generarPlanCuotas, calcularMesesFinanciados, obtenerProximoDiaHabil } from '../utils/cuotasGenerator';
 import { calcularInteresesAtrasoCredito, ResumenInteresesCredito } from '../utils/interestCalculator';
+import { exportReporteMoraPDF } from '../utils/pdfExportRoute';
 import { 
   Bell, RefreshCw, Briefcase, UserCheck, ShieldCheck, CheckCircle2, 
   AlertCircle, DollarSign, Calendar, Search, Filter, Phone, MessageCircle, 
-  X, Eye, User, Award, ArrowRight, TrendingUp, Sparkles, AlertTriangle, UserPlus, Clock
+  X, Eye, User, Award, ArrowRight, TrendingUp, Sparkles, AlertTriangle, UserPlus, Clock,
+  FileText, Printer, Download
 } from 'lucide-react';
 
 interface AlertasOportunidadesViewProps {
@@ -735,6 +737,14 @@ export default function AlertasOportunidadesView({
                       </button>
 
                       <button
+                        onClick={() => exportReporteMoraPDF(item.cliente, op, item.resumenIntereses!)}
+                        className="px-4 py-2.5 rounded-xl bg-amber-950/90 hover:bg-amber-900 text-amber-300 border border-amber-500/70 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:scale-[1.01]"
+                      >
+                        <FileText className="w-4 h-4 text-amber-400" />
+                        <span>📄 Exportar Reporte PDF para Cliente</span>
+                      </button>
+
+                      <button
                         onClick={() => handleOpenCreditoModal(item)}
                         className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:scale-[1.02]"
                       >
@@ -1183,12 +1193,40 @@ export default function AlertasOportunidadesView({
                 💡 Crédito por Mora listo: <strong>${selectedResumenInteresesModal.resumen.totalIntereses.toLocaleString('es-AR')} ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas de ${selectedResumenInteresesModal.resumen.valorCuota.toLocaleString('es-AR')})</strong>
               </span>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setSelectedResumenInteresesModal(null)}
                   className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
                 >
-                  Cerrar Reporte
+                  Cerrar
+                </button>
+
+                <button
+                  onClick={() => {
+                    const op = selectedResumenInteresesModal.op;
+                    const res = selectedResumenInteresesModal.resumen;
+                    const foundCli = clientes.find(c => c.id === op.idCliente);
+                    const cli: Cliente = foundCli || {
+                      id: op.idCliente,
+                      nombre: op.nombreCliente,
+                      apellido: '',
+                      dni: '',
+                      telefono: '',
+                      direccion: '',
+                      cobradorAsignadoNombre: op.cobrador,
+                      estado: 'ACTIVO',
+                      fechaRegistro: new Date().toISOString().split('T')[0],
+                      trabajo: '',
+                      ingresos: 0,
+                      captador: op.captador || '',
+                      analista: op.analista || '',
+                    };
+                    exportReporteMoraPDF(cli, op, res);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all cursor-pointer shadow-md flex items-center gap-2 hover:scale-[1.01]"
+                >
+                  <FileText className="w-4 h-4 text-slate-950" />
+                  <span>📄 Exportar PDF para Cliente</span>
                 </button>
 
                 <button
