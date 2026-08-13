@@ -627,7 +627,7 @@ export function exportReporteMoraPDF(
   doc.text('TASA / UMBRAL', 145, y + 5.5);
   doc.text('INTERÉS ($)', 180, y + 5.5);
 
-  y += 10;
+  y += 14;
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(15, 23, 42);
@@ -648,14 +648,14 @@ export function exportReporteMoraPDF(
       doc.text('ATRASO (DÍAS)', 110, y + 5.5);
       doc.text('TASA / UMBRAL', 145, y + 5.5);
       doc.text('INTERÉS ($)', 180, y + 5.5);
-      y += 10;
+      y += 14;
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(15, 23, 42);
     }
 
     if (idx % 2 === 1) {
       doc.setFillColor(248, 250, 252);
-      doc.rect(10, y - 4, 190, 7, 'F');
+      doc.rect(10, y - 4.5, 190, 6.5, 'F');
     }
 
     doc.setFontSize(8);

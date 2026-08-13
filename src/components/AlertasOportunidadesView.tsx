@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Cliente, Operacion, Cuota, Pago, UsuarioRol, Configuracion, FrecuenciaPago } from '../types';
+import { Cliente, Operacion, Cuota, Pago, UsuarioRol, Configuracion, FrecuenciaPago, CompromisoPago, FinalidadCompromiso, MesaGestionCompromiso, TransaccionTesoreria } from '../types';
 import { generarPlanCuotas, calcularMesesFinanciados, obtenerProximoDiaHabil } from '../utils/cuotasGenerator';
 import { calcularInteresesAtrasoCredito, ResumenInteresesCredito } from '../utils/interestCalculator';
 import { exportReporteMoraPDF } from '../utils/pdfExportRoute';
@@ -12,7 +12,7 @@ import {
   Bell, RefreshCw, Briefcase, UserCheck, ShieldCheck, CheckCircle2, 
   AlertCircle, DollarSign, Calendar, Search, Filter, Phone, MessageCircle, 
   X, Eye, User, Award, ArrowRight, TrendingUp, Sparkles, AlertTriangle, UserPlus, Clock,
-  FileText, Printer, Download
+  FileText, Printer, Download, Handshake, CreditCard, Check
 } from 'lucide-react';
 
 interface AlertasOportunidadesViewProps {
@@ -27,6 +27,9 @@ interface AlertasOportunidadesViewProps {
   onAddOperacion: (operacion: Operacion, cuotasGeneradas: Cuota[]) => void;
   onUpdateCliente: (cliente: Cliente) => void;
   onUpdateOperacion?: (operacion: Operacion) => void;
+  onAddPago?: (nuevoPago: Pago, updatedCuotasList: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
+  onAddCompromisoPago?: (nuevoCompromiso: CompromisoPago) => void;
+  onAddTransaccion?: (nuevaTrx: TransaccionTesoreria) => void;
 }
 
 export type TipoAlerta = 'REFINANCIACION_LISTA' | 'RENOVACION_ELEGIBLE' | 'PROXIMO_A_FINALIZAR' | 'CREDITO_FINALIZADO_ATRASO' | 'NUEVA_ALTA';
@@ -65,6 +68,9 @@ export default function AlertasOportunidadesView({
   onAddOperacion,
   onUpdateCliente,
   onUpdateOperacion,
+  onAddPago,
+  onAddCompromisoPago,
+  onAddTransaccion,
 }: AlertasOportunidadesViewProps) {
 
   // State Filters
@@ -76,6 +82,171 @@ export default function AlertasOportunidadesView({
   const [selectedItemFicha, setSelectedItemFicha] = useState<ItemOportunidad | null>(null);
   const [selectedItemCredito, setSelectedItemCredito] = useState<ItemOportunidad | null>(null);
   const [selectedResumenInteresesModal, setSelectedResumenInteresesModal] = useState<{ op: Operacion; resumen: ResumenInteresesCredito } | null>(null);
+
+  // Modal State for Single Payment (Abonar en 1 solo pago)
+  const [modalAbonarPagoUnico, setModalAbonarPagoUnico] = useState<{
+    item: ItemOportunidad;
+    monto: number;
+    fechaPago: string;
+    metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEPOSITO';
+    cobradorNombre: string;
+    observaciones: string;
+  } | null>(null);
+
+  // Modal State for Payment Commitment (Compromiso de Pago)
+  const [modalCompromisoPago, setModalCompromisoPago] = useState<{
+    item: ItemOportunidad;
+    fechaCompromiso: string;
+    montoComprometido: number;
+    finalidad: FinalidadCompromiso;
+    mesaGestion: MesaGestionCompromiso;
+    observaciones: string;
+  } | null>(null);
+
+  const handleOpenAbonarPagoUnico = (item: ItemOportunidad) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const defaultMonto = item.resumenIntereses?.totalIntereses || item.montoDeudaRestante || (item.cliente.montoDeudaInactivo || 0) || 0;
+    setModalAbonarPagoUnico({
+      item,
+      monto: defaultMonto,
+      fechaPago: todayStr,
+      metodoPago: 'EFECTIVO',
+      cobradorNombre: item.cliente.cobradorAsignadoNombre || activeUser?.nombre || 'Cobrador',
+      observaciones: item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO'
+        ? `Cancelación total en 1 solo pago de Mora ($${defaultMonto}) - Crédito #${item.operacionAsociada?.id || ''}`
+        : `Abono único registrado desde Alertas y Oportunidades`
+    });
+  };
+
+  const handleConfirmarAbonoUnico = () => {
+    if (!modalAbonarPagoUnico) return;
+    const { item, monto, fechaPago, metodoPago, cobradorNombre, observaciones } = modalAbonarPagoUnico;
+
+    if (monto <= 0) {
+      alert('⚠️ Por favor ingrese un monto a abonar mayor a $0.');
+      return;
+    }
+
+    const op = item.operacionAsociada;
+    const nuevoPago: Pago = {
+      id: `PAGO-UNICO-${Date.now()}`,
+      idOperacion: op?.id || 'MORA-DIRECTA',
+      idCliente: item.cliente.id,
+      nombreCliente: `${item.cliente.nombre} ${item.cliente.apellido || ''}`.trim(),
+      fechaPago: fechaPago,
+      importe: monto,
+      cobrador: cobradorNombre || 'Cobrador',
+      metodoPago: metodoPago,
+      modalidad: 'REFINANCIACION',
+      observaciones: observaciones || `Abono único de mora por $${monto}`
+    };
+
+    const tesoreriaTrx: TransaccionTesoreria = {
+      id: `TRX-MORA-${Date.now()}`,
+      fecha: fechaPago,
+      tipo: 'INGRESO',
+      concepto: `Cobro en 1 Pago - Mora/Deuda (${item.cliente.nombre}) - Crédito #${op?.id || ''}`,
+      monto: monto,
+      referenciaId: nuevoPago.id
+    };
+
+    if (onAddPago) {
+      const opCuotas = cuotas.filter(c => c.idOperacion === op?.id);
+      const updatedCuotasList = opCuotas.map(c => ({
+        ...c,
+        estado: 'PAGADA' as const,
+        fechaPago: fechaPago
+      }));
+      const updatedOp: Operacion = op ? {
+        ...op,
+        estado: 'FINALIZADO',
+        saldoPendiente: Math.max(0, (op.saldoPendiente || 0) - monto)
+      } : {
+        id: `OP-${Date.now()}`,
+        idCliente: item.cliente.id,
+        nombreCliente: `${item.cliente.nombre} ${item.cliente.apellido || ''}`.trim(),
+        montoPrestamo: monto,
+        totalFinanciado: monto,
+        cantidadCuotas: 1,
+        valorCuota: monto,
+        frecuencia: 'DIARIA',
+        tasaInteres: 0,
+        fechaOtorgamiento: fechaPago,
+        primerVencimiento: fechaPago,
+        estado: 'FINALIZADO',
+        cobrador: cobradorNombre,
+        saldoPendiente: 0
+      };
+
+      onAddPago(nuevoPago, updatedCuotasList, updatedOp, tesoreriaTrx);
+    } else if (onAddTransaccion) {
+      onAddTransaccion(tesoreriaTrx);
+    }
+
+    if (onUpdateCliente) {
+      const updatedCli: Cliente = {
+        ...item.cliente,
+        montoDeudaInactivo: 0,
+        montoPagoInicialRefinanciacion: 0
+      };
+      onUpdateCliente(updatedCli);
+    }
+
+    alert(`🎉 ¡Pago único de $${formatMoney(monto)} registrado con éxito para ${item.cliente.nombre}!\nFecha de cobro: ${fechaPago}`);
+    setModalAbonarPagoUnico(null);
+    if (selectedResumenInteresesModal) setSelectedResumenInteresesModal(null);
+  };
+
+  const handleOpenCompromiso = (item: ItemOportunidad) => {
+    const today = new Date();
+    today.setDate(today.getDate() + 1);
+    const tomorrowStr = today.toISOString().split('T')[0];
+    const defaultMonto = item.resumenIntereses?.totalIntereses || item.montoDeudaRestante || (item.cliente.montoDeudaInactivo || 0) || 0;
+
+    setModalCompromisoPago({
+      item,
+      fechaCompromiso: tomorrowStr,
+      montoComprometido: defaultMonto,
+      finalidad: 'REFINANCIACION',
+      mesaGestion: 'GESTION TELEFONICA',
+      observaciones: `Compromiso de pago agendado desde Alertas y Oportunidades (${item.tipoAlerta})`
+    });
+  };
+
+  const handleConfirmarCompromiso = () => {
+    if (!modalCompromisoPago) return;
+    const { item, fechaCompromiso, montoComprometido, finalidad, mesaGestion, observaciones } = modalCompromisoPago;
+
+    if (!fechaCompromiso) {
+      alert('⚠️ Por favor ingrese una fecha válida para el compromiso de pago.');
+      return;
+    }
+
+    const nuevoCompromiso: CompromisoPago = {
+      id: `COMP-${Date.now()}`,
+      idCliente: item.cliente.id,
+      nombreCliente: `${item.cliente.nombre} ${item.cliente.apellido || ''}`.trim(),
+      dniCliente: item.cliente.dni || '',
+      idOperacion: item.operacionAsociada?.id,
+      fechaCompromiso: fechaCompromiso,
+      montoComprometido: Number(montoComprometido) || 0,
+      finalidad: finalidad,
+      mesaGestion: mesaGestion,
+      estado: 'PENDIENTE',
+      observaciones: observaciones || 'Compromiso registrado en Alertas y Oportunidades',
+      usuarioRegistro: activeUser?.nombre || 'Administrador',
+      fechaHoraRegistro: new Date().toLocaleString('es-AR')
+    };
+
+    if (onAddCompromisoPago) {
+      onAddCompromisoPago(nuevoCompromiso);
+      alert(`🤝 Compromiso de pago por $${formatMoney(montoComprometido)} agendado para el ${fechaCompromiso} (${item.cliente.nombre}).`);
+    } else {
+      alert(`🤝 Compromiso de pago registrado para el ${fechaCompromiso}.`);
+    }
+
+    setModalCompromisoPago(null);
+  };
 
   // Form State for "Otorgar Nuevo Crédito / Renovación" Modal
   const [tipoOperacionForm, setTipoOperacionForm] = useState<'NUEVO' | 'RENOVACION' | 'AMPLIACION' | 'REFINANCIACION'>('RENOVACION');
@@ -733,57 +904,99 @@ export default function AlertasOportunidadesView({
                 <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
                   {item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO' && item.resumenIntereses && op ? (
                     <>
-                      <button
-                        onClick={() => setSelectedResumenInteresesModal({ op, resumen: item.resumenIntereses! })}
-                        className="px-4 py-2.5 rounded-xl bg-purple-900/80 hover:bg-purple-800 text-purple-200 border border-purple-500/60 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:scale-[1.01]"
-                      >
-                        <Eye className="w-4 h-4 text-purple-300" />
-                        <span>🔍 Ver Reporte de Mora Detallado</span>
-                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
+                        <button
+                          onClick={() => setSelectedResumenInteresesModal({ op, resumen: item.resumenIntereses! })}
+                          className="px-3.5 py-2 rounded-xl bg-purple-900/80 hover:bg-purple-800 text-purple-200 border border-purple-500/60 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:scale-[1.01]"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-purple-300" />
+                          <span>🔍 Ver Reporte Detallado</span>
+                        </button>
 
-                      <button
-                        onClick={() => exportReporteMoraPDF(item.cliente, op, item.resumenIntereses!)}
-                        className="px-4 py-2.5 rounded-xl bg-amber-950/90 hover:bg-amber-900 text-amber-300 border border-amber-500/70 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:scale-[1.01]"
-                      >
-                        <FileText className="w-4 h-4 text-amber-400" />
-                        <span>📄 Exportar Reporte PDF para Cliente</span>
-                      </button>
+                        <button
+                          onClick={() => exportReporteMoraPDF(item.cliente, op, item.resumenIntereses!)}
+                          className="px-3.5 py-2 rounded-xl bg-amber-950/90 hover:bg-amber-900 text-amber-300 border border-amber-500/70 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:scale-[1.01]"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-amber-400" />
+                          <span>📄 Exportar Reporte PDF</span>
+                        </button>
 
-                      <button
-                        onClick={() => handleOpenCreditoModal(item)}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:scale-[1.02]"
-                      >
-                        <Briefcase className="w-4 h-4 text-white" />
-                        <span>⚡ Establecer Ficha - Crédito por Mora ({item.resumenIntereses.cuotasInteresEquivalentes} cuotas)</span>
-                      </button>
+                        <button
+                          onClick={() => handleOpenAbonarPagoUnico(item)}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:scale-[1.01]"
+                        >
+                          <DollarSign className="w-4 h-4 text-emerald-200" />
+                          <span>💵 Abonar en 1 Solo Pago (${formatMoney(item.resumenIntereses.totalIntereses)})</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenCreditoModal(item)}
+                          className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:scale-[1.01]"
+                        >
+                          <Briefcase className="w-3.5 h-3.5 text-white" />
+                          <span>⚡ Generar Crédito en Cuotas ({item.resumenIntereses.cuotasInteresEquivalentes} cuotas)</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenCompromiso(item)}
+                          className="px-3.5 py-2 rounded-xl bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/50 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:scale-[1.01]"
+                        >
+                          <Handshake className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>🤝 Compromiso de Pago</span>
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <>
-                      {item.resumenIntereses && item.resumenIntereses.totalIntereses > 0 && op && (
-                        <button
-                          onClick={() => setSelectedResumenInteresesModal({ op, resumen: item.resumenIntereses! })}
-                          className="px-4 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/50 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                        >
-                          <DollarSign className="w-4 h-4 text-purple-300" />
-                          <span>Ver Intereses por Atraso (${formatMoney(item.resumenIntereses.totalIntereses)})</span>
-                        </button>
-                      )}
+                      <div className="flex flex-col gap-2">
+                        {item.resumenIntereses && item.resumenIntereses.totalIntereses > 0 && op && (
+                          <button
+                            onClick={() => setSelectedResumenInteresesModal({ op, resumen: item.resumenIntereses! })}
+                            className="px-3.5 py-2 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/50 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                          >
+                            <DollarSign className="w-3.5 h-3.5 text-purple-300" />
+                            <span>Ver Intereses por Atraso (${formatMoney(item.resumenIntereses.totalIntereses)})</span>
+                          </button>
+                        )}
 
-                      <button
-                        onClick={() => setSelectedItemFicha(item)}
-                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <Eye className="w-4 h-4 text-teal-400" />
-                        <span>Ver Última Ficha / Situación</span>
-                      </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => setSelectedItemFicha(item)}
+                            className="flex-1 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-teal-400" />
+                            <span>Ver Ficha</span>
+                          </button>
 
-                      <button
-                        onClick={() => handleOpenCreditoModal(item)}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:scale-[1.02]"
-                      >
-                        <Briefcase className="w-4 h-4 text-slate-950" />
-                        <span>Otorgar Nuevo Crédito / Renovación</span>
-                      </button>
+                          {(item.resumenIntereses?.totalIntereses || item.montoDeudaRestante || (item.cliente.montoDeudaInactivo || 0)) > 0 && (
+                            <button
+                              onClick={() => handleOpenAbonarPagoUnico(item)}
+                              className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <DollarSign className="w-3.5 h-3.5 text-emerald-200" />
+                              <span>💵 1 Solo Pago</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => handleOpenCreditoModal(item)}
+                            className="flex-1 px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:scale-[1.01]"
+                          >
+                            <Briefcase className="w-3.5 h-3.5 text-slate-950" />
+                            <span>Otorgar Crédito</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleOpenCompromiso(item)}
+                            className="px-3 py-2 rounded-xl bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <Handshake className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>🤝 Compromiso</span>
+                          </button>
+                        </div>
+                      </div>
                     </>
                   )}
                 </div>
@@ -1228,10 +1441,47 @@ export default function AlertasOportunidadesView({
                     };
                     exportReporteMoraPDF(cli, op, res);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all cursor-pointer shadow-md flex items-center gap-2 hover:scale-[1.01]"
+                  className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all cursor-pointer shadow-md flex items-center gap-2 hover:scale-[1.01]"
                 >
                   <FileText className="w-4 h-4 text-slate-950" />
-                  <span>📄 Exportar PDF para Cliente</span>
+                  <span>📄 Exportar PDF</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const op = selectedResumenInteresesModal.op;
+                    const res = selectedResumenInteresesModal.resumen;
+                    const foundCli = clientes.find(c => c.id === op.idCliente);
+                    const cli: Cliente = foundCli || {
+                      id: op.idCliente,
+                      nombre: op.nombreCliente,
+                      apellido: '',
+                      dni: '',
+                      telefono: '',
+                      direccion: '',
+                      cobradorAsignadoNombre: op.cobrador,
+                      estado: 'ACTIVO',
+                      fechaRegistro: new Date().toISOString().split('T')[0],
+                      trabajo: '',
+                      ingresos: 0,
+                      captador: op.captador || '',
+                      analista: op.analista || '',
+                    };
+                    const itemOpp = oportunidades.find(o => o.operacionAsociada?.id === op.id) || {
+                      id: `OPORT-${op.id}`,
+                      tipoAlerta: 'CREDITO_FINALIZADO_ATRASO' as const,
+                      cliente: cli,
+                      operacionAsociada: op,
+                      categoriaAlertas: 'REPORTE_MORA' as const,
+                      detalleEstado: `Mora acumulada: $${formatMoney(res.totalIntereses)}`,
+                      resumenIntereses: res
+                    };
+                    handleOpenAbonarPagoUnico(itemOpp);
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all cursor-pointer shadow-md flex items-center gap-2 hover:scale-[1.01]"
+                >
+                  <DollarSign className="w-4 h-4 text-white" />
+                  <span>💵 Abonar en 1 Solo Pago (${formatMoney(selectedResumenInteresesModal.resumen.totalIntereses)})</span>
                 </button>
 
                 <button
@@ -1273,14 +1523,281 @@ export default function AlertasOportunidadesView({
                       handleOpenCreditoModal(fallbackItem);
                     }
                   }}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white text-xs font-black transition-all cursor-pointer shadow-lg flex items-center gap-2 hover:scale-[1.01]"
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white text-xs font-black transition-all cursor-pointer shadow-lg flex items-center gap-2 hover:scale-[1.01]"
                 >
                   <Briefcase className="w-4 h-4 text-white" />
-                  <span>⚡ Establecer Ficha - Crédito por Mora ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas)</span>
+                  <span>⚡ Generar Crédito ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const op = selectedResumenInteresesModal.op;
+                    const res = selectedResumenInteresesModal.resumen;
+                    const foundCli = clientes.find(c => c.id === op.idCliente);
+                    const cli: Cliente = foundCli || {
+                      id: op.idCliente,
+                      nombre: op.nombreCliente,
+                      apellido: '',
+                      dni: '',
+                      telefono: '',
+                      direccion: '',
+                      cobradorAsignadoNombre: op.cobrador,
+                      estado: 'ACTIVO',
+                      fechaRegistro: new Date().toISOString().split('T')[0],
+                      trabajo: '',
+                      ingresos: 0,
+                      captador: op.captador || '',
+                      analista: op.analista || '',
+                    };
+                    const itemOpp = oportunidades.find(o => o.operacionAsociada?.id === op.id) || {
+                      id: `OPORT-${op.id}`,
+                      tipoAlerta: 'CREDITO_FINALIZADO_ATRASO' as const,
+                      cliente: cli,
+                      operacionAsociada: op,
+                      categoriaAlertas: 'REPORTE_MORA' as const,
+                      detalleEstado: `Mora acumulada: $${formatMoney(res.totalIntereses)}`,
+                      resumenIntereses: res
+                    };
+                    handleOpenCompromiso(itemOpp);
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-indigo-900 hover:bg-indigo-800 text-indigo-200 border border-indigo-500/60 text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center gap-2"
+                >
+                  <Handshake className="w-4 h-4 text-indigo-300" />
+                  <span>🤝 Compromiso</span>
                 </button>
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: ABONAR EN 1 SOLO PAGO */}
+      {modalAbonarPagoUnico && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-emerald-500/80 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            <div className="bg-slate-950 p-4 border-b border-emerald-800/60 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-950 text-emerald-400 rounded-xl flex items-center justify-center font-black border border-emerald-700/60">
+                  <DollarSign className="w-6 h-6 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Abonar Mora en 1 Solo Pago</h3>
+                  <p className="text-xs text-emerald-300 font-medium">
+                    Cliente: {modalAbonarPagoUnico.item.cliente.nombre} {modalAbonarPagoUnico.item.cliente.apellido || ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalAbonarPagoUnico(null)}
+                className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleConfirmarAbonoUnico(); }} className="p-5 space-y-4 text-xs">
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400 block">Total Mora / Deuda Calculada</span>
+                <span className="text-xl font-black text-emerald-400">${formatMoney(modalAbonarPagoUnico.item.resumenIntereses?.totalIntereses || modalAbonarPagoUnico.item.montoDeudaRestante)}</span>
+              </div>
+
+              {/* Fecha de Pago */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Fecha del Pago / Cobro:</label>
+                <input
+                  type="date"
+                  value={modalAbonarPagoUnico.fechaPago}
+                  onChange={(e) => setModalAbonarPagoUnico({ ...modalAbonarPagoUnico, fechaPago: e.target.value })}
+                  className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                  required
+                />
+                <span className="text-[10px] text-slate-400">Pauta la fecha del cobro (hoy o pautada para otra fecha).</span>
+              </div>
+
+              {/* Monto a abonar */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Monto Efectivo a Cobrar ($):</label>
+                <input
+                  type="number"
+                  value={modalAbonarPagoUnico.monto}
+                  onChange={(e) => setModalAbonarPagoUnico({ ...modalAbonarPagoUnico, monto: Number(e.target.value) })}
+                  className="w-full bg-slate-950 text-emerald-400 font-black text-base p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              {/* Método de Pago */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Método de Pago:</label>
+                <select
+                  value={modalAbonarPagoUnico.metodoPago}
+                  onChange={(e) => setModalAbonarPagoUnico({ ...modalAbonarPagoUnico, metodoPago: e.target.value as any })}
+                  className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="EFECTIVO">EFECTIVO</option>
+                  <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                  <option value="DEPOSITO">DEPÓSITO / MERCADOPAGO</option>
+                </select>
+              </div>
+
+              {/* Cobrador */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Cobrador Recaudador:</label>
+                <select
+                  value={modalAbonarPagoUnico.cobradorNombre}
+                  onChange={(e) => setModalAbonarPagoUnico({ ...modalAbonarPagoUnico, cobradorNombre: e.target.value })}
+                  className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="">-- Seleccionar Cobrador --</option>
+                  {usuarios.map(u => (
+                    <option key={u.id} value={u.nombre}>{u.nombre} ({u.rolId})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Observaciones */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Observaciones / Detalle:</label>
+                <input
+                  type="text"
+                  value={modalAbonarPagoUnico.observaciones}
+                  onChange={(e) => setModalAbonarPagoUnico({ ...modalAbonarPagoUnico, observaciones: e.target.value })}
+                  className="w-full bg-slate-950 text-white font-medium p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setModalAbonarPagoUnico(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black cursor-pointer shadow-lg flex items-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>Confirmar y Registrar Pago de Mora</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: REGISTRAR COMPROMISO DE PAGO */}
+      {modalCompromisoPago && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-slate-900 border-2 border-indigo-500/80 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            <div className="bg-slate-950 p-4 border-b border-indigo-800/60 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-950 text-indigo-400 rounded-xl flex items-center justify-center font-black border border-indigo-700/60">
+                  <Handshake className="w-6 h-6 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Registrar Compromiso de Pago</h3>
+                  <p className="text-xs text-indigo-300 font-medium">
+                    Cliente: {modalCompromisoPago.item.cliente.nombre} {modalCompromisoPago.item.cliente.apellido || ''} — DNI {modalCompromisoPago.item.cliente.dni || '-'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalCompromisoPago(null)}
+                className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleConfirmarCompromiso(); }} className="p-5 space-y-4 text-xs">
+              {/* Fecha Compromiso */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Fecha Acordada del Compromiso:</label>
+                <input
+                  type="date"
+                  value={modalCompromisoPago.fechaCompromiso}
+                  onChange={(e) => setModalCompromisoPago({ ...modalCompromisoPago, fechaCompromiso: e.target.value })}
+                  className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              {/* Monto Comprometido */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Monto Comprometido ($):</label>
+                <input
+                  type="number"
+                  value={modalCompromisoPago.montoComprometido}
+                  onChange={(e) => setModalCompromisoPago({ ...modalCompromisoPago, montoComprometido: Number(e.target.value) })}
+                  className="w-full bg-slate-950 text-indigo-300 font-black text-base p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              {/* Finalidad */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Finalidad del Compromiso:</label>
+                <select
+                  value={modalCompromisoPago.finalidad}
+                  onChange={(e) => setModalCompromisoPago({ ...modalCompromisoPago, finalidad: e.target.value as any })}
+                  className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="REFINANCIACION">REFINANCIACIÓN / PAGO DE MORA</option>
+                  <option value="RENOVACION">RENOVACIÓN DE CRÉDITO</option>
+                  <option value="OTRA">OTRA GESTIÓN DE COBRANZA</option>
+                </select>
+              </div>
+
+              {/* Mesa Gestion */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Mesa de Gestión / Vía:</label>
+                <select
+                  value={modalCompromisoPago.mesaGestion}
+                  onChange={(e) => setModalCompromisoPago({ ...modalCompromisoPago, mesaGestion: e.target.value as any })}
+                  className="w-full bg-slate-950 text-white font-bold p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="GESTION TELEFONICA">GESTIÓN TELEFÓNICA / WHATSAPP</option>
+                  <option value="GESTION DOMICILIARIA">GESTIÓN DOMICILIARIA DE CAMPO</option>
+                  <option value="GESTION DIARIA">GESTIÓN EN OFICINA / DIARIA</option>
+                </select>
+              </div>
+
+              {/* Observaciones */}
+              <div className="space-y-1">
+                <label className="text-slate-300 block font-bold">Observaciones / Notas:</label>
+                <input
+                  type="text"
+                  value={modalCompromisoPago.observaciones}
+                  onChange={(e) => setModalCompromisoPago({ ...modalCompromisoPago, observaciones: e.target.value })}
+                  className="w-full bg-slate-950 text-white font-medium p-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500"
+                  placeholder="Detalle de lo acordado con el cliente"
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setModalCompromisoPago(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black cursor-pointer shadow-lg flex items-center gap-2"
+                >
+                  <Handshake className="w-4 h-4 text-white" />
+                  <span>Guardar Compromiso de Pago</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

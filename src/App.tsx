@@ -3037,6 +3037,9 @@ export default function App() {
               onAddOperacion={handleAddOperacion}
               onUpdateCliente={handleUpdateCliente}
               onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onAddPago={handleAddPago}
+              onAddCompromisoPago={handleAddCompromisoPago}
+              onAddTransaccion={handleAddTransaccion}
             />
           )}
 
