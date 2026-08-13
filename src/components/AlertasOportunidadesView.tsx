@@ -43,7 +43,7 @@ export interface ItemOportunidad {
   detalleEstado: string;
   resumenIntereses?: ResumenInteresesCredito;
   esAptoRenovacion?: boolean;
-  categoriaAlertas?: 'RENOVACIONES' | 'REFINANCIACIONES' | 'ALTAS';
+  categoriaAlertas?: 'RENOVACIONES' | 'REFINANCIACIONES' | 'REPORTE_MORA' | 'ALTAS';
 }
 
 export default function AlertasOportunidadesView({
@@ -61,7 +61,7 @@ export default function AlertasOportunidadesView({
 }: AlertasOportunidadesViewProps) {
 
   // State Filters
-  const [categoriaFiltro, setCategoriaFiltro] = useState<'TODAS' | 'RENOVACION' | 'REFINANCIACION' | 'ALTAS'>('TODAS');
+  const [categoriaFiltro, setCategoriaFiltro] = useState<'TODAS' | 'RENOVACION' | 'REFINANCIACION' | 'REPORTE_MORA' | 'ALTAS'>('TODAS');
   const [searchTerm, setSearchTerm] = useState('');
   const [cobradorFiltro, setCobradorFiltro] = useState<string>('TODOS');
 
@@ -251,8 +251,9 @@ export default function AlertasOportunidadesView({
   const oportunidadesFiltradas = useMemo(() => {
     return oportunidades.filter(item => {
       // Category Filter
-      if (categoriaFiltro === 'REFINANCIACION' && item.categoriaAlertas !== 'REFINANCIACIONES') return false;
+      if (categoriaFiltro === 'REFINANCIACION' && item.categoriaAlertas !== 'REFINANCIACIONES' && item.tipoAlerta !== 'CREDITO_FINALIZADO_ATRASO') return false;
       if (categoriaFiltro === 'RENOVACION' && item.categoriaAlertas !== 'RENOVACIONES') return false;
+      if (categoriaFiltro === 'REPORTE_MORA' && item.tipoAlerta !== 'CREDITO_FINALIZADO_ATRASO') return false;
       if (categoriaFiltro === 'ALTAS' && item.categoriaAlertas !== 'ALTAS') return false;
 
       // Collector Filter
@@ -277,7 +278,8 @@ export default function AlertasOportunidadesView({
 
   // Counts for summary cards
   const countRenovaciones = oportunidades.filter(o => o.categoriaAlertas === 'RENOVACIONES').length;
-  const countRefinanciaciones = oportunidades.filter(o => o.categoriaAlertas === 'REFINANCIACIONES').length;
+  const countRefinanciaciones = oportunidades.filter(o => o.categoriaAlertas === 'REFINANCIACIONES' && o.tipoAlerta !== 'CREDITO_FINALIZADO_ATRASO').length;
+  const countReporteMora = oportunidades.filter(o => o.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO').length;
   const countAltas = oportunidades.filter(o => o.categoriaAlertas === 'ALTAS').length;
 
   // Open Credit Generator Modal initialized with opportunity data
@@ -452,7 +454,7 @@ export default function AlertasOportunidadesView({
       </div>
 
       {/* Summary Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           onClick={() => setCategoriaFiltro(categoriaFiltro === 'RENOVACION' ? 'TODAS' : 'RENOVACION')}
           className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
@@ -494,6 +496,28 @@ export default function AlertasOportunidadesView({
           </div>
           <div className="w-10 h-10 bg-purple-900/60 border border-purple-500/40 text-purple-300 rounded-xl flex items-center justify-center">
             <ShieldCheck className="w-5 h-5" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => setCategoriaFiltro(categoriaFiltro === 'REPORTE_MORA' ? 'TODAS' : 'REPORTE_MORA')}
+          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+            categoriaFiltro === 'REPORTE_MORA'
+              ? 'bg-rose-950/90 border-rose-400 ring-2 ring-rose-500/40 shadow-lg'
+              : 'bg-slate-900 border-slate-800 hover:border-rose-600/60'
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 block mb-1 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3 text-rose-400" /> REPORTE DE MORA ({countReporteMora})
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black text-white">{countReporteMora}</span>
+              <span className="text-xs text-rose-300 font-medium">Créditos p/ Mora</span>
+            </div>
+          </div>
+          <div className="w-10 h-10 bg-rose-900/60 border border-rose-500/40 text-rose-300 rounded-xl flex items-center justify-center">
+            <DollarSign className="w-5 h-5" />
           </div>
         </button>
 
@@ -639,6 +663,40 @@ export default function AlertasOportunidadesView({
                     {item.detalleEstado}
                   </p>
 
+                  {/* Prominent Reporte de Mora Block for CREDITO_FINALIZADO_ATRASO */}
+                  {item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO' && item.resumenIntereses && (
+                    <div className="bg-rose-950/80 border-2 border-rose-500/80 rounded-2xl p-3.5 space-y-2 mt-2 shadow-inner">
+                      <div className="flex items-center justify-between text-rose-300 font-black text-xs">
+                        <span className="flex items-center gap-1.5 uppercase tracking-wider">
+                          <AlertTriangle className="w-4 h-4 text-rose-400 animate-pulse" />
+                          REPORTE DE MORA — REFINANCIACIÓN REQUERIDA
+                        </span>
+                        <span className="bg-rose-900/90 text-rose-200 px-2.5 py-0.5 rounded-md border border-rose-700 text-[11px] font-black">
+                          {item.resumenIntereses.cuotasConAtraso} cuota(s) abonada(s) fuera de fecha
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-950/90 p-3 rounded-xl border border-rose-900/60 text-xs">
+                        <div>
+                          <span className="text-slate-400 text-[10px] uppercase font-extrabold block">TOTAL MORA REFINANCIADA:</span>
+                          <span className="text-rose-300 font-black text-sm">${item.resumenIntereses.totalIntereses.toLocaleString('es-AR')}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] uppercase font-extrabold block">VALOR CUOTA REFERENCIA:</span>
+                          <span className="text-white font-bold">${item.resumenIntereses.valorCuota.toLocaleString('es-AR')}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] uppercase font-extrabold block">CÁLCULO CUOTAS DE MORA:</span>
+                          <span className="text-amber-300 font-black text-sm">{item.resumenIntereses.cuotasInteresEquivalentes} cuotas</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-rose-200/90 font-medium italic">
+                        💡 <strong>Cálculo Automático:</strong> ${item.resumenIntereses.totalIntereses.toLocaleString('es-AR')} (Suma de mora por cuotas atrasadas) ÷ ${item.resumenIntereses.valorCuota.toLocaleString('es-AR')} (Cuota anterior) = <strong>{item.resumenIntereses.cuotasInteresEquivalentes} cuotas de mora</strong>.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Financial Mini Metrics */}
                   <div className="flex flex-wrap items-center gap-4 text-xs font-extrabold text-slate-300">
                     {item.montoPagoInicialAbonado !== undefined && (
@@ -666,31 +724,53 @@ export default function AlertasOportunidadesView({
 
                 {/* Right side: Action Buttons */}
                 <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
-                  {item.resumenIntereses && item.resumenIntereses.totalIntereses > 0 && op && (
-                    <button
-                      onClick={() => setSelectedResumenInteresesModal({ op, resumen: item.resumenIntereses! })}
-                      className="px-4 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/50 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                    >
-                      <DollarSign className="w-4 h-4 text-purple-300" />
-                      <span>Ver Intereses por Atraso (${item.resumenIntereses.totalIntereses.toLocaleString('es-AR')})</span>
-                    </button>
+                  {item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO' && item.resumenIntereses && op ? (
+                    <>
+                      <button
+                        onClick={() => setSelectedResumenInteresesModal({ op, resumen: item.resumenIntereses! })}
+                        className="px-4 py-2.5 rounded-xl bg-purple-900/80 hover:bg-purple-800 text-purple-200 border border-purple-500/60 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:scale-[1.01]"
+                      >
+                        <Eye className="w-4 h-4 text-purple-300" />
+                        <span>🔍 Ver Reporte de Mora Detallado</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenCreditoModal(item)}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:scale-[1.02]"
+                      >
+                        <Briefcase className="w-4 h-4 text-white" />
+                        <span>⚡ Establecer Ficha - Crédito por Mora ({item.resumenIntereses.cuotasInteresEquivalentes} cuotas)</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {item.resumenIntereses && item.resumenIntereses.totalIntereses > 0 && op && (
+                        <button
+                          onClick={() => setSelectedResumenInteresesModal({ op, resumen: item.resumenIntereses! })}
+                          className="px-4 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/50 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                        >
+                          <DollarSign className="w-4 h-4 text-purple-300" />
+                          <span>Ver Intereses por Atraso (${item.resumenIntereses.totalIntereses.toLocaleString('es-AR')})</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => setSelectedItemFicha(item)}
+                        className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <Eye className="w-4 h-4 text-teal-400" />
+                        <span>Ver Última Ficha / Situación</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenCreditoModal(item)}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:scale-[1.02]"
+                      >
+                        <Briefcase className="w-4 h-4 text-slate-950" />
+                        <span>Otorgar Nuevo Crédito / Renovación</span>
+                      </button>
+                    </>
                   )}
-
-                  <button
-                    onClick={() => setSelectedItemFicha(item)}
-                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                  >
-                    <Eye className="w-4 h-4 text-teal-400" />
-                    <span>Ver Última Ficha / Situación</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleOpenCreditoModal(item)}
-                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:scale-[1.02]"
-                  >
-                    <Briefcase className="w-4 h-4 text-slate-950" />
-                    <span>Otorgar Nuevo Crédito / Renovación</span>
-                  </button>
                 </div>
               </div>
             );
@@ -1098,28 +1178,64 @@ export default function AlertasOportunidadesView({
             </div>
 
             {/* Footer */}
-            <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
-              <button
-                onClick={() => setSelectedResumenInteresesModal(null)}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
-              >
-                Cerrar Reporte
-              </button>
+            <div className="p-4 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs text-rose-300 font-bold">
+                💡 Crédito por Mora listo: <strong>${selectedResumenInteresesModal.resumen.totalIntereses.toLocaleString('es-AR')} ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas de ${selectedResumenInteresesModal.resumen.valorCuota.toLocaleString('es-AR')})</strong>
+              </span>
 
-              <button
-                onClick={() => {
-                  const op = selectedResumenInteresesModal.op;
-                  const itemOpp = oportunidades.find(o => o.operacionAsociada?.id === op.id);
-                  setSelectedResumenInteresesModal(null);
-                  if (itemOpp) {
-                    handleOpenCreditoModal(itemOpp);
-                  }
-                }}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs font-black transition-all cursor-pointer shadow-md flex items-center gap-2"
-              >
-                <Briefcase className="w-4 h-4 text-white" />
-                <span>Generar Nuevo Crédito / Refinanciación por Mora ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas)</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedResumenInteresesModal(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cerrar Reporte
+                </button>
+
+                <button
+                  onClick={() => {
+                    const op = selectedResumenInteresesModal.op;
+                    const res = selectedResumenInteresesModal.resumen;
+                    const itemOpp = oportunidades.find(o => o.operacionAsociada?.id === op.id);
+                    setSelectedResumenInteresesModal(null);
+                    
+                    if (itemOpp) {
+                      handleOpenCreditoModal(itemOpp);
+                    } else {
+                      const foundCli = clientes.find(c => c.id === op.idCliente);
+                      const cli: Cliente = foundCli || {
+                        id: op.idCliente,
+                        nombre: op.nombreCliente,
+                        apellido: '',
+                        dni: '',
+                        telefono: '',
+                        direccion: '',
+                        cobradorAsignadoNombre: op.cobrador,
+                        estado: 'ACTIVO',
+                        fechaRegistro: new Date().toISOString().split('T')[0],
+                        trabajo: '',
+                        ingresos: 0,
+                        captador: op.captador || '',
+                        analista: op.analista || '',
+                      };
+
+                      const fallbackItem: ItemOportunidad = {
+                        id: `OPORT-${op.id}`,
+                        tipoAlerta: 'CREDITO_FINALIZADO_ATRASO',
+                        cliente: cli,
+                        operacionAsociada: op,
+                        categoriaAlertas: 'REPORTE_MORA',
+                        detalleEstado: `Refinanciación por mora acumulada: $${res.totalIntereses.toLocaleString('es-AR')}`,
+                        resumenIntereses: res
+                      };
+                      handleOpenCreditoModal(fallbackItem);
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white text-xs font-black transition-all cursor-pointer shadow-lg flex items-center gap-2 hover:scale-[1.01]"
+                >
+                  <Briefcase className="w-4 h-4 text-white" />
+                  <span>⚡ Establecer Ficha - Crédito por Mora ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas)</span>
+                </button>
+              </div>
             </div>
 
           </div>
