@@ -48,15 +48,20 @@ export interface ItemOportunidad {
   categoriaAlertas?: 'RENOVACIONES' | 'REFINANCIACIONES' | 'REPORTE_MORA' | 'ALTAS';
 }
 
+function formatMoney(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null || isNaN(amount)) return '0';
+  return Number(amount).toLocaleString('es-AR');
+}
+
 export default function AlertasOportunidadesView({
-  clientes,
-  operaciones,
-  cuotas,
-  pagos,
-  usuarios,
+  clientes = [],
+  operaciones = [],
+  cuotas = [],
+  pagos = [],
+  usuarios = [],
   activeUser,
   configuracion,
-  feriados,
+  feriados = [],
   onAddOperacion,
   onUpdateCliente,
   onUpdateOperacion,
@@ -117,7 +122,7 @@ export default function AlertasOportunidadesView({
             montoDeudaRestante: cli.montoDeudaInactivo || 0,
             detalleEstado: totalAbonado >= pagoInicialOriginal || cli.montoPagoInicialRefinanciacion === 0
               ? '✅ Pago Inicial de Refinanciación 100% abonado. Listo para estructurar nuevo crédito refinanciado.'
-              : `⚡ Registró pago parcial de refinanciación ($${totalAbonado.toLocaleString('es-AR')}). Listo para armar plan de cuotas.`,
+              : `⚡ Registró pago parcial de refinanciación ($${formatMoney(totalAbonado)}). Listo para armar plan de cuotas.`,
           });
         }
       });
@@ -167,7 +172,7 @@ export default function AlertasOportunidadesView({
                 cuotasPendientes: 0,
                 totalCuotas: opCuotas.length || op.cantidadCuotas || 0,
                 resumenIntereses: resumen,
-                detalleEstado: `⚠️ Crédito Finalizado #${op.id} CON ATRASO. Se generaron $${resumen.totalIntereses.toLocaleString('es-AR')} en intereses por atraso (${resumen.cuotasConAtraso} cuotas atrasadas).`
+                detalleEstado: `⚠️ Crédito Finalizado #${op.id} CON ATRASO. Se generaron $${formatMoney(resumen.totalIntereses)} en intereses por atraso (${resumen.cuotasConAtraso} cuotas atrasadas).`
               });
             }
           }
@@ -323,7 +328,7 @@ export default function AlertasOportunidadesView({
     setCobradorAsignadoForm(item.cliente.cobradorAsignadoNombre || item.operacionAsociada?.cobrador || activeUser.nombre);
     setObservacionesForm(
       item.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO'
-        ? `Refinanciación de Mora Crédito #${item.operacionAsociada?.id || ''} ($${item.resumenIntereses?.totalIntereses.toLocaleString('es-AR')} = ${item.resumenIntereses?.cuotasInteresEquivalentes} cuotas)`
+        ? `Refinanciación de Mora Crédito #${item.operacionAsociada?.id || ''} ($${formatMoney(item.resumenIntereses?.totalIntereses)} = ${item.resumenIntereses?.cuotasInteresEquivalentes || 0} cuotas)`
         : `Otorgado desde Alertas & Oportunidades (${item.tipoAlerta})`
     );
   };
@@ -339,10 +344,10 @@ export default function AlertasOportunidadesView({
     // Calculate financial metrics
     const meses = calcularMesesFinanciados(frecuenciaForm, cantidadCuotasForm);
     let tasa = 50;
-    if (frecuenciaForm === 'DIARIA') tasa = configuracion.interesDiario;
-    else if (frecuenciaForm === 'SEMANAL') tasa = configuracion.interesSemanal;
-    else if (frecuenciaForm === 'QUINCENAL') tasa = configuracion.interesQuincenal;
-    else if (frecuenciaForm === 'MENSUAL') tasa = configuracion.interesMensual;
+    if (frecuenciaForm === 'DIARIA') tasa = configuracion?.interesDiario ?? 50;
+    else if (frecuenciaForm === 'SEMANAL') tasa = configuracion?.interesSemanal ?? 50;
+    else if (frecuenciaForm === 'QUINCENAL') tasa = configuracion?.interesQuincenal ?? 50;
+    else if (frecuenciaForm === 'MENSUAL') tasa = configuracion?.interesMensual ?? 50;
 
     const interesTotal = capitalEntregadoForm * (tasa / 100) * meses;
     const totalFinanciado = capitalEntregadoForm + interesTotal;
@@ -409,7 +414,7 @@ export default function AlertasOportunidadesView({
     }
 
     setSelectedItemCredito(null);
-    alert(`🎉 ¡Crédito #${newOpId} por $${totalFinanciado.toLocaleString('es-AR')} otorgado con éxito a ${cli.nombre} ${cli.apellido || ''}!\nSe generaron ${nuevasCuotas.length} cuotas.`);
+    alert(`🎉 ¡Crédito #${newOpId} por $${formatMoney(totalFinanciado)} otorgado con éxito a ${cli.nombre} ${cli.apellido || ''}!\nSe generaron ${nuevasCuotas.length} cuotas.`);
   };
 
   return (
@@ -681,11 +686,11 @@ export default function AlertasOportunidadesView({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-950/90 p-3 rounded-xl border border-rose-900/60 text-xs">
                         <div>
                           <span className="text-slate-400 text-[10px] uppercase font-extrabold block">TOTAL MORA REFINANCIADA:</span>
-                          <span className="text-rose-300 font-black text-sm">${item.resumenIntereses.totalIntereses.toLocaleString('es-AR')}</span>
+                          <span className="text-rose-300 font-black text-sm">${formatMoney(item.resumenIntereses.totalIntereses)}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 text-[10px] uppercase font-extrabold block">VALOR CUOTA REFERENCIA:</span>
-                          <span className="text-white font-bold">${item.resumenIntereses.valorCuota.toLocaleString('es-AR')}</span>
+                          <span className="text-white font-bold">${formatMoney(item.resumenIntereses.valorCuota)}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 text-[10px] uppercase font-extrabold block">CÁLCULO CUOTAS DE MORA:</span>
@@ -694,7 +699,7 @@ export default function AlertasOportunidadesView({
                       </div>
 
                       <p className="text-[11px] text-rose-200/90 font-medium italic">
-                        💡 <strong>Cálculo Automático:</strong> ${item.resumenIntereses.totalIntereses.toLocaleString('es-AR')} (Suma de mora por cuotas atrasadas) ÷ ${item.resumenIntereses.valorCuota.toLocaleString('es-AR')} (Cuota anterior) = <strong>{item.resumenIntereses.cuotasInteresEquivalentes} cuotas de mora</strong>.
+                        💡 <strong>Cálculo Automático:</strong> ${formatMoney(item.resumenIntereses.totalIntereses)} (Suma de mora por cuotas atrasadas) ÷ ${formatMoney(item.resumenIntereses.valorCuota)} (Cuota anterior) = <strong>{item.resumenIntereses.cuotasInteresEquivalentes} cuotas de mora</strong>.
                       </p>
                     </div>
                   )}
@@ -703,18 +708,18 @@ export default function AlertasOportunidadesView({
                   <div className="flex flex-wrap items-center gap-4 text-xs font-extrabold text-slate-300">
                     {item.montoPagoInicialAbonado !== undefined && (
                       <span className="text-purple-300">
-                        Pago Inicial Abonado: <strong className="text-white">${item.montoPagoInicialAbonado.toLocaleString('es-AR')}</strong>
+                        Pago Inicial Abonado: <strong className="text-white">${formatMoney(item.montoPagoInicialAbonado)}</strong>
                       </span>
                     )}
                     {item.montoDeudaRestante !== undefined && item.montoDeudaRestante > 0 && (
                       <span className="text-rose-300">
-                        Deuda Inactiva Restante: <strong className="text-white">${item.montoDeudaRestante.toLocaleString('es-AR')}</strong>
+                        Deuda Inactiva Restante: <strong className="text-white">${formatMoney(item.montoDeudaRestante)}</strong>
                       </span>
                     )}
                     {op && (
                       <>
                         <span className="text-emerald-300">
-                          Crédito Original: <strong className="text-white">${op.totalFinanciado.toLocaleString('es-AR')}</strong>
+                          Crédito Original: <strong className="text-white">${formatMoney(op.totalFinanciado)}</strong>
                         </span>
                         <span className="text-amber-300">
                           Cuotas: <strong className="text-white">{item.cuotasPagadas} / {item.totalCuotas}</strong> ({op.frecuencia})
@@ -760,7 +765,7 @@ export default function AlertasOportunidadesView({
                           className="px-4 py-2.5 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/50 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                         >
                           <DollarSign className="w-4 h-4 text-purple-300" />
-                          <span>Ver Intereses por Atraso (${item.resumenIntereses.totalIntereses.toLocaleString('es-AR')})</span>
+                          <span>Ver Intereses por Atraso (${formatMoney(item.resumenIntereses.totalIntereses)})</span>
                         </button>
                       )}
 
@@ -789,7 +794,7 @@ export default function AlertasOportunidadesView({
       </div>
 
       {/* MODAL 1: VIEW CLIENT PROFILE / LAST SITUATION */}
-      {selectedItemFicha && (
+      {selectedItemFicha && selectedItemFicha.cliente && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-slate-900 border-2 border-slate-700 w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             
@@ -804,7 +809,7 @@ export default function AlertasOportunidadesView({
                     Ficha y Situación del Cliente
                   </h3>
                   <p className="text-xs text-slate-400 font-semibold">
-                    {selectedItemFicha.cliente.nombre} {selectedItemFicha.cliente.apellido || ''} — DNI {selectedItemFicha.cliente.dni}
+                    {selectedItemFicha.cliente.nombre} {selectedItemFicha.cliente.apellido || ''} — DNI {selectedItemFicha.cliente.dni || '-'}
                   </p>
                 </div>
               </div>
@@ -836,10 +841,10 @@ export default function AlertasOportunidadesView({
                 <h4 className="font-extrabold text-purple-400 uppercase tracking-wider text-[11px]">Estado de Deuda y Refinanciación</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <strong>Deuda Inactiva Registrada:</strong> ${ (selectedItemFicha.cliente.montoDeudaInactivo || 0).toLocaleString('es-AR') }
+                    <strong>Deuda Inactiva Registrada:</strong> ${ formatMoney(selectedItemFicha.cliente.montoDeudaInactivo) }
                   </div>
                   <div>
-                    <strong>Pago Inicial Refinanciación Restante:</strong> ${ (selectedItemFicha.cliente.montoPagoInicialRefinanciacion || 0).toLocaleString('es-AR') }
+                    <strong>Pago Inicial Refinanciación Restante:</strong> ${ formatMoney(selectedItemFicha.cliente.montoPagoInicialRefinanciacion) }
                   </div>
                 </div>
                 <div className="mt-2 text-slate-300 bg-slate-900 p-2.5 rounded-lg border border-slate-800">
@@ -859,7 +864,7 @@ export default function AlertasOportunidadesView({
                         <div>
                           <div className="font-bold text-white">Crédito #{op.id} ({op.frecuencia})</div>
                           <div className="text-[11px] text-slate-400">
-                            Otorgado: {op.fechaOtorgamiento} | Total Financiado: ${op.totalFinanciado.toLocaleString('es-AR')}
+                            Otorgado: {op.fechaOtorgamiento} | Total Financiado: ${formatMoney(op.totalFinanciado)}
                           </div>
                         </div>
                         <span className="bg-slate-800 text-emerald-400 px-2 py-1 rounded text-[10px] font-black">
@@ -1048,10 +1053,10 @@ export default function AlertasOportunidadesView({
               {(() => {
                 const meses = calcularMesesFinanciados(frecuenciaForm, cantidadCuotasForm);
                 let tasa = 50;
-                if (frecuenciaForm === 'DIARIA') tasa = configuracion.interesDiario;
-                else if (frecuenciaForm === 'SEMANAL') tasa = configuracion.interesSemanal;
-                else if (frecuenciaForm === 'QUINCENAL') tasa = configuracion.interesQuincenal;
-                else if (frecuenciaForm === 'MENSUAL') tasa = configuracion.interesMensual;
+                if (frecuenciaForm === 'DIARIA') tasa = configuracion?.interesDiario ?? 50;
+                else if (frecuenciaForm === 'SEMANAL') tasa = configuracion?.interesSemanal ?? 50;
+                else if (frecuenciaForm === 'QUINCENAL') tasa = configuracion?.interesQuincenal ?? 50;
+                else if (frecuenciaForm === 'MENSUAL') tasa = configuracion?.interesMensual ?? 50;
 
                 const interesTotal = capitalEntregadoForm * (tasa / 100) * meses;
                 const totalFinanciado = capitalEntregadoForm + interesTotal;
@@ -1062,8 +1067,8 @@ export default function AlertasOportunidadesView({
                     <div className="text-[11px] font-black uppercase text-emerald-400">Resumen Financiero Simulado:</div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                       <div>Tasa Aplicada: <strong className="text-white">{tasa}%</strong></div>
-                      <div>Total Financiado: <strong className="text-white">${totalFinanciado.toLocaleString('es-AR')}</strong></div>
-                      <div>Valor Cuota ({cantidadCuotasForm}): <strong className="text-white">${valCuota.toLocaleString('es-AR')}</strong></div>
+                      <div>Total Financiado: <strong className="text-white">${formatMoney(totalFinanciado)}</strong></div>
+                      <div>Valor Cuota ({cantidadCuotasForm}): <strong className="text-white">${formatMoney(valCuota)}</strong></div>
                     </div>
                   </div>
                 );
@@ -1124,11 +1129,11 @@ export default function AlertasOportunidadesView({
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="bg-rose-950/60 border border-rose-500/40 p-3 rounded-xl text-center">
                   <span className="text-[10px] font-black uppercase text-rose-300 block">Total Intereses Generados</span>
-                  <span className="text-lg font-black text-white">${selectedResumenInteresesModal.resumen.totalIntereses.toLocaleString('es-AR')}</span>
+                  <span className="text-lg font-black text-white">${formatMoney(selectedResumenInteresesModal.resumen.totalIntereses)}</span>
                 </div>
                 <div className="bg-amber-950/60 border border-amber-500/40 p-3 rounded-xl text-center">
                   <span className="text-[10px] font-black uppercase text-amber-300 block">Valor Cuota Referencia</span>
-                  <span className="text-lg font-black text-white">${selectedResumenInteresesModal.resumen.valorCuota.toLocaleString('es-AR')}</span>
+                  <span className="text-lg font-black text-white">${formatMoney(selectedResumenInteresesModal.resumen.valorCuota)}</span>
                 </div>
                 <div className="bg-purple-950/60 border border-purple-500/40 p-3 rounded-xl text-center">
                   <span className="text-[10px] font-black uppercase text-purple-300 block">Equivalente en Cuotas</span>
@@ -1178,7 +1183,7 @@ export default function AlertasOportunidadesView({
                           Día {item.umbralDiasAplicado}+ ({item.porcentajeAplicado}%)
                         </td>
                         <td className="p-3 text-right text-rose-300 font-extrabold">
-                          ${item.interesGenerado.toLocaleString('es-AR')}
+                          ${formatMoney(item.interesGenerado)}
                         </td>
                       </tr>
                     ))}
@@ -1190,7 +1195,7 @@ export default function AlertasOportunidadesView({
             {/* Footer */}
             <div className="p-4 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
               <span className="text-xs text-rose-300 font-bold">
-                💡 Crédito por Mora listo: <strong>${selectedResumenInteresesModal.resumen.totalIntereses.toLocaleString('es-AR')} ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas de ${selectedResumenInteresesModal.resumen.valorCuota.toLocaleString('es-AR')})</strong>
+                💡 Crédito por Mora listo: <strong>${formatMoney(selectedResumenInteresesModal.resumen.totalIntereses)} ({selectedResumenInteresesModal.resumen.cuotasInteresEquivalentes} cuotas de ${formatMoney(selectedResumenInteresesModal.resumen.valorCuota)})</strong>
               </span>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -1262,7 +1267,7 @@ export default function AlertasOportunidadesView({
                         cliente: cli,
                         operacionAsociada: op,
                         categoriaAlertas: 'REPORTE_MORA',
-                        detalleEstado: `Refinanciación por mora acumulada: $${res.totalIntereses.toLocaleString('es-AR')}`,
+                        detalleEstado: `Refinanciación por mora acumulada: $${formatMoney(res.totalIntereses)}`,
                         resumenIntereses: res
                       };
                       handleOpenCreditoModal(fallbackItem);

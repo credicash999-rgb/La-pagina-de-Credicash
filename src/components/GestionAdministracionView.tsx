@@ -145,17 +145,17 @@ export default function GestionAdministracionView({
     let llamarDias = 2;
     let cobradorDias = 6;
     if (op.frecuencia === 'DIARIA') {
-      llamarDias = configuracion.moraDiarioLlamarDias ?? 2;
-      cobradorDias = configuracion.moraDiarioCobradorDias ?? 6;
+      llamarDias = configuracion?.moraDiarioLlamarDias ?? 2;
+      cobradorDias = configuracion?.moraDiarioCobradorDias ?? 6;
     } else if (op.frecuencia === 'SEMANAL') {
-      llamarDias = configuracion.moraSemanalLlamarDias ?? 4;
-      cobradorDias = configuracion.moraSemanalCobradorDias ?? 7;
+      llamarDias = configuracion?.moraSemanalLlamarDias ?? 4;
+      cobradorDias = configuracion?.moraSemanalCobradorDias ?? 7;
     } else if (op.frecuencia === 'QUINCENAL') {
-      llamarDias = configuracion.moraQuincenalLlamarDias ?? 5;
-      cobradorDias = configuracion.moraQuincenalCobradorDias ?? 8;
+      llamarDias = configuracion?.moraQuincenalLlamarDias ?? 5;
+      cobradorDias = configuracion?.moraQuincenalCobradorDias ?? 8;
     } else if (op.frecuencia === 'MENSUAL') {
-      llamarDias = configuracion.moraMensualLlamarDias ?? 2;
-      cobradorDias = configuracion.moraMensualCobradorDias ?? 2;
+      llamarDias = configuracion?.moraMensualLlamarDias ?? 2;
+      cobradorDias = configuracion?.moraMensualCobradorDias ?? 2;
     }
 
     if (diasMora >= cobradorDias) return 'DOMICILIARIA';
