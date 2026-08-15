@@ -1330,6 +1330,28 @@ export default function App() {
     }
   };
 
+  const handleDeleteCliente = (idCliente: string) => {
+    const newClientes = clientes.filter(c => c.id !== idCliente);
+    const newOps = operaciones.filter(o => o.idCliente !== idCliente);
+    const opIds = new Set(operaciones.filter(o => o.idCliente === idCliente).map(o => o.id));
+    const newCuotas = cuotas.filter(c => !opIds.has(c.idOperacion));
+    const newPagos = pagos.filter(p => p.idCliente !== idCliente);
+
+    setClientes(newClientes);
+    setOperaciones(newOps);
+    setCuotas(newCuotas);
+    setPagos(newPagos);
+
+    saveToLocalStorage(STORAGE_KEYS.CLIENTES, newClientes);
+    saveToLocalStorage(STORAGE_KEYS.OPERACIONES, newOps);
+    saveToLocalStorage(STORAGE_KEYS.CUOTAS, newCuotas);
+    saveToLocalStorage(STORAGE_KEYS.PAGOS, newPagos);
+
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      deleteDocFromFirestore('clientes', idCliente);
+    }
+  };
+
   const handleAddCuotas = (nuevasCuotas: Cuota[]) => {
     const list = [...cuotas, ...nuevasCuotas];
     setCuotas(list);
@@ -3015,6 +3037,7 @@ export default function App() {
               configuracion={configuracion}
               onAddPago={handleAddPago}
               onUpdateCliente={handleUpdateCliente}
+              onDeleteCliente={handleDeleteCliente}
               onUpdateOperacion={handleUpdateOperacionWithCuotas}
               onAddOperacion={handleAddOperacion}
               onAddCompromisoPago={handleAddCompromisoPago}

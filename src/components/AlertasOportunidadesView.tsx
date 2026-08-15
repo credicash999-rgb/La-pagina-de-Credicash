@@ -49,12 +49,81 @@ export interface ItemOportunidad {
   resumenIntereses?: ResumenInteresesCredito;
   esAptoRenovacion?: boolean;
   categoriaAlertas?: 'RENOVACIONES' | 'REFINANCIACIONES' | 'REPORTE_MORA' | 'ALTAS';
+  semanaRenovacion?: 'ESTA_SEMANA' | 'PROXIMA_SEMANA';
+  fechaFinalizacionCalculada?: string;
 }
 
 function formatMoney(amount: number | undefined | null): string {
   if (amount === undefined || amount === null || isNaN(amount)) return '0';
   return Number(amount).toLocaleString('es-AR');
 }
+
+export function getFechaFinalizacionCredito(op: Operacion, opCuotas: Cuota[]): string {
+  if (op.fechaFinalizacion && op.fechaFinalizacion.trim()) {
+    return op.fechaFinalizacion.split('T')[0];
+  }
+  if (op.ultimoVencimiento && op.ultimoVencimiento.trim()) {
+    return op.ultimoVencimiento.split('T')[0];
+  }
+  if (opCuotas && opCuotas.length > 0) {
+    const sorted = [...opCuotas].sort((a, b) => (a.numeroCuota || 0) - (b.numeroCuota || 0));
+    const last = sorted[sorted.length - 1];
+    if (last && last.fechaVencimiento) {
+      return last.fechaVencimiento.split('T')[0];
+    }
+  }
+  return op.primerVencimiento ? op.primerVencimiento.split('T')[0] : '';
+}
+
+export function getWeekRanges(nowDate = new Date()) {
+  const y = nowDate.getFullYear();
+  const m = nowDate.getMonth();
+  const d = nowDate.getDate();
+  const dayOfWeek = nowDate.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+
+  let mondayThisWeek: Date;
+  if (dayOfWeek === 0) {
+    // Sunday: Prepares upcoming week starting tomorrow (Monday)
+    mondayThisWeek = new Date(y, m, d + 1);
+  } else {
+    // Monday (1) to Saturday (6): Monday of current week is d - (dayOfWeek - 1)
+    mondayThisWeek = new Date(y, m, d - (dayOfWeek - 1));
+  }
+
+  const saturdayThisWeek = new Date(mondayThisWeek);
+  saturdayThisWeek.setDate(mondayThisWeek.getDate() + 5);
+
+  const mondayNextWeek = new Date(mondayThisWeek);
+  mondayNextWeek.setDate(mondayThisWeek.getDate() + 7);
+
+  const saturdayNextWeek = new Date(mondayNextWeek);
+  saturdayNextWeek.setDate(mondayNextWeek.getDate() + 5);
+
+  const formatISO = (date: Date) => {
+    const yearStr = date.getFullYear();
+    const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(date.getDate()).padStart(2, '0');
+    return `${yearStr}-${monthStr}-${dayStr}`;
+  };
+
+  return {
+    estaSemanaStart: formatISO(mondayThisWeek),
+    estaSemanaEnd: formatISO(saturdayThisWeek),
+    proximaSemanaStart: formatISO(mondayNextWeek),
+    proximaSemanaEnd: formatISO(saturdayNextWeek),
+  };
+}
+
+function formatShortDate(isoDateStr: string | undefined): string {
+  if (!isoDateStr) return '';
+  const parts = isoDateStr.split('T')[0].split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}`;
+  }
+  return isoDateStr;
+}
+
+export type CategoriaFiltroAlertas = 'TODAS' | 'RENOVACION_ESTA_SEMANA' | 'RENOVACION_PROXIMA_SEMANA' | 'REFINANCIACION' | 'REPORTE_MORA' | 'ALTAS';
 
 export default function AlertasOportunidadesView({
   clientes = [],
@@ -74,7 +143,7 @@ export default function AlertasOportunidadesView({
 }: AlertasOportunidadesViewProps) {
 
   // State Filters
-  const [categoriaFiltro, setCategoriaFiltro] = useState<'TODAS' | 'RENOVACION' | 'REFINANCIACION' | 'REPORTE_MORA' | 'ALTAS'>('TODAS');
+  const [categoriaFiltro, setCategoriaFiltro] = useState<CategoriaFiltroAlertas>('TODAS');
   const [searchTerm, setSearchTerm] = useState('');
   const [cobradorFiltro, setCobradorFiltro] = useState<string>('TODOS');
 
@@ -266,6 +335,9 @@ export default function AlertasOportunidadesView({
   // 1. Compute list of opportunities / alert items
   const oportunidades = useMemo(() => {
     const list: ItemOportunidad[] = [];
+    const weekRanges = getWeekRanges(new Date());
+    const { estaSemanaStart, estaSemanaEnd, proximaSemanaStart, proximaSemanaEnd } = weekRanges;
+
     try {
       // A. REFINANCIACIONES LISTAS (Clientes inactivos con pago inicial de refinanciación realizado o pago registrado)
       (clientes || []).forEach(cli => {
@@ -298,108 +370,92 @@ export default function AlertasOportunidadesView({
         }
       });
 
-      // B. REVISIÓN DE CRÉDITOS FINALIZADOS (Rule 9 & Rule 14)
+      // B. REVISIÓN DE OPERACIONES Y CLASIFICACIÓN
       (operaciones || []).forEach(op => {
         if (!op) return;
         const cli = (clientes || []).find(c => c && c.id === op.idCliente);
         if (!cli) return;
 
         const opCuotas = (cuotas || []).filter(cu => cu && cu.idOperacion === op.id);
-        const isFullyPaid = op.estado === 'FINALIZADA' || (opCuotas.length > 0 && opCuotas.every(c => c.estado === 'PAGADA'));
+        const pendingCuotas = opCuotas.filter(c => c.estado !== 'PAGADA');
+        const cuotasDebt = pendingCuotas.reduce((sum, c) => sum + (c.valorTotalCuota || c.saldoPendiente || 0), 0);
+        const opSaldo = op.totalPendiente !== undefined ? op.totalPendiente : cuotasDebt;
+        const hasPendingDebt = opSaldo > 0;
 
-        if (isFullyPaid) {
-          // Calculate late interest
-          const resumen = calcularInteresesAtrasoCredito(op, opCuotas, configuracion);
+        // Calculate late interest
+        const resumen = calcularInteresesAtrasoCredito(op, opCuotas, configuracion);
+        const hasLateInterest = resumen.totalIntereses > 0;
 
-          if (resumen.totalIntereses === 0 || resumen.esAptoRenovacionDirecta) {
-            // CASO A: Finalizado SIN ATRASOS -> RENOVACIONES (Apto para Renovación)
+        // Finished flag
+        const isFinished = op.estado === 'FINALIZADA' || (opCuotas.length > 0 && opCuotas.every(c => c.estado === 'PAGADA'));
+
+        // Real finalization date calculation
+        const fechaFin = getFechaFinalizacionCredito(op, opCuotas);
+
+        // CONDICIÓN REFINANCIACIÓN: Si tiene deuda pendiente o intereses por atraso generados -> REFINANCIACIÓN
+        if (hasPendingDebt || hasLateInterest || (isFinished && resumen.cuotasConAtraso > 0)) {
+          if (!list.some(item => item.cliente.id === cli.id && item.operacionAsociada?.id === op.id)) {
+            list.push({
+              id: `OPORT-FIN-CONATRASO-${op.id}`,
+              tipoAlerta: 'CREDITO_FINALIZADO_ATRASO',
+              categoriaAlertas: 'REFINANCIACIONES',
+              cliente: cli,
+              operacionAsociada: op,
+              porcentajePagado: Math.round(((opCuotas.length - pendingCuotas.length) / (opCuotas.length || 1)) * 100),
+              cuotasPagadas: opCuotas.length - pendingCuotas.length,
+              cuotasPendientes: pendingCuotas.length,
+              totalCuotas: opCuotas.length || op.cantidadCuotas || 0,
+              resumenIntereses: resumen,
+              montoDeudaRestante: opSaldo > 0 ? opSaldo : resumen.totalIntereses,
+              detalleEstado: `⚠️ Crédito #${op.id} CON ATRASO/DEUDA. Se generaron $${formatMoney(resumen.totalIntereses)} en intereses por atraso (${resumen.cuotasConAtraso} cuotas atrasadas).`
+            });
+          }
+        }
+        // CONDICIÓN RENOVACIÓN: Deuda $0 y Sin Intereses de Mora ($0)
+        else if (!hasPendingDebt && !hasLateInterest) {
+          let semanaRenov: 'ESTA_SEMANA' | 'PROXIMA_SEMANA' | null = null;
+
+          if (fechaFin) {
+            if (fechaFin <= estaSemanaEnd) {
+              // Finalizado previamente o finaliza entre Lunes y Sábado de esta semana
+              semanaRenov = 'ESTA_SEMANA';
+            } else if (fechaFin >= proximaSemanaStart && fechaFin <= proximaSemanaEnd) {
+              // Finaliza entre Lunes y Sábado de la próxima semana
+              semanaRenov = 'PROXIMA_SEMANA';
+            }
+          } else if (isFinished) {
+            semanaRenov = 'ESTA_SEMANA';
+          }
+
+          if (semanaRenov) {
             if (!list.some(item => item.cliente.id === cli.id && item.operacionAsociada?.id === op.id)) {
+              const totalCuo = opCuotas.length || op.cantidadCuotas || 1;
+              const pagadasCount = opCuotas.filter(c => c.estado === 'PAGADA').length || op.cuotasPagadas || totalCuo;
+
               list.push({
-                id: `OPORT-FIN-NOATRASO-${op.id}`,
+                id: `OPORT-RENOV-${semanaRenov}-${op.id}`,
                 tipoAlerta: 'RENOVACION_ELEGIBLE',
                 categoriaAlertas: 'RENOVACIONES',
+                semanaRenovacion: semanaRenov,
+                fechaFinalizacionCalculada: fechaFin,
                 cliente: cli,
                 operacionAsociada: op,
                 porcentajePagado: 100,
-                cuotasPagadas: opCuotas.length || op.cantidadCuotas || 0,
+                cuotasPagadas: pagadasCount,
                 cuotasPendientes: 0,
-                totalCuotas: opCuotas.length || op.cantidadCuotas || 0,
+                totalCuotas: totalCuo,
                 esAptoRenovacion: true,
                 resumenIntereses: resumen,
-                detalleEstado: `🌟 Crédito Finalizado #${op.id} (100% abonado sin atraso). APTO PARA RENOVACIÓN DIRECTA.`
-              });
-            }
-          } else {
-            // CASO B: Finalizado CON ATRASOS -> REFINANCIACIONES (Calcular Intereses)
-            if (!list.some(item => item.cliente.id === cli.id && item.operacionAsociada?.id === op.id)) {
-              list.push({
-                id: `OPORT-FIN-CONATRASO-${op.id}`,
-                tipoAlerta: 'CREDITO_FINALIZADO_ATRASO',
-                categoriaAlertas: 'REFINANCIACIONES',
-                cliente: cli,
-                operacionAsociada: op,
-                porcentajePagado: 100,
-                cuotasPagadas: opCuotas.length || op.cantidadCuotas || 0,
-                cuotasPendientes: 0,
-                totalCuotas: opCuotas.length || op.cantidadCuotas || 0,
-                resumenIntereses: resumen,
-                detalleEstado: `⚠️ Crédito Finalizado #${op.id} CON ATRASO. Se generaron $${formatMoney(resumen.totalIntereses)} en intereses por atraso (${resumen.cuotasConAtraso} cuotas atrasadas).`
+                detalleEstado: semanaRenov === 'ESTA_SEMANA'
+                  ? `🌟 Crédito #${op.id} finaliza/finalizó esta semana (${fechaFin ? formatShortDate(fechaFin) : 'Finalizado'}, Deuda $0). APTO RENOVACIÓN ESTA SEMANA.`
+                  : `📅 Crédito #${op.id} finaliza próxima semana (${formatShortDate(fechaFin)}, Deuda $0). PROGRAMADO RENOVACIÓN PRÓXIMA SEMANA.`
               });
             }
           }
         }
       });
 
-      // C. ELEGIBLES PARA RENOVACIÓN O AMPLIACIÓN / PRÓXIMOS A VENCER (Créditos Activos)
-      (operaciones || []).forEach(op => {
-        if (!op || (op.estado !== 'ACTIVA' && op.estado !== 'CONGELADA')) return;
-
-        const cli = (clientes || []).find(c => c && c.id === op.idCliente);
-        if (!cli) return;
-
-        const opCuotas = (cuotas || []).filter(cu => cu && cu.idOperacion === op.id);
-        const totalCuo = op.cantidadCuotas || opCuotas.length || 1;
-        const pagadasCount = op.cuotasPagadas || opCuotas.filter(cu => cu && cu.estado === 'PAGADA').length;
-        const pendientesCount = totalCuo - pagadasCount;
-        const pctPagado = Math.round((pagadasCount / totalCuo) * 100);
-
-        // 1. Elegible Renovación: >= 70% pagado o flag elegibleRenovacion
-        if (pctPagado >= 70 || op.elegibleRenovacion || op.elegibleAmpliacion) {
-          if (!list.some(item => item.cliente.id === cli.id && item.id.includes(op.id))) {
-            list.push({
-              id: `OPORT-RENOV-${op.id}`,
-              tipoAlerta: 'RENOVACION_ELEGIBLE',
-              categoriaAlertas: 'RENOVACIONES',
-              cliente: cli,
-              operacionAsociada: op,
-              porcentajePagado: pctPagado,
-              cuotasPagadas: pagadasCount,
-              cuotasPendientes: pendientesCount,
-              totalCuotas: totalCuo,
-              detalleEstado: `🔄 Completó el ${pctPagado}% del crédito activo (#${op.id}). Elegible para renovación.`,
-            });
-          }
-        }
-        // 2. Próximos a finalizar: Restan <= 5 cuotas
-        else if (pendientesCount <= 5 && pendientesCount > 0) {
-          if (!list.some(item => item.cliente.id === cli.id && item.id.includes(op.id))) {
-            list.push({
-              id: `OPORT-PROX-${op.id}`,
-              tipoAlerta: 'PROXIMO_A_FINALIZAR',
-              categoriaAlertas: 'RENOVACIONES',
-              cliente: cli,
-              operacionAsociada: op,
-              porcentajePagado: pctPagado,
-              cuotasPagadas: pagadasCount,
-              cuotasPendientes: pendientesCount,
-              totalCuotas: totalCuo,
-              detalleEstado: `⏱️ Restan solo ${pendientesCount} cuotas para finalizar su crédito (#${op.id}). Preparar propuesta.`,
-            });
-          }
-        }
-      });
-
-      // D. ALTAS / NUEVOS CRÉDITOS (Clientes en estado SOLICITANTE, PROSPECTO o sin operaciones)
+      // C. ALTAS / NUEVOS CRÉDITOS (Clientes en estado SOLICITANTE, PROSPECTO o sin operaciones)
       (clientes || []).forEach(cli => {
         if (!cli) return;
         const cliOps = (operaciones || []).filter(o => o && o.idCliente === cli.id);
@@ -429,10 +485,17 @@ export default function AlertasOportunidadesView({
   const oportunidadesFiltradas = useMemo(() => {
     return oportunidades.filter(item => {
       // Category Filter
-      if (categoriaFiltro === 'REFINANCIACION' && item.categoriaAlertas !== 'REFINANCIACIONES' && item.tipoAlerta !== 'CREDITO_FINALIZADO_ATRASO') return false;
-      if (categoriaFiltro === 'RENOVACION' && item.categoriaAlertas !== 'RENOVACIONES') return false;
-      if (categoriaFiltro === 'REPORTE_MORA' && item.tipoAlerta !== 'CREDITO_FINALIZADO_ATRASO') return false;
-      if (categoriaFiltro === 'ALTAS' && item.categoriaAlertas !== 'ALTAS') return false;
+      if (categoriaFiltro === 'RENOVACION_ESTA_SEMANA') {
+        if (item.categoriaAlertas !== 'RENOVACIONES' || item.semanaRenovacion !== 'ESTA_SEMANA') return false;
+      } else if (categoriaFiltro === 'RENOVACION_PROXIMA_SEMANA') {
+        if (item.categoriaAlertas !== 'RENOVACIONES' || item.semanaRenovacion !== 'PROXIMA_SEMANA') return false;
+      } else if (categoriaFiltro === 'REFINANCIACION') {
+        if (item.categoriaAlertas !== 'REFINANCIACIONES' && item.tipoAlerta !== 'CREDITO_FINALIZADO_ATRASO') return false;
+      } else if (categoriaFiltro === 'REPORTE_MORA') {
+        if (item.tipoAlerta !== 'CREDITO_FINALIZADO_ATRASO') return false;
+      } else if (categoriaFiltro === 'ALTAS') {
+        if (item.categoriaAlertas !== 'ALTAS') return false;
+      }
 
       // Collector Filter
       if (cobradorFiltro !== 'TODOS') {
@@ -454,8 +517,11 @@ export default function AlertasOportunidadesView({
     });
   }, [oportunidades, categoriaFiltro, cobradorFiltro, searchTerm]);
 
+  const weekRanges = useMemo(() => getWeekRanges(new Date()), []);
+
   // Counts for summary cards
-  const countRenovaciones = oportunidades.filter(o => o.categoriaAlertas === 'RENOVACIONES').length;
+  const countEstaSemana = oportunidades.filter(o => o.categoriaAlertas === 'RENOVACIONES' && o.semanaRenovacion === 'ESTA_SEMANA').length;
+  const countProximaSemana = oportunidades.filter(o => o.categoriaAlertas === 'RENOVACIONES' && o.semanaRenovacion === 'PROXIMA_SEMANA').length;
   const countRefinanciaciones = oportunidades.filter(o => o.categoriaAlertas === 'REFINANCIACIONES' && o.tipoAlerta !== 'CREDITO_FINALIZADO_ATRASO').length;
   const countReporteMora = oportunidades.filter(o => o.tipoAlerta === 'CREDITO_FINALIZADO_ATRASO').length;
   const countAltas = oportunidades.filter(o => o.categoriaAlertas === 'ALTAS').length;
@@ -617,10 +683,10 @@ export default function AlertasOportunidadesView({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto justify-end">
           <button 
             onClick={() => setCategoriaFiltro('TODAS')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
               categoriaFiltro === 'TODAS'
                 ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow-md font-black'
                 : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
@@ -628,96 +694,138 @@ export default function AlertasOportunidadesView({
           >
             Ver Todas ({oportunidades.length})
           </button>
+          <button 
+            onClick={() => setCategoriaFiltro(categoriaFiltro === 'RENOVACION_ESTA_SEMANA' ? 'TODAS' : 'RENOVACION_ESTA_SEMANA')}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+              categoriaFiltro === 'RENOVACION_ESTA_SEMANA'
+                ? 'bg-emerald-600 text-white border-emerald-400 shadow-md font-black'
+                : 'bg-slate-800 text-emerald-300 border-slate-700 hover:text-white'
+            }`}
+          >
+            Esta semana ({countEstaSemana})
+          </button>
+          <button 
+            onClick={() => setCategoriaFiltro(categoriaFiltro === 'RENOVACION_PROXIMA_SEMANA' ? 'TODAS' : 'RENOVACION_PROXIMA_SEMANA')}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+              categoriaFiltro === 'RENOVACION_PROXIMA_SEMANA'
+                ? 'bg-teal-600 text-white border-teal-400 shadow-md font-black'
+                : 'bg-slate-800 text-teal-300 border-slate-700 hover:text-white'
+            }`}
+          >
+            Próxima semana ({countProximaSemana})
+          </button>
         </div>
       </div>
 
       {/* Summary Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         <button
-          onClick={() => setCategoriaFiltro(categoriaFiltro === 'RENOVACION' ? 'TODAS' : 'RENOVACION')}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
-            categoriaFiltro === 'RENOVACION'
-              ? 'bg-emerald-950/80 border-emerald-400 ring-2 ring-emerald-500/30'
+          onClick={() => setCategoriaFiltro(categoriaFiltro === 'RENOVACION_ESTA_SEMANA' ? 'TODAS' : 'RENOVACION_ESTA_SEMANA')}
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+            categoriaFiltro === 'RENOVACION_ESTA_SEMANA'
+              ? 'bg-emerald-950/90 border-emerald-400 ring-2 ring-emerald-500/40 shadow-lg'
               : 'bg-slate-900 border-slate-800 hover:border-emerald-600/60'
           }`}
         >
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block mb-1">
-              RENOVACIONES ({countRenovaciones})
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block mb-0.5">
+              Renovaciones — Esta semana ({countEstaSemana})
             </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black text-white">{countRenovaciones}</span>
-              <span className="text-xs text-emerald-300 font-medium">Aptos / Sin atraso</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-black text-white">{countEstaSemana}</span>
+              <span className="text-[10px] text-emerald-300 font-medium">Del {formatShortDate(weekRanges.estaSemanaStart)} al {formatShortDate(weekRanges.estaSemanaEnd)}</span>
             </div>
           </div>
-          <div className="w-10 h-10 bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 rounded-xl flex items-center justify-center">
-            <RefreshCw className="w-5 h-5" />
+          <div className="w-9 h-9 bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 rounded-xl flex items-center justify-center shrink-0">
+            <RefreshCw className="w-4 h-4" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => setCategoriaFiltro(categoriaFiltro === 'RENOVACION_PROXIMA_SEMANA' ? 'TODAS' : 'RENOVACION_PROXIMA_SEMANA')}
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+            categoriaFiltro === 'RENOVACION_PROXIMA_SEMANA'
+              ? 'bg-teal-950/90 border-teal-400 ring-2 ring-teal-500/40 shadow-lg'
+              : 'bg-slate-900 border-slate-800 hover:border-teal-600/60'
+          }`}
+        >
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-teal-400 block mb-0.5">
+              Renovaciones — Próxima semana ({countProximaSemana})
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-black text-white">{countProximaSemana}</span>
+              <span className="text-[10px] text-teal-300 font-medium">Del {formatShortDate(weekRanges.proximaSemanaStart)} al {formatShortDate(weekRanges.proximaSemanaEnd)}</span>
+            </div>
+          </div>
+          <div className="w-9 h-9 bg-teal-900/60 border border-teal-500/40 text-teal-300 rounded-xl flex items-center justify-center shrink-0">
+            <Calendar className="w-4 h-4" />
           </div>
         </button>
 
         <button
           onClick={() => setCategoriaFiltro(categoriaFiltro === 'REFINANCIACION' ? 'TODAS' : 'REFINANCIACION')}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
             categoriaFiltro === 'REFINANCIACION'
               ? 'bg-purple-950/80 border-purple-400 ring-2 ring-purple-500/30'
               : 'bg-slate-900 border-slate-800 hover:border-purple-600/60'
           }`}
         >
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block mb-0.5">
               REFINANCIACIONES ({countRefinanciaciones})
             </span>
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-white">{countRefinanciaciones}</span>
-              <span className="text-xs text-purple-300 font-medium">Con atraso / Deuda inactiva</span>
+              <span className="text-[10px] text-purple-300 font-medium">Con atraso / Deuda inactiva</span>
             </div>
           </div>
-          <div className="w-10 h-10 bg-purple-900/60 border border-purple-500/40 text-purple-300 rounded-xl flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
+          <div className="w-9 h-9 bg-purple-900/60 border border-purple-500/40 text-purple-300 rounded-xl flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4" />
           </div>
         </button>
 
         <button
           onClick={() => setCategoriaFiltro(categoriaFiltro === 'REPORTE_MORA' ? 'TODAS' : 'REPORTE_MORA')}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
             categoriaFiltro === 'REPORTE_MORA'
               ? 'bg-rose-950/90 border-rose-400 ring-2 ring-rose-500/40 shadow-lg'
               : 'bg-slate-900 border-slate-800 hover:border-rose-600/60'
           }`}
         >
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 block mb-1 flex items-center gap-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 block mb-0.5 flex items-center gap-1">
               <AlertTriangle className="w-3 h-3 text-rose-400" /> REPORTE DE MORA ({countReporteMora})
             </span>
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-white">{countReporteMora}</span>
-              <span className="text-xs text-rose-300 font-medium">Créditos p/ Mora</span>
+              <span className="text-[10px] text-rose-300 font-medium">Créditos p/ Mora</span>
             </div>
           </div>
-          <div className="w-10 h-10 bg-rose-900/60 border border-rose-500/40 text-rose-300 rounded-xl flex items-center justify-center">
-            <DollarSign className="w-5 h-5" />
+          <div className="w-9 h-9 bg-rose-900/60 border border-rose-500/40 text-rose-300 rounded-xl flex items-center justify-center shrink-0">
+            <DollarSign className="w-4 h-4" />
           </div>
         </button>
 
         <button
           onClick={() => setCategoriaFiltro(categoriaFiltro === 'ALTAS' ? 'TODAS' : 'ALTAS')}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
+          className={`p-3.5 rounded-2xl border transition-all text-left cursor-pointer flex items-center justify-between ${
             categoriaFiltro === 'ALTAS'
               ? 'bg-amber-950/80 border-amber-400 ring-2 ring-amber-500/30'
               : 'bg-slate-900 border-slate-800 hover:border-amber-600/60'
           }`}
         >
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block mb-0.5">
               ALTAS / NUEVOS CRÉDITOS ({countAltas})
             </span>
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-white">{countAltas}</span>
-              <span className="text-xs text-amber-300 font-medium">Primer crédito</span>
+              <span className="text-[10px] text-amber-300 font-medium">Primer crédito</span>
             </div>
           </div>
-          <div className="w-10 h-10 bg-amber-900/60 border border-amber-500/40 text-amber-300 rounded-xl flex items-center justify-center">
-            <UserPlus className="w-5 h-5" />
+          <div className="w-9 h-9 bg-amber-900/60 border border-amber-500/40 text-amber-300 rounded-xl flex items-center justify-center shrink-0">
+            <UserPlus className="w-4 h-4" />
           </div>
         </button>
       </div>
@@ -796,8 +904,15 @@ export default function AlertasOportunidadesView({
                       </span>
                     )}
                     {item.tipoAlerta === 'RENOVACION_ELEGIBLE' && (
-                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <RefreshCw className="w-3 h-3 text-emerald-300" /> {item.esAptoRenovacion ? 'APTO RENOVACIÓN DIRECTA' : `Renovación Elegible (${item.porcentajePagado}%)`}
+                      <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1 border ${
+                        item.semanaRenovacion === 'ESTA_SEMANA'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                          : 'bg-teal-500/20 text-teal-300 border-teal-400/40'
+                      }`}>
+                        <RefreshCw className="w-3 h-3" /> 
+                        {item.semanaRenovacion === 'ESTA_SEMANA'
+                          ? `RENOVACIÓN — ESTA SEMANA ${item.fechaFinalizacionCalculada ? `(Fin: ${formatShortDate(item.fechaFinalizacionCalculada)})` : ''}`
+                          : `RENOVACIÓN — PRÓXIMA SEMANA ${item.fechaFinalizacionCalculada ? `(Fin: ${formatShortDate(item.fechaFinalizacionCalculada)})` : ''}`}
                       </span>
                     )}
                     {item.tipoAlerta === 'PROXIMO_A_FINALIZAR' && (

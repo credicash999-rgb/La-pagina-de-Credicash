@@ -44,6 +44,7 @@ interface GestionAdministracionViewProps {
     tesoreriaTrx: TransaccionTesoreria
   ) => void;
   onUpdateCliente?: (cliente: Cliente) => void;
+  onDeleteCliente?: (idCliente: string) => void;
   onUpdateOperacion?: (operacion: Operacion) => void;
   onAddOperacion?: (operacion: Operacion, cuotasGeneradas: Cuota[]) => void;
   onAddCompromisoPago?: (compromiso: CompromisoPago) => void;
@@ -63,6 +64,7 @@ export default function GestionAdministracionView({
   configuracion,
   onAddPago,
   onUpdateCliente,
+  onDeleteCliente,
   onUpdateOperacion,
   onAddOperacion,
   onAddCompromisoPago,
@@ -70,6 +72,8 @@ export default function GestionAdministracionView({
   onUpdateCompromisoPago,
   onNavigateTab
 }: GestionAdministracionViewProps) {
+  const isAdmin = activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN' || activeUser?.rolId === 'ADMINISTRADOR';
+  const [clienteToDelete, setClienteToDelete] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<'TODOS' | 'ACTIVOS' | 'INACTIVOS'>('TODOS');
   const [filterStage, setFilterStage] = useState<'TODOS' | 'DIARIA' | 'TELEFONICA' | 'DOMICILIARIA'>('TODOS');
@@ -1314,6 +1318,17 @@ export default function GestionAdministracionView({
                       <DollarSign className="w-4 h-4 text-emerald-200" />
                       <span>Ingresar Pago</span>
                     </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => setClienteToDelete(selectedCliente)}
+                        className="px-3 py-2 rounded-xl bg-rose-950/90 hover:bg-rose-900 text-rose-200 text-xs font-black border border-rose-700/80 shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                        title="Eliminar Cliente de la Base de Datos (Acción Exclusiva de Administrador)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>ELIMINAR CLIENTE</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -3133,6 +3148,67 @@ export default function GestionAdministracionView({
                 className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-5 py-2 rounded-xl cursor-pointer"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMACIÓN ELIMINAR CLIENTE (ADMINISTRADOR) */}
+      {clienteToDelete && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border-2 border-rose-600/90 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-rose-400 border-b border-rose-900/80 pb-3">
+              <AlertTriangle className="w-7 h-7 shrink-0 text-rose-500 animate-pulse" />
+              <div>
+                <h3 className="text-base font-black text-white">Eliminación Definitiva de Cliente</h3>
+                <span className="text-[10px] text-rose-300 uppercase tracking-widest font-extrabold">Acción Exclusiva de Administrador</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              <p className="font-semibold">
+                ¿Está seguro de que desea <strong className="text-rose-400 underline uppercase">eliminar definitivamente</strong> al siguiente cliente?
+              </p>
+              
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-white font-bold space-y-1">
+                <p className="text-sm text-emerald-300">{clienteToDelete.nombre} {clienteToDelete.apellido || ''}</p>
+                <p className="text-slate-400 text-[11px]">DNI: {clienteToDelete.dni || 'Sin DNI'} | Teléfono: {clienteToDelete.telefono || 'Sin teléfono'}</p>
+                <p className="text-slate-500 text-[10px] font-mono">ID Registro: {clienteToDelete.id}</p>
+              </div>
+
+              <div className="bg-rose-950/50 p-3 rounded-xl border border-rose-800/60 text-rose-200 text-[11px] leading-relaxed space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>Atención — Diferencia con Cliente Inactivo:</span>
+                </p>
+                <p>
+                  Un cliente <strong>INACTIVO</strong> conserva todo su historial en el sistema. Al <strong>ELIMINAR</strong>, la ficha y sus registros serán removidos por completo de la base de datos de CrediCash.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setClienteToDelete(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (onDeleteCliente) {
+                    onDeleteCliente(clienteToDelete.id);
+                  }
+                  if (selectedClienteId === clienteToDelete.id) {
+                    setSelectedClienteId(null);
+                  }
+                  setClienteToDelete(null);
+                }}
+                className="px-4.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-lg flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+                <span>Sí, Eliminar Cliente</span>
               </button>
             </div>
           </div>
