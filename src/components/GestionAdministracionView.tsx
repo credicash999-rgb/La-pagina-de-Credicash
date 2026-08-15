@@ -171,6 +171,13 @@ export default function GestionAdministracionView({
   };
 
   const getInstanciaCobroCliente = (c: Cliente): 'DIARIA' | 'TELEFONICA' | 'DOMICILIARIA' => {
+    const cComps = (compromisosPago || []).filter(comp => 
+      comp.idCliente === c.id && 
+      (comp.estado === 'PENDIENTE' || comp.estado === 'EN MORA')
+    );
+    if (cComps.some(comp => comp.mesaGestion === 'GESTION DOMICILIARIA')) return 'DOMICILIARIA';
+    if (cComps.some(comp => comp.mesaGestion === 'GESTION TELEFONICA')) return 'TELEFONICA';
+
     const cOps = operaciones.filter(o => o.idCliente === c.id && o.estado !== 'FINALIZADA' && o.estado !== 'REFINANCIADA');
     if (cOps.length === 0) return 'DIARIA';
     const instancias = cOps.map(getInstanciaCobroOperacion);
@@ -193,7 +200,7 @@ export default function GestionAdministracionView({
     });
 
     return { diaria, telefonica, domiciliaria };
-  }, [clientes, operaciones, cuotas, configuracion]);
+  }, [clientes, operaciones, cuotas, configuracion, compromisosPago]);
 
   // Filter clients
   const filteredClientes = clientes.filter(c => {
@@ -304,6 +311,21 @@ export default function GestionAdministracionView({
       .filter(c => c.idCliente === selectedCliente.id)
       .sort((a, b) => b.fechaHoraRegistro.localeCompare(a.fechaHoraRegistro));
   }, [selectedCliente, compromisosPago]);
+
+  // Client commitments sorted chronologically by agreed date (for cuotas schedule view)
+  const sortedClientCompromisos = useMemo(() => {
+    return [...clientCompromisos].sort((a, b) => a.fechaCompromiso.localeCompare(b.fechaCompromiso));
+  }, [clientCompromisos]);
+
+  // Check if selected client has an active commitment due today
+  const compHoySelected = useMemo(() => {
+    if (!selectedCliente) return null;
+    return (compromisosPago || []).find(comp => 
+      comp.idCliente === selectedCliente.id && 
+      comp.fechaCompromiso === todayStr && 
+      (comp.estado === 'PENDIENTE' || comp.estado === 'EN MORA')
+    );
+  }, [selectedCliente, compromisosPago, todayStr]);
 
   // Pending Alerts Count for Top Indicator Badge
   const alertasPendientesCount = useMemo(() => {
@@ -1204,6 +1226,16 @@ export default function GestionAdministracionView({
                 if (stage === 'TELEFONICA') stageBadge = '🟠 Telefónica';
                 if (stage === 'DOMICILIARIA') stageBadge = '🔴 Domiciliaria';
 
+                const compHoy = (compromisosPago || []).find(comp => 
+                  comp.idCliente === cliente.id && 
+                  comp.fechaCompromiso === todayStr && 
+                  (comp.estado === 'PENDIENTE' || comp.estado === 'EN MORA')
+                );
+                const compPendiente = !compHoy && (compromisosPago || []).find(comp => 
+                  comp.idCliente === cliente.id && 
+                  (comp.estado === 'PENDIENTE' || comp.estado === 'EN MORA')
+                );
+
                 return (
                   <div
                     key={cliente.id}
@@ -1237,6 +1269,28 @@ export default function GestionAdministracionView({
                         </span>
                       </div>
                     </div>
+
+                    {compHoy ? (
+                      <div className="my-1.5 bg-amber-950/90 border border-amber-500/80 rounded-lg p-1.5 px-2 flex items-center justify-between text-[10px] shadow-xs">
+                        <span className="font-black text-amber-300 flex items-center gap-1 truncate">
+                          <BookmarkCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          🤝 COMPROMISO HOY: ${(compHoy.montoComprometido || 0).toLocaleString('es-AR')}
+                        </span>
+                        <span className="font-extrabold text-amber-200 text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-900/80 border border-amber-700 shrink-0 ml-1">
+                          {compHoy.mesaGestion.replace('GESTION ', '')}
+                        </span>
+                      </div>
+                    ) : compPendiente ? (
+                      <div className="my-1.5 bg-slate-950/80 border border-amber-800/60 rounded-lg p-1 px-2 flex items-center justify-between text-[10px]">
+                        <span className="font-bold text-amber-400/90 flex items-center gap-1 truncate text-[10px]">
+                          <BookmarkCheck className="w-3 h-3 text-amber-500 shrink-0" />
+                          Compromiso ({compPendiente.fechaCompromiso}): ${(compPendiente.montoComprometido || 0).toLocaleString('es-AR')}
+                        </span>
+                        <span className="text-[9px] text-amber-300 font-mono font-bold">
+                          {compPendiente.estado}
+                        </span>
+                      </div>
+                    ) : null}
 
                     <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-800/80">
                       <div className="flex items-center gap-1.5 text-slate-300">
@@ -1414,6 +1468,38 @@ export default function GestionAdministracionView({
                 {/* TAB CONTENT 1: RESUMEN FICHA + CRONOGRAMA DE AMORTIZACIÓN */}
                 {activeTabFicha === 'FICHA' && (
                   <div className="space-y-5">
+                    {/* Banner de Alerta Compromiso de Pago Hoy (si existe) */}
+                    {compHoySelected && (
+                      <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 border-2 border-amber-500/80 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-200 shadow-xl">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-400 shrink-0">
+                            <BookmarkCheck className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 px-2 py-0.5 rounded-md font-mono">
+                                🤝 Compromiso de Pago Hoy
+                              </span>
+                              <span className="text-[10px] text-amber-300 font-mono font-bold">
+                                {compHoySelected.fechaCompromiso}
+                              </span>
+                            </div>
+                            <div className="text-xs text-white font-extrabold mt-0.5">
+                              Monto Acordado: <span className="text-amber-300 font-mono text-sm">${(compHoySelected.montoComprometido || 0).toLocaleString('es-AR')}</span> ({compHoySelected.finalidad} - {compHoySelected.mesaGestion})
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPagoModalWithCompromiso(compHoySelected)}
+                          className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-1.5 transition-all shrink-0 hover:scale-[1.02]"
+                        >
+                          <DollarSign className="w-4 h-4 text-slate-950" />
+                          <span>Registrar Cobro</span>
+                        </button>
+                      </div>
+                    )}
+
                     {/* Ficha de Resumen Rápido Card */}
                     <div className="bg-[#0B4B27] text-emerald-50 p-5 rounded-2xl border border-emerald-800 shadow-lg space-y-4 relative overflow-hidden">
                       <div className="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4 pointer-events-none">
@@ -1703,6 +1789,101 @@ export default function GestionAdministracionView({
                                     </td>
                                     <td className="p-2.5 text-center font-mono text-slate-300 font-bold">
                                       {dias > 0 ? <span className="text-rose-400 font-black">{dias}d</span> : '0d'}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Integrated Cronograma de Cuotas de Compromisos de Pago en Ficha Rápida */}
+                    {clientCompromisos.length > 0 && (
+                      <div className="bg-slate-950 p-4 rounded-2xl border border-amber-800/70 space-y-3 shadow-lg">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-amber-950 border border-amber-600/60 flex items-center justify-center text-amber-400">
+                              <BookmarkCheck className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black uppercase text-amber-300 flex items-center gap-1.5">
+                                <span>Cronograma de Cuotas de Compromisos de Pago</span>
+                              </h4>
+                              <p className="text-[10px] text-slate-400 font-medium">
+                                Acuerdos de pago diferido registrados ({clientCompromisos.length} acuerdo{clientCompromisos.length > 1 ? 's' : ''})
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-mono font-extrabold text-amber-300 bg-amber-950/80 px-2.5 py-1 rounded-lg border border-amber-800">
+                            Total Acordado: ${clientCompromisos.reduce((s, c) => s + (c.montoComprometido || 0), 0).toLocaleString('es-AR')}
+                          </span>
+                        </div>
+
+                        <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
+                          <table className="w-full text-left text-xs text-slate-300 border-collapse">
+                            <thead className="bg-slate-900 text-[10px] uppercase font-black text-amber-400 sticky top-0 border-b border-slate-800">
+                              <tr>
+                                <th className="p-2.5">Cuota</th>
+                                <th className="p-2.5">Fecha Acordada</th>
+                                <th className="p-2.5 text-right">Monto Acordado</th>
+                                <th className="p-2.5 text-center">Estado</th>
+                                <th className="p-2.5">Mesa / Finalidad</th>
+                                <th className="p-2.5 text-center">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60 font-medium">
+                              {sortedClientCompromisos.map((comp, idx) => {
+                                const isPagada = comp.estado === 'REALIZADO';
+                                const isMora = !isPagada && (comp.estado === 'EN MORA' || comp.fechaCompromiso < todayStr);
+                                const isHoy = !isPagada && comp.fechaCompromiso === todayStr;
+                                const isCancelado = comp.estado === 'CANCELADO';
+
+                                let badgeClass = 'bg-amber-950 text-amber-300 border-amber-800';
+                                let badgeLabel = '⚪ Pendiente';
+
+                                if (isPagada) {
+                                  badgeClass = 'bg-emerald-950 text-emerald-300 border-emerald-800 font-bold';
+                                  badgeLabel = '🟢 Pagada';
+                                } else if (isMora) {
+                                  badgeClass = 'bg-rose-950 text-rose-300 border-rose-800 font-black';
+                                  badgeLabel = '🔴 En mora';
+                                } else if (isHoy) {
+                                  badgeClass = 'bg-yellow-950 text-yellow-300 border-yellow-800 font-black';
+                                  badgeLabel = '🟡 Vence Hoy';
+                                } else if (isCancelado) {
+                                  badgeClass = 'bg-slate-800 text-slate-400 border-slate-700 font-bold';
+                                  badgeLabel = '❌ Incumplido';
+                                }
+
+                                return (
+                                  <tr key={comp.id} className="hover:bg-slate-900/50">
+                                    <td className="p-2.5 font-bold text-white font-mono">Cuota #{idx + 1}</td>
+                                    <td className="p-2.5 font-mono text-amber-200 font-bold">{comp.fechaCompromiso}</td>
+                                    <td className="p-2.5 text-right font-mono text-white font-bold">${(comp.montoComprometido || 0).toLocaleString('es-AR')}</td>
+                                    <td className="p-2.5 text-center">
+                                      <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold border ${badgeClass}`}>
+                                        {badgeLabel}
+                                      </span>
+                                    </td>
+                                    <td className="p-2.5 text-slate-300 text-[11px]">
+                                      <span className="text-amber-300 font-bold">{comp.mesaGestion}</span>
+                                      <span className="text-slate-400 font-normal ml-1">({comp.finalidad})</span>
+                                    </td>
+                                    <td className="p-2.5 text-center">
+                                      {!isPagada && !isCancelado ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenPagoModalWithCompromiso(comp)}
+                                          className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-black text-[10px] rounded-lg transition-colors inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                                        >
+                                          <DollarSign className="w-3 h-3 text-emerald-200" />
+                                          <span>Cobrar</span>
+                                        </button>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-500 italic">Registrado</span>
+                                      )}
                                     </td>
                                   </tr>
                                 );
