@@ -3060,6 +3060,7 @@ export default function App() {
               feriados={feriados}
               onAddOperacion={handleAddOperacion}
               onUpdateCliente={handleUpdateCliente}
+              onDeleteOperacion={handleDeleteOperacion}
               onUpdateOperacion={handleUpdateOperacionWithCuotas}
               onAddPago={handleAddPago}
               onAddCompromisoPago={handleAddCompromisoPago}

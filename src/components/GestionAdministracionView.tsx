@@ -1436,9 +1436,9 @@ export default function GestionAdministracionView({
                           )}
                         </div>
 
-                        {/* Dropdown to switch credit if client has multiple & Admin actions */}
+                        {/* Dropdown to switch credit if client has operations & Admin actions */}
                         <div className="flex flex-wrap items-center gap-2">
-                          {allClientOperations.length > 1 && (
+                          {allClientOperations.length > 0 && (
                             <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-xl border border-white/10">
                               <span className="text-[10px] font-bold text-emerald-300 uppercase shrink-0">
                                 Ver Crédito:
@@ -1730,20 +1730,34 @@ export default function GestionAdministracionView({
                       </div>
 
                       {selectedOp && (
-                        <button
-                          type="button"
-                          onClick={() => exportComprobanteGestionDiariaPDF(
-                            selectedCliente,
-                            [selectedOp],
-                            clientCuotas.filter(c => c.idOperacion === selectedOp.id),
-                            pagos.filter(p => p.idCliente === selectedCliente.id),
-                            compromisosPago
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => exportComprobanteGestionDiariaPDF(
+                              selectedCliente,
+                              [selectedOp],
+                              clientCuotas.filter(c => c.idOperacion === selectedOp.id),
+                              pagos.filter(p => p.idCliente === selectedCliente.id),
+                              compromisosPago
+                            )}
+                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Imprimir PDF Plan de Cuotas</span>
+                          </button>
+
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setOperacionToDelete(selectedOp)}
+                              className="px-3 py-1.5 bg-rose-950/90 hover:bg-rose-900 text-rose-200 text-xs font-black border border-rose-700/80 rounded-lg shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                              title="Eliminar únicamente este crédito seleccionado (Acción Exclusiva de Administrador)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                              <span>Eliminar crédito</span>
+                            </button>
                           )}
-                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-black rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>Imprimir PDF Plan de Cuotas</span>
-                        </button>
+                        </div>
                       )}
                     </div>
 

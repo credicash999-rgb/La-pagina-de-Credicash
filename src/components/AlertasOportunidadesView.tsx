@@ -12,7 +12,7 @@ import {
   Bell, RefreshCw, Briefcase, UserCheck, ShieldCheck, CheckCircle2, 
   AlertCircle, DollarSign, Calendar, Search, Filter, Phone, MessageCircle, 
   X, Eye, User, Award, ArrowRight, TrendingUp, Sparkles, AlertTriangle, UserPlus, Clock,
-  FileText, Printer, Download, Handshake, CreditCard, Check
+  FileText, Printer, Download, Handshake, CreditCard, Check, Trash2
 } from 'lucide-react';
 
 interface AlertasOportunidadesViewProps {
@@ -26,6 +26,7 @@ interface AlertasOportunidadesViewProps {
   feriados: any[];
   onAddOperacion: (operacion: Operacion, cuotasGeneradas: Cuota[]) => void;
   onUpdateCliente: (cliente: Cliente) => void;
+  onDeleteOperacion?: (idOperacion: string) => void;
   onUpdateOperacion?: (operacion: Operacion) => void;
   onAddPago?: (nuevoPago: Pago, updatedCuotasList: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
   onAddCompromisoPago?: (nuevoCompromiso: CompromisoPago) => void;
@@ -136,11 +137,13 @@ export default function AlertasOportunidadesView({
   feriados = [],
   onAddOperacion,
   onUpdateCliente,
+  onDeleteOperacion,
   onUpdateOperacion,
   onAddPago,
   onAddCompromisoPago,
   onAddTransaccion,
 }: AlertasOportunidadesViewProps) {
+  const isAdmin = activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN' || activeUser?.rolId === 'ADMINISTRADOR';
 
   // State Filters
   const [categoriaFiltro, setCategoriaFiltro] = useState<CategoriaFiltroAlertas>('TODAS');
@@ -151,6 +154,7 @@ export default function AlertasOportunidadesView({
   const [selectedItemFicha, setSelectedItemFicha] = useState<ItemOportunidad | null>(null);
   const [selectedItemCredito, setSelectedItemCredito] = useState<ItemOportunidad | null>(null);
   const [selectedResumenInteresesModal, setSelectedResumenInteresesModal] = useState<{ op: Operacion; resumen: ResumenInteresesCredito } | null>(null);
+  const [operacionToDelete, setOperacionToDelete] = useState<Operacion | null>(null);
 
   // Modal State for Single Payment (Abonar en 1 solo pago)
   const [modalAbonarPagoUnico, setModalAbonarPagoUnico] = useState<{
@@ -1059,6 +1063,17 @@ export default function AlertasOportunidadesView({
                           <Handshake className="w-3.5 h-3.5 text-indigo-400" />
                           <span>🤝 Compromiso de Pago</span>
                         </button>
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => setOperacionToDelete(op)}
+                            className="px-3.5 py-2 rounded-xl bg-rose-950/90 hover:bg-rose-900 text-rose-200 border border-rose-700/80 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:scale-[1.01]"
+                            title="Eliminar este crédito (Acción Exclusiva de Administrador)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Eliminar crédito</span>
+                          </button>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -1111,6 +1126,17 @@ export default function AlertasOportunidadesView({
                             <span>🤝 Compromiso</span>
                           </button>
                         </div>
+
+                        {isAdmin && op && (
+                          <button
+                            onClick={() => setOperacionToDelete(op)}
+                            className="px-3 py-2 rounded-xl bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-700/80 text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                            title="Eliminar este crédito (Acción Exclusiva de Administrador)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Eliminar crédito</span>
+                          </button>
+                        )}
                       </div>
                     </>
                   )}
@@ -1195,9 +1221,22 @@ export default function AlertasOportunidadesView({
                             Otorgado: {op.fechaOtorgamiento} | Total Financiado: ${formatMoney(op.totalFinanciado)}
                           </div>
                         </div>
-                        <span className="bg-slate-800 text-emerald-400 px-2 py-1 rounded text-[10px] font-black">
-                          {op.estado}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="bg-slate-800 text-emerald-400 px-2 py-1 rounded text-[10px] font-black">
+                            {op.estado}
+                          </span>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setOperacionToDelete(op)}
+                              className="px-2.5 py-1 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-200 border border-rose-700/70 text-[10px] font-black cursor-pointer flex items-center gap-1 transition-all"
+                              title="Eliminar este crédito"
+                            >
+                              <Trash2 className="w-3 h-3 text-rose-400" />
+                              <span>Eliminar</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1913,6 +1952,71 @@ export default function AlertasOportunidadesView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación para Eliminar Crédito Individual */}
+      {operacionToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-rose-500/80 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-950/80 border border-rose-600/60 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">¿Eliminar este crédito?</h3>
+                <p className="text-xs text-rose-400 font-bold">Crédito Nro: #{operacionToDelete.id}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                Esta acción eliminará únicamente el crédito seleccionado y sus cuotas asociadas. El cliente y sus demás créditos permanecerán intactos.
+              </p>
+
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs space-y-2 font-medium">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Cliente:</span>
+                  <span className="text-white font-bold">{operacionToDelete.nombreCliente}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Frecuencia / Tipo:</span>
+                  <span className="text-emerald-400 font-bold">{operacionToDelete.frecuencia} ({operacionToDelete.tipoOperacion})</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Total Financiado:</span>
+                  <span className="text-white font-mono font-bold">${(operacionToDelete.totalFinanciado || operacionToDelete.capitalEntregado || 0).toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Estado:</span>
+                  <span className="text-amber-400 font-bold uppercase">{operacionToDelete.estado}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setOperacionToDelete(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteOperacion) {
+                    onDeleteOperacion(operacionToDelete.id);
+                  }
+                  setOperacionToDelete(null);
+                }}
+                className="px-4.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-lg flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+                <span>Eliminar crédito</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
