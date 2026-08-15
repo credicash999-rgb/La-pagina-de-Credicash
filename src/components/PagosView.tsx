@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Operacion, Cuota, Pago, TransaccionTesoreria, Cliente, UsuarioRol, Configuracion } from '../types';
-import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority, normalizeDateToISO, parseDateToTimestamp } from '../utils/cuotasGenerator';
+import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority, normalizeDateToISO, parseDateToTimestamp, generarPlanCuotas } from '../utils/cuotasGenerator';
 import { 
   DollarSign, Search, Calendar, Check, AlertCircle, FileText, 
   ChevronRight, ArrowRight, User, Users, Phone, Send, X, ClipboardList,
@@ -501,7 +501,11 @@ export default function PagosView({
     let remPago = valorCobrado;
     const updatedCuotas: Cuota[] = [];
     
-    const allOpCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
+    const targetOpIdStr = String(selectedOp.id).trim();
+    let allOpCuotas = cuotas.filter(c => String(c.idOperacion).trim() === targetOpIdStr);
+    if (allOpCuotas.length === 0 && selectedOp) {
+      allOpCuotas = generarPlanCuotas(selectedOp, []);
+    }
     const cuotasToProcess = sortCuotasByPaymentPriority(allOpCuotas, effectiveFecha, modality);
 
     let totalCapitalPaid = 0;
@@ -2164,7 +2168,11 @@ export default function PagosView({
                 currentModality = prepaymentMode === 'FINAL_ATRAS' ? 'PAGO_ADELANTADO_OPCION_A' : 'PAGO_ADELANTADO_OPCION_B';
               }
 
-              const allOpCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
+              const targetOpIdStr = String(selectedOp.id).trim();
+              let allOpCuotas = cuotas.filter(c => String(c.idOperacion).trim() === targetOpIdStr);
+              if (allOpCuotas.length === 0 && selectedOp) {
+                allOpCuotas = generarPlanCuotas(selectedOp, []);
+              }
               const cuotasSorted = sortCuotasByPaymentPriority(allOpCuotas, fechaPago || getTodayStr(), currentModality);
 
               let rem = amountToApply;

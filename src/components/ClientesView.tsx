@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { parseClientesCSV } from '../utils/importHelper';
-import { normalizeDateToISO, parseDateToTimestamp, sortCuotasByPaymentPriority } from '../utils/cuotasGenerator';
+import { normalizeDateToISO, parseDateToTimestamp, sortCuotasByPaymentPriority, generarPlanCuotas } from '../utils/cuotasGenerator';
 
 interface ClientesViewProps {
   clientes: Cliente[];
@@ -232,9 +232,10 @@ export default function ClientesView({
       metodoPagoPref: 'EFECTIVO'
     } as unknown as Operacion;
 
-    let opCuotas = (cuotas || []).filter(c => c.idOperacion === targetOp.id);
-    if (opCuotas.length === 0) {
-      opCuotas = (cuotas || []).filter(c => c.idCliente === pagoModalCliente.id && c.estado !== 'PAGADA');
+    const targetOpIdStr = String(targetOp.id).trim();
+    let opCuotas = (cuotas || []).filter(c => String(c.idOperacion).trim() === targetOpIdStr);
+    if (opCuotas.length === 0 && targetOp) {
+      opCuotas = generarPlanCuotas(targetOp, []);
     }
 
     const cuotasToProcess = sortCuotasByPaymentPriority(
@@ -3307,8 +3308,12 @@ export default function ClientesView({
 
               {/* Pending Cuotas Breakdown */}
               {(() => {
-                const targetOp = pagoModalOperaciones.find(o => o.id === selectedOpId);
-                const opCuotas = (cuotas || []).filter(c => c.idOperacion === (targetOp?.id || '') && c.estado !== 'PAGADA');
+                const targetOp = pagoModalOperaciones.find(o => String(o.id).trim() === String(selectedOpId).trim());
+                const targetOpIdStr = targetOp ? String(targetOp.id).trim() : '';
+                let opCuotas = (cuotas || []).filter(c => String(c.idOperacion).trim() === targetOpIdStr && c.estado !== 'PAGADA');
+                if (opCuotas.length === 0 && targetOp) {
+                  opCuotas = generarPlanCuotas(targetOp, []).filter(c => c.estado !== 'PAGADA');
+                }
                 if (opCuotas.length === 0) return null;
 
                 return (

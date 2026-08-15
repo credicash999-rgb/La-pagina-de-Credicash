@@ -261,7 +261,8 @@ export default function GestionAdministracionView({
 
   const selectedOpCuotas = useMemo(() => {
     if (!selectedOp) return [];
-    const directCuotas = cuotas.filter(c => c.idOperacion === selectedOp.id);
+    const targetOpIdStr = String(selectedOp.id).trim();
+    const directCuotas = cuotas.filter(c => String(c.idOperacion).trim() === targetOpIdStr);
     if (directCuotas.length > 0) return directCuotas;
     return generarPlanCuotas(selectedOp, []);
   }, [selectedOp, cuotas]);
@@ -288,7 +289,7 @@ export default function GestionAdministracionView({
 
   // Active cuotas
   let clientCuotas = selectedCliente
-    ? cuotas.filter(cu => clientOperations.some(o => o.id === cu.idOperacion))
+    ? cuotas.filter(cu => clientOperations.some(o => String(o.id).trim() === String(cu.idOperacion).trim()))
     : [];
 
   // If no cuotas in state, generate dynamically
@@ -584,10 +585,12 @@ export default function GestionAdministracionView({
     const amountToApply = parseFloat(montoIngresado || '0');
     if (amountToApply <= 0 || !selectedOperacionId || selectedOperacionId === 'DEUDA_INACTIVO') return null;
 
-    const targetOp = operaciones.find(o => o.id === selectedOperacionId);
+    const selOpIdStr = String(selectedOperacionId).trim();
+    const targetOp = operaciones.find(o => String(o.id).trim() === selOpIdStr);
     if (!targetOp) return null;
 
-    let opCuotas = cuotas.filter(cu => cu.idOperacion === targetOp.id);
+    const targetOpIdStr = String(targetOp.id).trim();
+    let opCuotas = cuotas.filter(cu => String(cu.idOperacion).trim() === targetOpIdStr);
     if (opCuotas.length === 0) {
       opCuotas = generarPlanCuotas(targetOp, []);
     }
@@ -837,14 +840,16 @@ export default function GestionAdministracionView({
       alert(`✅ Pago de $${montoNum.toLocaleString('es-AR')} para cliente inactivo registrado correctamente.\n• Pago Inicial Refinanciación Restante: $${nuevoPagoInicial.toLocaleString('es-AR')}\n• Deuda Total Restante: $${nuevaDeudaInactivo.toLocaleString('es-AR')}`);
     };
 
-    if (selectedOperacionId === 'DEUDA_INACTIVO' || !operaciones.find(o => o.id === selectedOperacionId)) {
+    const selOpIdStr = String(selectedOperacionId).trim();
+    const targetOp = operaciones.find(o => String(o.id).trim() === selOpIdStr);
+
+    if (selectedOperacionId === 'DEUDA_INACTIVO' || !targetOp) {
       processInactiveDebtPayment();
       return;
     }
 
-    const targetOp = operaciones.find(o => o.id === selectedOperacionId)!;
-
-    let opCuotas = cuotas.filter(cu => cu.idOperacion === targetOp.id);
+    const targetOpIdStr = String(targetOp.id).trim();
+    let opCuotas = cuotas.filter(cu => String(cu.idOperacion).trim() === targetOpIdStr);
     if (opCuotas.length === 0) {
       opCuotas = generarPlanCuotas(targetOp, []);
     }

@@ -797,9 +797,10 @@ export default function CobradorCampoView({
       observaciones: `${observacionesPago || 'Cobrado en campo'} (GPS: ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)})`
     };
 
-    let opCuotas = cuotas.filter(c => c.idOperacion === opToUse.id);
-    if (opCuotas.length === 0) {
-      opCuotas = cuotas.filter(c => c.idCliente === selectedCliente.id && c.estado !== 'PAGADA');
+    const targetOpIdStr = String(opToUse.id).trim();
+    let opCuotas = cuotas.filter(c => String(c.idOperacion).trim() === targetOpIdStr);
+    if (opCuotas.length === 0 && opToUse) {
+      opCuotas = generarPlanCuotas(opToUse, []);
     }
 
     const cuotasToProcess = sortCuotasByPaymentPriority(opCuotas, newPago.fechaPago || todayStr, newPago.modalidad);
