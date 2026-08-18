@@ -2185,7 +2185,7 @@ export default function App() {
     const isCurrentTabAllowed = 
       isAdmin ||
       (activeUser.rolId === 'COBRADOR' && (activeTab === 'pagos-calle' || activeTab === 'liquidaciones')) ||
-      (activeUser.rolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'clientes' || activeTab === 'operaciones')) ||
+      (activeUser.rolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'clientes')) ||
       (activeTab === 'dashboard' && r?.verDashboard) ||
       (activeTab === 'gestion-admin' && (r?.verClientes || isAdmin)) ||
       (activeTab === 'clientes' && r?.verClientes) ||
@@ -2631,7 +2631,7 @@ export default function App() {
                 </button>
               </>
             ) : activeUser?.rolId === 'OPERADOR' ? (
-              // OPERATOR WHATSAPP strictly allowed tabs: pagos-whatsapp, clientes (Búsqueda de Cliente), operaciones (Otorgar Créditos)
+              // OPERATOR WHATSAPP strictly allowed tabs: pagos-whatsapp (Gestión Diaria) and clientes (Buscar Cliente)
               <>
                 <button
                   onClick={() => setActiveTab('pagos-whatsapp')}
@@ -2658,18 +2658,6 @@ export default function App() {
                     <span>Buscar Cliente</span>
                     <span className="text-[10px] font-medium text-slate-400 mt-0.5">(Últimos Créditos Activos)</span>
                   </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('operaciones')}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                    activeTab === 'operaciones'
-                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                  }`}
-                >
-                  <Briefcase className="w-4 h-4 shrink-0 text-emerald-400" />
-                  Nuevo Crédito
                 </button>
               </>
             ) : (
@@ -2901,7 +2889,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'operaciones' && activeUserRole.verPrestamos && (
+          {activeTab === 'operaciones' && activeUserRole.verPrestamos && activeUser?.rolId !== 'OPERADOR' && (
             <OperacionesView
               operaciones={filteredOperaciones}
               clientes={filteredClientes}
