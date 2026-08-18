@@ -830,6 +830,7 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('credicash_logged_in');
     localStorage.removeItem('credicash_real_user_rol_id');
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
     setIsLoggedIn(false);
   };
 
@@ -1190,22 +1191,24 @@ export default function App() {
     });
     setCompromisosPago(reconciledCompromisos);
 
-    // Active user setup
+    // Active user setup - only restore if there is an active logged-in session
+    const isLoggedStored = localStorage.getItem('credicash_logged_in') === 'true';
     const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
-    const userFound = loadedUsuarios.find(u => u.id === savedActiveUserId);
-    let finalUser = userFound;
-    if (!finalUser && loadedUsuarios.length > 0) {
-      finalUser = loadedUsuarios[0];
-    }
-    if (finalUser) {
-      setActiveUser(finalUser);
-      const storedRealRolId = localStorage.getItem('credicash_real_user_rol_id');
-      if (storedRealRolId) {
+    if (isLoggedStored && savedActiveUserId) {
+      const userFound = loadedUsuarios.find(u => u.id === savedActiveUserId);
+      if (userFound) {
+        setActiveUser(userFound);
+        const storedRealRolId = localStorage.getItem('credicash_real_user_rol_id') || userFound.rolId;
         setRealUserRolId(storedRealRolId);
       } else {
-        localStorage.setItem('credicash_real_user_rol_id', finalUser.rolId);
-        setRealUserRolId(finalUser.rolId);
+        // Stale session or user not found: require fresh login
+        localStorage.removeItem('credicash_logged_in');
+        localStorage.removeItem('credicash_real_user_rol_id');
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
+        setIsLoggedIn(false);
       }
+    } else {
+      setIsLoggedIn(false);
     }
   }, []);
 
@@ -2431,38 +2434,9 @@ export default function App() {
             <div className="flex items-center gap-3 border-r border-slate-800 pr-4">
               <div className="text-right leading-tight hidden sm:block">
                 <span className="text-[9px] font-extrabold text-emerald-400 uppercase tracking-widest block mb-0.5">Usuario</span>
-                {realUserRolId === 'ADMIN' ? (
-                  <select
-                    value={activeUser?.id || ''}
-                    onChange={(e) => {
-                      const targetUser = usuarios.find(u => u.id === e.target.value);
-                      if (targetUser) {
-                        setActiveUser(targetUser);
-                        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER_ID, targetUser.id);
-                        
-                        // Trigger state refresh for current tab
-                        const nextRole = roles.find(r => r.id === targetUser.rolId);
-                        if (nextRole) {
-                          alert(`Cambiando sesión a: ${targetUser.nombre}\nRol: ${nextRole.nombre}\n\nLos filtros y restricciones del sistema se han actualizado.`);
-                        }
-                      }
-                    }}
-                    className="text-xs font-extrabold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1 rounded-md focus:outline-none cursor-pointer transition-all shadow-xs"
-                  >
-                    {usuarios.map(u => {
-                      const r = roles.find(rol => rol.id === u.rolId);
-                      return (
-                        <option key={u.id} value={u.id} className="bg-slate-900 text-white">
-                          {u.nombre} ({r?.nombre || u.rolId})
-                        </option>
-                      );
-                    })}
-                  </select>
-                ) : (
-                  <span className="text-xs font-extrabold text-white bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700 inline-block">
-                    {activeUser?.nombre} ({activeUserRole.nombre})
-                  </span>
-                )}
+                <span className="text-xs font-extrabold text-white bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700 inline-block shadow-xs">
+                  {activeUser?.nombre} ({activeUserRole.nombre})
+                </span>
               </div>
               <div className="w-9 h-9 bg-emerald-700 border border-emerald-500 text-white rounded-full flex items-center justify-center font-black text-xs uppercase shadow-inner shrink-0" title={`${activeUser?.nombre}`}>
                 {activeUser?.nombre ? activeUser.nombre.substring(0, 2) : 'AP'}

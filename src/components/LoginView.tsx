@@ -16,7 +16,6 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showTestingUsers, setShowTestingUsers] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
 
@@ -43,58 +42,52 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
       cleanEmail = 'credicash999@gmail.com';
     }
 
-    let user = usuarios.find(u => u.email.toLowerCase() === cleanEmail || u.id.toLowerCase() === cleanEmail);
+    // 1. Search in configured/persisted users by email, id, or username/name
+    let user = usuarios.find(u => 
+      u.email.toLowerCase() === cleanEmail || 
+      u.id.toLowerCase() === cleanEmail ||
+      u.nombre.toLowerCase() === cleanEmail
+    );
 
-    // Multi-device Self-Healing Account Recovery Fallback
+    // 2. If not directly matched by email/id, check base system accounts
     if (!user) {
-      if (cleanEmail === 'credicash999@gmail.com' || cleanEmail.includes('admin') || cleanEmail.includes('gerente') || cleanEmail.includes('boss')) {
-        user = {
+      if (cleanEmail === 'credicash999@gmail.com' || cleanEmail === 'admin') {
+        user = usuarios.find(u => u.rolId === 'ADMIN') || {
           id: 'USR-1',
           nombre: 'Administrador Principal',
           email: 'credicash999@gmail.com',
-          password: cleanPassword || 'admin',
+          password: 'admin',
           rolId: 'ADMIN'
         };
-      } else if (cleanEmail === 'rodrigo.cobros@gmail.com' || cleanEmail.includes('cobrador') || cleanEmail.includes('cobro') || cleanEmail.includes('campo') || cleanEmail.includes('rodrigo')) {
-        user = {
+      } else if (cleanEmail === 'rodrigo.cobros@gmail.com' || cleanEmail === 'cobrador') {
+        user = usuarios.find(u => u.rolId === 'COBRADOR') || {
           id: 'USR-2',
-          nombre: cleanEmail.includes('rodrigo') ? 'Rodrigo Gómez' : 'Cobrador de Calle',
-          email: cleanEmail.includes('@') ? cleanEmail : 'rodrigo.cobros@gmail.com',
-          password: cleanPassword || '123',
+          nombre: 'Rodrigo Gómez',
+          email: 'rodrigo.cobros@gmail.com',
+          password: '123',
           rolId: 'COBRADOR'
         };
-      } else if (cleanEmail === 'carlos.operador@gmail.com' || cleanEmail.includes('operador') || cleanEmail.includes('carlos')) {
-        user = {
+      } else if (cleanEmail === 'carlos.operador@gmail.com' || cleanEmail === 'operador1@credicash.com' || cleanEmail === 'operador' || cleanEmail === 'carlos') {
+        user = usuarios.find(u => u.rolId === 'OPERADOR') || {
           id: 'USR-3',
-          nombre: cleanEmail.includes('carlos') ? 'Carlos López' : 'Operador de Sistema',
-          email: cleanEmail.includes('@') ? cleanEmail : 'carlos.operador@gmail.com',
-          password: cleanPassword || '123',
+          nombre: 'Carlos López',
+          email: 'carlos.operador@gmail.com',
+          password: '123',
           rolId: 'OPERADOR'
-        };
-      } else {
-        // Universal self-healing fallback for any user account created across sessions/devices
-        const isCob = cleanEmail.includes('cob') || cleanEmail.includes('calle') || cleanEmail.includes('campo');
-        const derivedRole: UsuarioRol['rolId'] = isCob ? 'COBRADOR' : 'OPERADOR';
-        user = {
-          id: `USR-${Date.now()}`,
-          nombre: cleanEmail.split('@')[0].toUpperCase(),
-          email: cleanEmail,
-          password: cleanPassword || '123',
-          rolId: derivedRole
         };
       }
     }
 
-    // Password Validation (flexible master fallback)
-    const userPassword = user.password || '123';
-    const isMasterFallback = (cleanEmail === 'credicash999@gmail.com' && cleanPassword === 'admin') || 
-                             cleanPassword === '123' || 
-                             cleanPassword === 'admin' || 
-                             cleanPassword === 'operador' || 
-                             cleanPassword === 'cobrador' ||
-                             cleanPassword === userPassword;
+    if (!user) {
+      setError('Usuario o correo no encontrado. Verifique los datos ingresados.');
+      return;
+    }
 
-    if (userPassword !== cleanPassword && !isMasterFallback) {
+    // 3. Password validation strictly against user's configured password
+    const expectedPassword = user.password || (user.rolId === 'ADMIN' ? 'admin' : '123');
+    const isPasswordCorrect = cleanPassword === user.password || cleanPassword === expectedPassword;
+
+    if (!isPasswordCorrect) {
       setError('Contraseña incorrecta. Intente nuevamente.');
       return;
     }
@@ -325,48 +318,6 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
             </button>
 
           </form>
-
-          {/* Quick Access Preset Buttons for instant access */}
-          <div className="pt-3 border-t border-slate-800 space-y-2">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block text-center">
-              Accesos Rápidos de Demostración
-            </span>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('admin');
-                  setPassword('admin');
-                  handleSubmit({ preventDefault: () => {} } as React.FormEvent);
-                }}
-                className="py-2 px-1 bg-slate-950 hover:bg-emerald-950 border border-emerald-800/80 rounded-xl text-[10px] font-bold text-emerald-400 transition-all text-center"
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('cobrador');
-                  setPassword('123');
-                  handleSubmit({ preventDefault: () => {} } as React.FormEvent);
-                }}
-                className="py-2 px-1 bg-slate-950 hover:bg-emerald-950 border border-emerald-800/80 rounded-xl text-[10px] font-bold text-emerald-400 transition-all text-center"
-              >
-                Cobrador
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('operador');
-                  setPassword('123');
-                  handleSubmit({ preventDefault: () => {} } as React.FormEvent);
-                }}
-                className="py-2 px-1 bg-slate-950 hover:bg-emerald-950 border border-emerald-800/80 rounded-xl text-[10px] font-bold text-emerald-400 transition-all text-center"
-              >
-                Operador
-              </button>
-            </div>
-          </div>
 
           {/* Footer Card Notice */}
           <div className="pt-2 border-t border-slate-800 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-emerald-300 uppercase tracking-wide">
