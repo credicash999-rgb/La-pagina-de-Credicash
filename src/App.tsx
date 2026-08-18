@@ -3046,7 +3046,7 @@ export default function App() {
             <VerificacionView />
           )}
 
-          {activeTab === 'usuarios' && activeUser?.rolId === 'ADMIN' && (
+          {activeTab === 'usuarios' && isAdmin && (
             <UsuariosView
               usuarios={usuarios}
               roles={roles}
@@ -3078,7 +3078,7 @@ export default function App() {
             ((activeTab === 'pagos' || activeTab === 'pagos-whatsapp' || activeTab === 'pagos-telefono') && !activeUserRole.verPagos) ||
             (activeTab === 'tesoreria' && !activeUserRole.verTesoreria) ||
             (activeTab === 'configuracion' && !activeUserRole.verConfiguracion) ||
-            (activeTab === 'usuarios' && activeUser?.rolId !== 'ADMIN')
+            (activeTab === 'usuarios' && !isAdmin)
           ) && (
             activeUser?.rolId === 'COBRADOR' ? (
               <CobradorCampoView
