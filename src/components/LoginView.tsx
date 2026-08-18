@@ -74,8 +74,7 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
       } else {
         // Universal self-healing fallback for any user account created across sessions/devices
         const isCob = cleanEmail.includes('cob') || cleanEmail.includes('calle') || cleanEmail.includes('campo');
-        const isOp = cleanEmail.includes('op');
-        const derivedRole: UsuarioRol['rolId'] = isCob ? 'COBRADOR' : (isOp ? 'OPERADOR' : 'ADMIN');
+        const derivedRole: UsuarioRol['rolId'] = isCob ? 'COBRADOR' : 'OPERADOR';
         user = {
           id: `USR-${Date.now()}`,
           nombre: cleanEmail.split('@')[0].toUpperCase(),

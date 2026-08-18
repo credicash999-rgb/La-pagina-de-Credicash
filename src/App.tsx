@@ -817,6 +817,14 @@ export default function App() {
       }
       return prev;
     });
+
+    if (isFirebaseEnabled()) {
+      downloadAllFromFirestore().then(res => {
+        if (res.success && res.data) {
+          applyCloudSnapshotData(res.data);
+        }
+      }).catch(err => console.warn('Cloud download on login notice:', err));
+    }
   };
 
   const handleLogout = () => {
@@ -851,6 +859,10 @@ export default function App() {
     if (data.usuarios && data.usuarios.length > 0) {
       setUsuarios(data.usuarios);
       saveToLocalStorage(STORAGE_KEYS.USUARIOS, data.usuarios);
+    }
+    if (data.roles && data.roles.length > 0) {
+      setRoles(data.roles);
+      saveToLocalStorage(STORAGE_KEYS.ROLES, data.roles);
     }
     if (data.comisiones && data.comisiones.length > 0) {
       setComisiones(data.comisiones);
@@ -1015,28 +1027,11 @@ export default function App() {
     const loadedReintegrosDesayuno = getOrSeed<SolicitudReintegroDesayuno[]>(STORAGE_KEYS.REINTEGROS_DESAYUNO, []);
     const loadedCompromisosRaw = getOrSeed<CompromisoPago[]>(STORAGE_KEYS.COMPROMISOS_PAGO, []);
     
-    // Force latest hardcoded role configurations for system defaults, allowing custom roles to merge
+    // Merge saved roles with default structures to prevent missing properties while strictly preserving configured permissions
     const loadedRoles = loadedRolesRaw.map(r => {
       const defaultRole = DEFAULT_ROLES.find(dr => dr.id === r.id);
-      if (defaultRole) {
-        return defaultRole;
-      }
       return {
-        id: r.id,
-        nombre: r.nombre,
-        verDashboard: true,
-        verClientes: true,
-        crearClientes: false,
-        verTelefonoCliente: true,
-        verDniCliente: true,
-        verDireccionCliente: true,
-        verIngresosCliente: true,
-        verPrestamos: true,
-        crearPrestamos: false,
-        verPagos: true,
-        registrarPagos: false,
-        verTesoreria: false,
-        verConfiguracion: false,
+        ...(defaultRole || {}),
         ...r
       };
     });
@@ -1946,12 +1941,18 @@ export default function App() {
     const list = [...usuarios, nuevo];
     setUsuarios(list);
     saveToLocalStorage(STORAGE_KEYS.USUARIOS, list);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('usuarios', nuevo.id, nuevo);
+    }
   };
 
   const handleUpdateUsuario = (updated: UsuarioRol) => {
     const list = usuarios.map(u => u.id === updated.id ? updated : u);
     setUsuarios(list);
     saveToLocalStorage(STORAGE_KEYS.USUARIOS, list);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('usuarios', updated.id, updated);
+    }
     
     if (activeUser.id === updated.id) {
       setActiveUser(updated);
@@ -1962,6 +1963,9 @@ export default function App() {
     const list = usuarios.filter(u => u.id !== id);
     setUsuarios(list);
     saveToLocalStorage(STORAGE_KEYS.USUARIOS, list);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      deleteDocFromFirestore('usuarios', id);
+    }
     
     // If the currently active user is deleted, fall back to Admin
     if (activeUser.id === id) {
@@ -1977,12 +1981,18 @@ export default function App() {
     const list = roles.map(r => r.id === updated.id ? updated : r);
     setRoles(list);
     saveToLocalStorage(STORAGE_KEYS.ROLES, list);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('roles', updated.id, updated);
+    }
   };
 
   const handleAddRole = (nuevo: PermisosRol) => {
     const list = [...roles, nuevo];
     setRoles(list);
     saveToLocalStorage(STORAGE_KEYS.ROLES, list);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      uploadDocToFirestore('roles', nuevo.id, nuevo);
+    }
   };
 
   const handleAddFichaje = (nuevo: FichajeAsistencia) => {
@@ -2211,33 +2221,31 @@ export default function App() {
     }
   };
 
-  const activeUserRole = roles.find(r => r.id === activeUser?.rolId) || {
-    id: 'ADMIN',
-    nombre: 'Super Administrador',
-    verDashboard: true,
-    verClientes: true,
-    crearClientes: true,
-    verTelefonoCliente: true,
-    verDniCliente: true,
-    verDireccionCliente: true,
-    verIngresosCliente: true,
-    verPrestamos: true,
-    crearPrestamos: true,
-    verPagos: true,
-    registrarPagos: true,
-    verTesoreria: true,
-    verConfiguracion: true,
+  const activeUserRole: PermisosRol = roles.find(r => r.id === activeUser?.rolId) || {
+    id: activeUser?.rolId || 'INVITADO',
+    nombre: 'Acceso Restringido',
+    verDashboard: false,
+    verClientes: false,
+    crearClientes: false,
+    verTelefonoCliente: false,
+    verDniCliente: false,
+    verDireccionCliente: false,
+    verIngresosCliente: false,
+    verPrestamos: false,
+    crearPrestamos: false,
+    verPagos: false,
+    registrarPagos: false,
+    verTesoreria: false,
+    verConfiguracion: false,
   };
 
-  const isAdmin = 
-    !activeUser ||
-    activeUser.rolId === 'ADMIN' ||
-    activeUser.rolId?.toUpperCase().includes('ADMIN') ||
-    activeUser.email?.toLowerCase() === 'credicash999@gmail.com' ||
-    activeUser.email?.toLowerCase().includes('admin') ||
-    activeUserRole.id === 'ADMIN' ||
-    activeUserRole.nombre?.toUpperCase().includes('ADMIN') ||
-    (activeUserRole.verConfiguracion && activeUserRole.verTesoreria && activeUserRole.crearPrestamos);
+  const isAdmin = Boolean(
+    activeUser && (
+      activeUser.rolId === 'ADMIN' ||
+      activeUser.rolId === 'SUPERADMIN' ||
+      activeUser.email?.toLowerCase() === 'credicash999@gmail.com'
+    )
+  );
 
   // Automatic redirect if current tab is not allowed for the selected role
   useEffect(() => {

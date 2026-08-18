@@ -37,9 +37,24 @@ const STORAGE_KEYS = {
   AUTO_SYNC_ENABLED: 'credicash_auto_sync_enabled',
 };
 
-// Retrieve configuration from URL search params, local storage, or environment variables
+// Retrieve configuration from environment variables, URL search params, or local storage
 export function getSavedFirebaseConfig(): FirebaseConfig | null {
-  // 1. Try URL parameters for 1-click device configuration sharing
+  // 1. First priority: Environment variables (Vite / Vercel)
+  const metaEnv = (import.meta as any).env || {};
+  const envConfig: FirebaseConfig = {
+    apiKey: metaEnv.VITE_FIREBASE_API_KEY || '',
+    authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || '',
+    projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || '',
+    storageBucket: metaEnv.VITE_FIREBOARD_STORAGE_BUCKET || metaEnv.VITE_FIREBASE_STORAGE_BUCKET || '',
+    messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+    appId: metaEnv.VITE_FIREBASE_APP_ID || '',
+  };
+
+  if (envConfig.apiKey && envConfig.projectId) {
+    return envConfig;
+  }
+
+  // 2. URL parameters for 1-click device configuration sharing
   if (typeof window !== 'undefined') {
     try {
       const urlParams = new URLSearchParams(window.location.search);
@@ -63,7 +78,7 @@ export function getSavedFirebaseConfig(): FirebaseConfig | null {
     }
   }
 
-  // 2. Try localStorage
+  // 3. Fallback to localStorage
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.FIREBASE_CONFIG);
     if (saved) {
@@ -74,21 +89,6 @@ export function getSavedFirebaseConfig(): FirebaseConfig | null {
     }
   } catch (e) {
     console.error('Error parsing saved Firebase config:', e);
-  }
-
-  // 3. Fallback to Vite environment variables if defined
-  const metaEnv = (import.meta as any).env || {};
-  const envConfig = {
-    apiKey: metaEnv.VITE_FIREBASE_API_KEY || '',
-    authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || '',
-    projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || '',
-    storageBucket: metaEnv.VITE_FIREBOARD_STORAGE_BUCKET || metaEnv.VITE_FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: metaEnv.VITE_FIREBASE_APP_ID || '',
-  };
-
-  if (envConfig.apiKey && envConfig.projectId) {
-    return envConfig;
   }
 
   return null;
@@ -436,7 +436,7 @@ export function subscribeToFirestore(onDataChange: (data: any) => void): () => v
   const db = getDb();
   if (!db || !isFirebaseEnabled()) return () => {};
 
-  const collectionsToListen = ['clientes', 'operaciones', 'cuotas', 'pagos', 'transacciones', 'usuarios', 'comisiones'];
+  const collectionsToListen = ['clientes', 'operaciones', 'cuotas', 'pagos', 'transacciones', 'usuarios', 'roles', 'comisiones'];
   const unsubscribes: (() => void)[] = [];
 
   collectionsToListen.forEach((colName) => {
