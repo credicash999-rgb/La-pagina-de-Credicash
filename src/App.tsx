@@ -742,6 +742,10 @@ export default function App() {
   const [roles, setRoles] = useState<PermisosRol[]>([]);
   const [fichajes, setFichajes] = useState<FichajeAsistencia[]>([]);
 
+  // Cloud single-source-of-truth status
+  const [cloudLoading, setCloudLoading] = useState<boolean>(true);
+  const [cloudError, setCloudError] = useState<string | null>(null);
+
   // Cobrador de Campo & Liquidaciones State
   const [configComisiones, setConfigComisiones] = useState<ConfiguracionComisiones>(SEED_CONFIG_COMISIONES);
   const [configRecorrido, setConfigRecorrido] = useState<ConfiguracionRecorrido>(SEED_CONFIG_RECORRIDO);
@@ -767,6 +771,109 @@ export default function App() {
     return localStorage.getItem('credicash_logged_in') === 'true';
   });
 
+  // Reconcile dates & overdue statuses in memory from real data without altering database fields
+  const reconcileOverdueData = (
+    rawClientes: Cliente[],
+    rawOperaciones: Operacion[],
+    rawCuotas: Cuota[],
+    config: Configuracion
+  ) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const recCuotas = (rawCuotas || []).map(c => {
+      if (c.estado !== 'PAGADA') {
+        const isPastDue = c.fechaVencimiento < todayStr;
+        const targetEstado = isPastDue ? 'VENCIDA' as const : 'PENDIENTE' as const;
+        if (c.estado !== targetEstado) {
+          return { ...c, estado: targetEstado };
+        }
+      }
+      return c;
+    });
+
+    const recOperaciones = (rawOperaciones || []).map(op => {
+      if (op.estado === 'ACTIVA') {
+        const opCuotas = recCuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
+        const sortedPending = [...opCuotas].sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento));
+        
+        let targetDiasMora = 0;
+        let targetNivelMora = 'Sano';
+        let targetProximoVencimiento = op.proximoVencimiento;
+        
+        if (sortedPending.length > 0) {
+          const oldestPending = sortedPending[0];
+          targetProximoVencimiento = oldestPending.fechaVencimiento;
+          if (oldestPending.fechaVencimiento < todayStr) {
+            targetDiasMora = calcularDiasAtrasoSinDomingos(oldestPending.fechaVencimiento, todayStr);
+          }
+        } else {
+          targetProximoVencimiento = 'PAGADO TOTAL';
+        }
+
+        if (targetDiasMora === 0) {
+          targetNivelMora = 'Sano';
+        } else {
+          const f = op.frecuencia;
+          if (f === 'DIARIA') {
+            const llamar = config.moraDiarioLlamarDias ?? 2;
+            const cobrador = config.moraDiarioCobradorDias ?? 6;
+            if (targetDiasMora < llamar) {
+              targetNivelMora = `Atraso Regular (Aviso WA: ${targetDiasMora} d)`;
+            } else if (targetDiasMora < cobrador) {
+              targetNivelMora = `Notificar / Llamar (Crítica: ${targetDiasMora} d)`;
+            } else {
+              targetNivelMora = `Enviar Cobrador (Calle: ${targetDiasMora} d)`;
+            }
+          } else if (f === 'MENSUAL') {
+            const llamar = config.moraMensualLlamarDias ?? 2;
+            if (targetDiasMora < llamar) {
+              targetNivelMora = `Atraso Regular (${targetDiasMora} d)`;
+            } else {
+              targetNivelMora = `Enviar Cobrador / Alerta Crítica (${targetDiasMora} d)`;
+            }
+          } else if (f === 'SEMANAL') {
+            const llamar = config.moraSemanalLlamarDias ?? 4;
+            const cobrador = config.moraSemanalCobradorDias ?? 7;
+            if (targetDiasMora < llamar) {
+              targetNivelMora = `Atraso Regular (${targetDiasMora} d)`;
+            } else if (targetDiasMora < cobrador) {
+              targetNivelMora = `Notificar / Llamar (${targetDiasMora} d)`;
+            } else {
+              targetNivelMora = `Enviar Cobrador (Calle: ${targetDiasMora} d)`;
+            }
+          } else {
+            const llamar = config.moraQuincenalLlamarDias ?? 5;
+            const cobrador = config.moraQuincenalCobradorDias ?? 8;
+            if (targetDiasMora < llamar) {
+              targetNivelMora = `Atraso Regular (${targetDiasMora} d)`;
+            } else if (targetDiasMora < cobrador) {
+              targetNivelMora = `Notificar / Llamar (${targetDiasMora} d)`;
+            } else {
+              targetNivelMora = `Enviar Cobrador (Calle: ${targetDiasMora} d)`;
+            }
+          }
+        }
+
+        if (op.diasMora !== targetDiasMora || op.nivelMora !== targetNivelMora || op.proximoVencimiento !== targetProximoVencimiento) {
+          return { ...op, diasMora: targetDiasMora, nivelMora: targetNivelMora, proximoVencimiento: targetProximoVencimiento };
+        }
+      }
+      return op;
+    });
+
+    const recClientes = (rawClientes || []).map(cli => {
+      const cliOps = recOperaciones.filter(o => o.idCliente === cli.id && o.estado === 'ACTIVA');
+      const hasOpsInMora = cliOps.some(o => o.diasMora > 0);
+      const targetEstado = hasOpsInMora ? 'EN_MORA' as const : (cli.estado === 'EN_MORA' ? 'ACTIVO' as const : cli.estado);
+      if (cli.estado !== targetEstado) {
+        return { ...cli, estado: targetEstado };
+      }
+      return cli;
+    });
+
+    return { recClientes, recOperaciones, recCuotas };
+  };
+
   const handleLogin = (user: UsuarioRol) => {
     setActiveUser(user);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_USER_ID, user.id);
@@ -779,15 +886,13 @@ export default function App() {
       setActiveTab('pagos-calle');
     } else if (user.rolId === 'OPERADOR') {
       setActiveTab('pagos-whatsapp');
-    } else if (user.rolId === 'ADMIN') {
-      setActiveTab('dashboard');
     } else {
       setActiveTab('dashboard');
     }
 
-    // Dynamic registration of login user to prevent stale local storage login lockout
+    // Dynamic registration of login user in current users list
     setUsuarios(prev => {
-      const exists = prev.some(u => u.email.toLowerCase() === user.email.toLowerCase());
+      const exists = prev.some(u => u.email.toLowerCase() === user.email.toLowerCase() || u.id === user.id);
       if (!exists) {
         const updated = [...prev, user];
         saveToLocalStorage(STORAGE_KEYS.USUARIOS, updated);
@@ -819,11 +924,19 @@ export default function App() {
     });
 
     if (isFirebaseEnabled()) {
+      setCloudLoading(true);
       downloadAllFromFirestore().then(res => {
+        setCloudLoading(false);
         if (res.success && res.data) {
+          setCloudError(null);
           applyCloudSnapshotData(res.data);
+        } else {
+          setCloudError(res.error || 'Error al descargar datos de Firestore.');
         }
-      }).catch(err => console.warn('Cloud download on login notice:', err));
+      }).catch(err => {
+        setCloudLoading(false);
+        setCloudError(err?.message || 'Error de conexión con Firestore.');
+      });
     }
   };
 
@@ -834,46 +947,67 @@ export default function App() {
     setIsLoggedIn(false);
   };
 
-  // Comprehensive helper to apply cloud snapshot to state and localStorage
+  // Comprehensive helper to apply cloud snapshot to state strictly from Firestore
   const applyCloudSnapshotData = (data: any) => {
     if (!data) return;
-    if (data.clientes && data.clientes.length > 0) {
-      setClientes(data.clientes);
-      saveToLocalStorage(STORAGE_KEYS.CLIENTES, data.clientes);
+
+    const rawClientes = data.clientes !== undefined ? data.clientes : clientes;
+    const rawOperaciones = data.operaciones !== undefined ? data.operaciones : operaciones;
+    const rawCuotas = data.cuotas !== undefined ? data.cuotas : cuotas;
+    const rawConfig = data.configuracion || configuracion;
+
+    const { recClientes, recOperaciones, recCuotas } = reconcileOverdueData(rawClientes, rawOperaciones, rawCuotas, rawConfig);
+
+    if (data.clientes !== undefined) {
+      setClientes(recClientes);
+      saveToLocalStorage(STORAGE_KEYS.CLIENTES, recClientes);
     }
-    if (data.operaciones && data.operaciones.length > 0) {
-      setOperaciones(data.operaciones);
-      saveToLocalStorage(STORAGE_KEYS.OPERACIONES, data.operaciones);
+    if (data.operaciones !== undefined) {
+      setOperaciones(recOperaciones);
+      saveToLocalStorage(STORAGE_KEYS.OPERACIONES, recOperaciones);
     }
-    if (data.cuotas && data.cuotas.length > 0) {
-      setCuotas(data.cuotas);
-      saveToLocalStorage(STORAGE_KEYS.CUOTAS, data.cuotas);
+    if (data.cuotas !== undefined) {
+      setCuotas(recCuotas);
+      saveToLocalStorage(STORAGE_KEYS.CUOTAS, recCuotas);
     }
-    if (data.pagos && data.pagos.length > 0) {
+    if (data.pagos !== undefined) {
       setPagos(data.pagos);
       saveToLocalStorage(STORAGE_KEYS.PAGOS, data.pagos);
     }
-    if (data.transacciones && data.transacciones.length > 0) {
+    if (data.transacciones !== undefined) {
       setTransacciones(data.transacciones);
       saveToLocalStorage(STORAGE_KEYS.TRANSACCIONES, data.transacciones);
     }
-    if (data.usuarios && data.usuarios.length > 0) {
+    if (data.liquidaciones !== undefined) {
+      setLiquidaciones(data.liquidaciones);
+      saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES, data.liquidaciones);
+    }
+    if (data.usuarios !== undefined && Array.isArray(data.usuarios)) {
       setUsuarios(data.usuarios);
       saveToLocalStorage(STORAGE_KEYS.USUARIOS, data.usuarios);
+
+      // Restore active user if matching
+      const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
+      if (savedActiveUserId) {
+        const matching = data.usuarios.find((u: UsuarioRol) => u.id === savedActiveUserId);
+        if (matching) {
+          setActiveUser(matching);
+        }
+      }
     }
-    if (data.roles && data.roles.length > 0) {
+    if (data.roles !== undefined && Array.isArray(data.roles)) {
       setRoles(data.roles);
       saveToLocalStorage(STORAGE_KEYS.ROLES, data.roles);
     }
-    if (data.comisiones && data.comisiones.length > 0) {
+    if (data.comisiones !== undefined) {
       setComisiones(data.comisiones);
       saveToLocalStorage(STORAGE_KEYS.COMISIONES, data.comisiones);
     }
-    if (data.feriados && data.feriados.length > 0) {
+    if (data.feriados !== undefined) {
       setFeriados(data.feriados);
       saveToLocalStorage(STORAGE_KEYS.FERIADOS, data.feriados);
     }
-    if (data.visitasHistory && data.visitasHistory.length > 0) {
+    if (data.visitasHistory !== undefined) {
       setVisitasHistory(data.visitasHistory);
       saveToLocalStorage(STORAGE_KEYS.VISITAS_HISTORY, data.visitasHistory);
     }
@@ -883,34 +1017,62 @@ export default function App() {
     }
   };
 
-  // Initialize Firebase client on mount if enabled and pull latest cloud database
+  // Re-fetch manual sync handler
+  const handleRetryCloudSync = async () => {
+    setCloudLoading(true);
+    setCloudError(null);
+    try {
+      const res = await downloadAllFromFirestore();
+      if (res.success && res.data) {
+        applyCloudSnapshotData(res.data);
+      } else {
+        setCloudError(res.error || 'Error al conectar con Firestore.');
+      }
+    } catch (err: any) {
+      setCloudError(err?.message || 'Error de conexión con Firestore.');
+    } finally {
+      setCloudLoading(false);
+    }
+  };
+
+  // Initialize Firebase client on mount and pull latest cloud database (Single Source of Truth)
   useEffect(() => {
     let unsubRealtime: (() => void) | undefined;
 
     // Check if app was opened via a shareable linking URL (?fb=... or ?fb_config=...)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('fb') || urlParams.has('fb_config')) {
-      // Force saving the cloud credentials and logout immediately to present Login Screen
       initializeFirebase();
       localStorage.removeItem('credicash_logged_in');
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
       setIsLoggedIn(false);
-      // Clean query string from browser URL bar
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     if (isFirebaseEnabled()) {
+      setCloudLoading(true);
       initializeFirebase();
       downloadAllFromFirestore().then(res => {
+        setCloudLoading(false);
         if (res.success && res.data) {
+          setCloudError(null);
           applyCloudSnapshotData(res.data);
+        } else {
+          setCloudError(res.error || 'No se pudo obtener datos de Firebase Firestore.');
         }
-      }).catch(err => console.warn('Cloud auto-sync download failed on startup:', err));
+      }).catch(err => {
+        setCloudLoading(false);
+        setCloudError(err?.message || 'Error de conexión con Firestore.');
+      });
 
       // Attach real-time listener for multi-device sync
       unsubRealtime = subscribeToFirestore((cloudData) => {
+        setCloudError(null);
         applyCloudSnapshotData(cloudData);
       });
+    } else {
+      setCloudLoading(false);
+      setCloudError('Firebase no está configurado o está deshabilitado.');
     }
 
     // Cross-tab sync handler
@@ -935,7 +1097,7 @@ export default function App() {
     };
   }, []);
 
-  // Sync state to global window reference for cloud backup helpers
+  // Sync state to global window reference for backup inspection
   useEffect(() => {
     (window as any).__credicashState = {
       clientes,
@@ -951,266 +1113,6 @@ export default function App() {
       liquidacionesMensuales
     };
   }, [clientes, operaciones, cuotas, pagos, transacciones, configuracion, feriados, usuarios, comisiones, liquidacionesSemanales, liquidacionesMensuales]);
-
-  // Load state from local storage on mount
-  useEffect(() => {
-    const getOrSeed = <T,>(key: string, seed: T): T => {
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        try {
-          return JSON.parse(stored) as T;
-        } catch (e) {
-          console.error(`Error parsing state for ${key}`, e);
-        }
-      }
-      localStorage.setItem(key, JSON.stringify(seed));
-      return seed;
-    };
-
-    const loadedClientes = getOrSeed(STORAGE_KEYS.CLIENTES, SEED_CLIENTES);
-    const loadedFeriados = getOrSeed(STORAGE_KEYS.FERIADOS, SEED_FERIADOS);
-    const loadedConfig = getOrSeed(STORAGE_KEYS.CONFIGURACION, SEED_CONFIGURACION);
-    const loadedOperaciones = getOrSeed(STORAGE_KEYS.OPERACIONES, [seedOperacion1, seedOperacionLiliana, seedOperacionClaudia]);
-    const loadedCuotas = getOrSeed(STORAGE_KEYS.CUOTAS, generateSeedCuotas());
-    const loadedPagos = getOrSeed(STORAGE_KEYS.PAGOS, SEED_PAGOS);
-
-    // Guarantee presence of test cases Liliana (CLI-004 / OPE-004) and Claudia Vera Cabral (CLI-005 / OPE-005)
-    SEED_CLIENTES.forEach(sc => {
-      if (!loadedClientes.some(c => c.id === sc.id)) {
-        loadedClientes.push(sc);
-      }
-    });
-    [seedOperacion1, seedOperacionLiliana, seedOperacionClaudia].forEach(so => {
-      if (!loadedOperaciones.some(o => o.id === so.id)) {
-        loadedOperaciones.push(so);
-      }
-    });
-    const defaultCuotas = generateSeedCuotas();
-    defaultCuotas.forEach(sc => {
-      if (!loadedCuotas.some(c => c.id === sc.id)) {
-        loadedCuotas.push(sc);
-      }
-    });
-    const loadedTransacciones = getOrSeed(STORAGE_KEYS.TRANSACCIONES, SEED_TRANSACCIONES);
-    const loadedLiquidaciones = getOrSeed(STORAGE_KEYS.LIQUIDACIONES, SEED_LIQUIDACIONES);
-    const loadedUsuarios = getOrSeed(STORAGE_KEYS.USUARIOS, DEFAULT_USUARIOS);
-    const loadedRolesRaw = getOrSeed(STORAGE_KEYS.ROLES, DEFAULT_ROLES);
-    const loadedFichajes = getOrSeed<FichajeAsistencia[]>(STORAGE_KEYS.FICHAJES, [
-      {
-        id: 'FICH-001',
-        usuarioId: 'USR-1',
-        usuarioNombre: 'Administrador Principal',
-        usuarioRol: 'ADMIN',
-        fecha: new Date().toISOString().split('T')[0],
-        horaEntrada: '08:00',
-        estado: 'ACTIVA'
-      },
-      {
-        id: 'FICH-002',
-        usuarioId: 'USR-2',
-        usuarioNombre: 'Operador Cobranza 1',
-        usuarioRol: 'OPERADOR',
-        fecha: new Date().toISOString().split('T')[0],
-        horaEntrada: '08:30',
-        horaSalida: '16:30',
-        horasTrabajadas: 8,
-        estado: 'FINALIZADA'
-      }
-    ]);
-
-    const loadedConfigComisiones = getOrSeed(STORAGE_KEYS.CONFIG_COMISIONES, SEED_CONFIG_COMISIONES);
-    const loadedConfigRecorrido = getOrSeed(STORAGE_KEYS.CONFIG_RECORRIDO, SEED_CONFIG_RECORRIDO);
-    const loadedComisiones = getOrSeed(STORAGE_KEYS.COMISIONES, SEED_COMISIONES);
-    const loadedVisitasHistory = getOrSeed<VisitaDomicilio[]>(STORAGE_KEYS.VISITAS_HISTORY, []);
-    const loadedVisitasReprogramadas = getOrSeed<VisitaReprogramada[]>(STORAGE_KEYS.VISITAS_REPROGRAMADAS, []);
-    const loadedLiquidacionesSemanales = getOrSeed<LiquidacionSemanal[]>(STORAGE_KEYS.LIQUIDACIONES_SEMANALES, []);
-    const loadedLiquidacionesMensuales = getOrSeed<LiquidacionMensual[]>(STORAGE_KEYS.LIQUIDACIONES_MENSUALES, []);
-    const loadedReintegrosDesayuno = getOrSeed<SolicitudReintegroDesayuno[]>(STORAGE_KEYS.REINTEGROS_DESAYUNO, []);
-    const loadedCompromisosRaw = getOrSeed<CompromisoPago[]>(STORAGE_KEYS.COMPROMISOS_PAGO, []);
-    
-    // Merge saved roles with default structures to prevent missing properties while strictly preserving configured permissions
-    const loadedRoles = loadedRolesRaw.map(r => {
-      const defaultRole = DEFAULT_ROLES.find(dr => dr.id === r.id);
-      return {
-        ...(defaultRole || {}),
-        ...r
-      };
-    });
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayDate = new Date(todayStr + 'T12:00:00');
-    let cuotasChanged = false;
-    let opsChanged = false;
-    let clientesChanged = false;
-
-    // A. Reconcile Cuotas (Mark as VENCIDA if unpaid and past due date)
-    const reconciledCuotas = loadedCuotas.map(c => {
-      if (c.estado !== 'PAGADA') {
-        const isPastDue = c.fechaVencimiento < todayStr;
-        const targetEstado = isPastDue ? 'VENCIDA' as const : 'PENDIENTE' as const;
-        if (c.estado !== targetEstado) {
-          cuotasChanged = true;
-          return { ...c, estado: targetEstado };
-        }
-      }
-      return c;
-    });
-
-    // B. Reconcile Operaciones (Calculate diasMora & nivelMora based on oldest unpaid overdue installment)
-    const reconciledOperaciones = loadedOperaciones.map(op => {
-      if (op.estado === 'ACTIVA') {
-        const opCuotas = reconciledCuotas.filter(c => c.idOperacion === op.id && c.estado !== 'PAGADA');
-        const sortedPending = [...opCuotas].sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento));
-        
-        let targetDiasMora = 0;
-        let targetNivelMora = 'Sano';
-        let targetProximoVencimiento = op.proximoVencimiento;
-        
-        if (sortedPending.length > 0) {
-          const oldestPending = sortedPending[0];
-          targetProximoVencimiento = oldestPending.fechaVencimiento;
-          if (oldestPending.fechaVencimiento < todayStr) {
-            targetDiasMora = calcularDiasAtrasoSinDomingos(oldestPending.fechaVencimiento, todayStr);
-          }
-        } else {
-          targetProximoVencimiento = 'PAGADO TOTAL';
-        }
-
-        if (targetDiasMora === 0) {
-          targetNivelMora = 'Sano';
-        } else {
-          const f = op.frecuencia;
-          const config = loadedConfig || configuracion;
-          
-          if (f === 'DIARIA') {
-            const aviso = config.moraDiarioAvisoDias ?? 1;
-            const llamar = config.moraDiarioLlamarDias ?? 2;
-            const cobrador = config.moraDiarioCobradorDias ?? 6;
-            
-            if (targetDiasMora < llamar) {
-              targetNivelMora = `Atraso Regular (Aviso WA: ${targetDiasMora} d)`;
-            } else if (targetDiasMora < cobrador) {
-              targetNivelMora = `Notificar / Llamar (Crítica: ${targetDiasMora} d)`;
-            } else {
-              targetNivelMora = `Enviar Cobrador (Calle: ${targetDiasMora} d)`;
-            }
-          } else if (f === 'MENSUAL') {
-            const aviso = config.moraMensualAvisoDias ?? 1;
-            const llamar = config.moraMensualLlamarDias ?? 2;
-            const cobrador = config.moraMensualCobradorDias ?? 2;
-            
-            if (targetDiasMora < llamar) {
-              targetNivelMora = `Atraso Regular (${targetDiasMora} d)`;
-            } else {
-              // At 2+ days on monthly, immediately send cobrador and alert!
-              targetNivelMora = `Enviar Cobrador / Alerta Crítica (${targetDiasMora} d)`;
-            }
-          } else if (f === 'SEMANAL') {
-            const aviso = config.moraSemanalAvisoDias ?? 2;
-            const llamar = config.moraSemanalLlamarDias ?? 4;
-            const cobrador = config.moraSemanalCobradorDias ?? 7;
-            
-            if (targetDiasMora < llamar) {
-              targetNivelMora = `Atraso Regular (${targetDiasMora} d)`;
-            } else if (targetDiasMora < cobrador) {
-              targetNivelMora = `Notificar / Llamar (${targetDiasMora} d)`;
-            } else {
-              targetNivelMora = `Enviar Cobrador (Calle: ${targetDiasMora} d)`;
-            }
-          } else { // QUINCENAL
-            const aviso = config.moraQuincenalAvisoDias ?? 2;
-            const llamar = config.moraQuincenalLlamarDias ?? 5;
-            const cobrador = config.moraQuincenalCobradorDias ?? 8;
-            
-            if (targetDiasMora < llamar) {
-              targetNivelMora = `Atraso Regular (${targetDiasMora} d)`;
-            } else if (targetDiasMora < cobrador) {
-              targetNivelMora = `Notificar / Llamar (${targetDiasMora} d)`;
-            } else {
-              targetNivelMora = `Enviar Cobrador (Calle: ${targetDiasMora} d)`;
-            }
-          }
-        }
-
-        if (op.diasMora !== targetDiasMora || op.nivelMora !== targetNivelMora || op.proximoVencimiento !== targetProximoVencimiento) {
-          opsChanged = true;
-          return { ...op, diasMora: targetDiasMora, nivelMora: targetNivelMora, proximoVencimiento: targetProximoVencimiento };
-        }
-      }
-      return op;
-    });
-
-    // C. Reconcile Clientes (Set state as EN_MORA if they have operations in mora)
-    const reconciledClientes = loadedClientes.map(cli => {
-      const cliOps = reconciledOperaciones.filter(o => o.idCliente === cli.id && o.estado === 'ACTIVA');
-      const hasOpsInMora = cliOps.some(o => o.diasMora > 0);
-      const targetEstado = hasOpsInMora ? 'EN_MORA' as const : (cli.estado === 'EN_MORA' ? 'ACTIVO' as const : cli.estado);
-      if (cli.estado !== targetEstado) {
-        clientesChanged = true;
-        return { ...cli, estado: targetEstado };
-      }
-      return cli;
-    });
-
-    // Save changes to localStorage if any occurred
-    if (cuotasChanged) {
-      localStorage.setItem(STORAGE_KEYS.CUOTAS, JSON.stringify(reconciledCuotas));
-    }
-    if (opsChanged) {
-      localStorage.setItem(STORAGE_KEYS.OPERACIONES, JSON.stringify(reconciledOperaciones));
-    }
-    if (clientesChanged) {
-      localStorage.setItem(STORAGE_KEYS.CLIENTES, JSON.stringify(reconciledClientes));
-    }
-
-    setClientes(reconciledClientes);
-    setFeriados(loadedFeriados);
-    setConfiguracion(loadedConfig);
-    setOperaciones(reconciledOperaciones);
-    setCuotas(reconciledCuotas);
-    setPagos(loadedPagos);
-    setTransacciones(loadedTransacciones);
-    setLiquidaciones(loadedLiquidaciones);
-    setUsuarios(loadedUsuarios);
-    setRoles(loadedRoles);
-    setFichajes(loadedFichajes);
-    setConfigComisiones(loadedConfigComisiones);
-    setConfigRecorrido(loadedConfigRecorrido);
-    setComisiones(loadedComisiones);
-    setVisitasHistory(loadedVisitasHistory);
-    setVisitasReprogramadas(loadedVisitasReprogramadas);
-    setLiquidacionesSemanales(loadedLiquidacionesSemanales);
-    setLiquidacionesMensuales(loadedLiquidacionesMensuales);
-    setReintegrosDesayuno(loadedReintegrosDesayuno);
-
-    const reconciledCompromisos = loadedCompromisosRaw.map(comp => {
-      if (comp.estado === 'PENDIENTE' && comp.fechaCompromiso < todayStr) {
-        return { ...comp, estado: 'EN MORA' as const };
-      }
-      return comp;
-    });
-    setCompromisosPago(reconciledCompromisos);
-
-    // Active user setup - only restore if there is an active logged-in session
-    const isLoggedStored = localStorage.getItem('credicash_logged_in') === 'true';
-    const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
-    if (isLoggedStored && savedActiveUserId) {
-      const userFound = loadedUsuarios.find(u => u.id === savedActiveUserId);
-      if (userFound) {
-        setActiveUser(userFound);
-        const storedRealRolId = localStorage.getItem('credicash_real_user_rol_id') || userFound.rolId;
-        setRealUserRolId(storedRealRolId);
-      } else {
-        // Stale session or user not found: require fresh login
-        localStorage.removeItem('credicash_logged_in');
-        localStorage.removeItem('credicash_real_user_rol_id');
-        localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
-        setIsLoggedIn(false);
-      }
-    } else {
-      setIsLoggedIn(false);
-    }
-  }, []);
 
   // Save updates to LocalStorage
   const saveToLocalStorage = (key: string, data: any) => {
@@ -2224,31 +2126,53 @@ export default function App() {
     }
   };
 
-  const activeUserRole: PermisosRol = roles.find(r => r.id === activeUser?.rolId) || {
-    id: activeUser?.rolId || 'INVITADO',
-    nombre: 'Acceso Restringido',
-    verDashboard: false,
-    verClientes: false,
-    crearClientes: false,
-    verTelefonoCliente: false,
-    verDniCliente: false,
-    verDireccionCliente: false,
-    verIngresosCliente: false,
-    verPrestamos: false,
-    crearPrestamos: false,
-    verPagos: false,
-    registrarPagos: false,
-    verTesoreria: false,
-    verConfiguracion: false,
-  };
-
-  const isAdmin = Boolean(
+  const isSuperAdmin = Boolean(
     activeUser && (
       activeUser.rolId === 'ADMIN' ||
       activeUser.rolId === 'SUPERADMIN' ||
-      activeUser.email?.toLowerCase() === 'credicash999@gmail.com'
+      activeUser.rolId === 'SUPERADMINISTRADOR' ||
+      activeUser.rolId?.toLowerCase().includes('admin') ||
+      activeUser.email?.toLowerCase() === 'credicash999@gmail.com' ||
+      activeUser.id === 'USR-1'
     )
   );
+  const isAdmin = isSuperAdmin;
+
+  const activeUserRole: PermisosRol = isSuperAdmin
+    ? {
+        id: activeUser?.rolId || 'ADMIN',
+        nombre: 'Superadministrador',
+        verDashboard: true,
+        verClientes: true,
+        crearClientes: true,
+        verTelefonoCliente: true,
+        verDniCliente: true,
+        verDireccionCliente: true,
+        verIngresosCliente: true,
+        verPrestamos: true,
+        crearPrestamos: true,
+        verPagos: true,
+        registrarPagos: true,
+        verTesoreria: true,
+        verConfiguracion: true,
+      }
+    : (roles.find(r => r.id === activeUser?.rolId) || DEFAULT_ROLES.find(r => r.id === activeUser?.rolId) || {
+        id: activeUser?.rolId || 'INVITADO',
+        nombre: 'Acceso Restringido',
+        verDashboard: false,
+        verClientes: false,
+        crearClientes: false,
+        verTelefonoCliente: false,
+        verDniCliente: false,
+        verDireccionCliente: false,
+        verIngresosCliente: false,
+        verPrestamos: false,
+        crearPrestamos: false,
+        verPagos: false,
+        registrarPagos: false,
+        verTesoreria: false,
+        verConfiguracion: false,
+      });
 
   // Automatic redirect if current tab is not allowed for the selected role
   useEffect(() => {
@@ -2481,6 +2405,27 @@ export default function App() {
         
         {/* Navigation Sidebar */}
         <aside className="md:w-64 shrink-0 flex flex-col gap-2">
+          {/* Cloud Error / Offline Notice */}
+          {cloudError && (
+            <div className="p-3 bg-rose-950/80 border border-rose-600/80 rounded-xl text-rose-200 text-xs shadow-md mb-1">
+              <div className="flex items-center gap-2 font-bold text-rose-100">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>Aviso de Sincronización</span>
+              </div>
+              <div className="text-[11px] text-rose-300 mt-1 leading-snug">
+                {cloudError}
+              </div>
+              <button
+                onClick={handleRetryCloudSync}
+                disabled={cloudLoading}
+                className="mt-2.5 w-full py-1.5 bg-rose-700 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw className={`w-3 h-3 ${cloudLoading ? 'animate-spin' : ''}`} />
+                <span>{cloudLoading ? 'Conectando...' : 'Reintentar'}</span>
+              </button>
+            </div>
+          )}
+
           <div className="p-3 bg-slate-900 text-slate-100 rounded-xl border border-slate-800 flex items-center gap-3 mb-1 shadow-sm">
             <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse shrink-0"></div>
             <div className="flex flex-col min-w-0">
@@ -2491,22 +2436,20 @@ export default function App() {
 
           <div className="flex flex-col gap-1.5 bg-slate-900 p-3.5 rounded-2xl border border-slate-800 shadow-md">
             {isAdmin ? (
-              // Flat Single-Level Main Menu (Exactly 9 Options)
+              // Flat Single-Level Main Menu (Exactly 9 Options) - Absolute Access for Superadmin
               <>
                 {/* 1. Consola Dashboard */}
-                {activeUserRole.verDashboard && (
-                  <button
-                    onClick={() => setActiveTab('dashboard')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
-                      activeTab === 'dashboard'
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
-                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
-                    }`}
-                  >
-                    <LayoutDashboard className="w-4 h-4 shrink-0 text-emerald-400" />
-                    <span>Consola Dashboard</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'dashboard'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Consola Dashboard</span>
+                </button>
 
                 {/* 2. Gestión Administración */}
                 <button
@@ -2522,19 +2465,17 @@ export default function App() {
                 </button>
 
                 {/* 3. Consola de Cobranzas */}
-                {activeUserRole.verPagos && (
-                  <button
-                    onClick={() => setActiveTab('pagos-whatsapp')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
-                      ['pagos-whatsapp', 'pagos-telefono', 'pagos-calle', 'cobrador-campo'].includes(activeTab)
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
-                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
-                    }`}
-                  >
-                    <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
-                    <span>Consola de Cobranzas</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setActiveTab('pagos-whatsapp')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    ['pagos-whatsapp', 'pagos-telefono', 'pagos-calle', 'cobrador-campo'].includes(activeTab)
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Consola de Cobranzas</span>
+                </button>
 
                 {/* 4. Captación de Clientes */}
                 <button
@@ -2563,19 +2504,17 @@ export default function App() {
                 </button>
 
                 {/* 6. Caja y Tesorería */}
-                {activeUserRole.verTesoreria && (
-                  <button
-                    onClick={() => setActiveTab('tesoreria')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
-                      activeTab === 'tesoreria'
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
-                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
-                    }`}
-                  >
-                    <Activity className="w-4 h-4 shrink-0 text-teal-400" />
-                    <span>Caja y Tesorería</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setActiveTab('tesoreria')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'tesoreria'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <Activity className="w-4 h-4 shrink-0 text-teal-400" />
+                  <span>Caja y Tesorería</span>
+                </button>
 
                 {/* 7. Liquidaciones */}
                 <button
@@ -2591,19 +2530,17 @@ export default function App() {
                 </button>
 
                 {/* 8. Configuraciones */}
-                {activeUserRole.verConfiguracion && (
-                  <button
-                    onClick={() => setActiveTab('configuracion')}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
-                      activeTab === 'configuracion'
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
-                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
-                    }`}
-                  >
-                    <Settings className="w-4 h-4 shrink-0 text-emerald-400" />
-                    <span>Configuraciones</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setActiveTab('configuracion')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'configuracion'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <Settings className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Configuraciones</span>
+                </button>
 
                 {/* 9. Seguridad y Accesos */}
                 <button

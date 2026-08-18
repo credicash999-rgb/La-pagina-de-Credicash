@@ -329,19 +329,14 @@ export async function downloadAllFromFirestore(): Promise<{
 
   try {
     const fetchCollection = async (name: string): Promise<any[]> => {
-      try {
-        const querySnapshot = await getDocs(collection(db, name));
-        const items: any[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          delete data.lastUpdated;
-          items.push(data);
-        });
-        return items;
-      } catch (err) {
-        console.warn(`Could not fetch collection ${name}:`, err);
-        return [];
-      }
+      const querySnapshot = await getDocs(collection(db, name));
+      const items: any[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        delete data.lastUpdated;
+        items.push(data);
+      });
+      return items;
     };
 
     const clientes = await fetchCollection('clientes');
@@ -372,7 +367,7 @@ export async function downloadAllFromFirestore(): Promise<{
         configuracion = configData as Configuracion;
       }
     } catch (e) {
-      console.warn('Could not fetch global config from Firestore', e);
+      console.warn('Notice while fetching global config from Firestore:', e);
     }
 
     return {
@@ -385,15 +380,15 @@ export async function downloadAllFromFirestore(): Promise<{
         transacciones,
         configuracion,
         feriados,
-        usuarios: usuarios.length > 0 ? usuarios : undefined,
-        roles: roles.length > 0 ? roles : undefined,
-        comisiones: comisiones.length > 0 ? comisiones : undefined,
-        visitasHistory: visitasHistory.length > 0 ? visitasHistory : undefined
+        usuarios,
+        roles,
+        comisiones,
+        visitasHistory
       }
     };
   } catch (error: any) {
     console.error('Error during download from Firestore:', error);
-    return { success: false, error: error.message || 'Error desconocido al descargar de la nube.' };
+    return { success: false, error: error.message || 'Error de conexión o permisos en Firestore.' };
   }
 }
 

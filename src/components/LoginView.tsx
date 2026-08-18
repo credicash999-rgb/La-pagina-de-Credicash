@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UsuarioRol, PermisosRol } from '../types';
 import CrediCashLogo from './CrediCashLogo';
 import { 
@@ -21,6 +21,16 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
   const [error, setError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isFirebaseEnabled()) {
+      downloadAllFromFirestore().then(cloudRes => {
+        if (cloudRes.success && cloudRes.data && onRefreshCloudData) {
+          onRefreshCloudData(cloudRes.data);
+        }
+      }).catch(err => console.warn('LoginView cloud users sync notice:', err));
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
