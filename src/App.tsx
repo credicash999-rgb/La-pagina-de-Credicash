@@ -2403,7 +2403,7 @@ export default function App() {
   };
 
   if (!isLoggedIn) {
-    return <LoginView usuarios={usuarios} roles={roles} onLogin={handleLogin} />;
+    return <LoginView usuarios={usuarios} roles={roles} onLogin={handleLogin} onRefreshCloudData={applyCloudSnapshotData} />;
   }
 
   return (

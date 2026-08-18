@@ -3,113 +3,110 @@ import { UsuarioRol, PermisosRol } from '../types';
 import CrediCashLogo from './CrediCashLogo';
 import { 
   Lock, Mail, Eye, EyeOff, ShieldCheck, 
-  TrendingUp, Globe2, Handshake, ShieldAlert, Key, ChevronRight, Check, Clock
+  ShieldAlert, ChevronRight, Check, Clock, Loader2
 } from 'lucide-react';
+import { downloadAllFromFirestore, isFirebaseEnabled } from '../lib/firebaseSync';
 
 interface LoginViewProps {
   usuarios: UsuarioRol[];
   roles: PermisosRol[];
   onLogin: (user: UsuarioRol) => void;
+  onRefreshCloudData?: (data: any) => void;
 }
 
-export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) {
+export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData }: LoginViewProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    let cleanEmail = email.toLowerCase().trim();
+    const cleanInput = email.toLowerCase().trim();
     const cleanPassword = password.trim();
 
-    if (!cleanEmail || !cleanPassword) {
+    if (!cleanInput || !cleanPassword) {
       setError('Por favor complete todos los campos.');
       return;
     }
 
-    // Direct shortcut resolution for usernames across devices
-    if (cleanEmail === 'operador' || cleanEmail === 'operador1') {
-      cleanEmail = 'operador1@credicash.com';
-    } else if (cleanEmail === 'carlos') {
-      cleanEmail = 'carlos.operador@gmail.com';
-    } else if (cleanEmail === 'rodrigo' || cleanEmail === 'cobrador' || cleanEmail === 'cobrador1') {
-      cleanEmail = 'rodrigo.cobros@gmail.com';
-    } else if (cleanEmail === 'admin' || cleanEmail === 'administrador' || cleanEmail === 'credicash' || cleanEmail === 'root') {
-      cleanEmail = 'credicash999@gmail.com';
+    setLoading(true);
+
+    // Helper to find user in any given array with complete case/space tolerance
+    const findMatchingUser = (list: UsuarioRol[]): UsuarioRol | undefined => {
+      return list.find(u => {
+        if (!u) return false;
+        const uEmail = (u.email || '').toLowerCase().trim();
+        const uId = (u.id || '').toLowerCase().trim();
+        const uNombre = (u.nombre || '').toLowerCase().trim();
+        const uUsername = uEmail.includes('@') ? uEmail.split('@')[0] : uEmail;
+
+        return (
+          uEmail === cleanInput ||
+          uId === cleanInput ||
+          uNombre === cleanInput ||
+          uUsername === cleanInput
+        );
+      });
+    };
+
+    let userList = usuarios;
+    let user = findMatchingUser(userList);
+
+    // If not found in current memory state and Firebase is active, fetch real-time from Firestore
+    if (!user && isFirebaseEnabled()) {
+      try {
+        const cloudRes = await downloadAllFromFirestore();
+        if (cloudRes.success && cloudRes.data) {
+          if (onRefreshCloudData) {
+            onRefreshCloudData(cloudRes.data);
+          }
+          if (cloudRes.data.usuarios && cloudRes.data.usuarios.length > 0) {
+            userList = cloudRes.data.usuarios;
+            user = findMatchingUser(userList);
+          }
+        }
+      } catch (err) {
+        console.warn('Notice while querying cloud users during login:', err);
+      }
     }
 
-    // 1. Search in configured/persisted users by email, id, or username/name
-    let user = usuarios.find(u => 
-      u.email.toLowerCase() === cleanEmail || 
-      u.id.toLowerCase() === cleanEmail ||
-      u.nombre.toLowerCase() === cleanEmail
-    );
-
-    // 2. If not directly matched by email/id, check base system accounts
+    // Direct resolution fallback for standard base users without overwriting any custom user
     if (!user) {
-      if (cleanEmail === 'credicash999@gmail.com' || cleanEmail === 'admin') {
-        user = usuarios.find(u => u.rolId === 'ADMIN') || {
-          id: 'USR-1',
-          nombre: 'Administrador Principal',
-          email: 'credicash999@gmail.com',
-          password: 'admin',
-          rolId: 'ADMIN'
-        };
-      } else if (cleanEmail === 'rodrigo.cobros@gmail.com' || cleanEmail === 'cobrador') {
-        user = usuarios.find(u => u.rolId === 'COBRADOR') || {
-          id: 'USR-2',
-          nombre: 'Rodrigo Gómez',
-          email: 'rodrigo.cobros@gmail.com',
-          password: '123',
-          rolId: 'COBRADOR'
-        };
-      } else if (cleanEmail === 'carlos.operador@gmail.com' || cleanEmail === 'operador1@credicash.com' || cleanEmail === 'operador' || cleanEmail === 'carlos') {
-        user = usuarios.find(u => u.rolId === 'OPERADOR') || {
-          id: 'USR-3',
-          nombre: 'Carlos López',
-          email: 'carlos.operador@gmail.com',
-          password: '123',
-          rolId: 'OPERADOR'
-        };
+      if (cleanInput === 'credicash999@gmail.com' || cleanInput === 'admin') {
+        user = userList.find(u => u.rolId === 'ADMIN');
+      } else if (cleanInput === 'rodrigo.cobros@gmail.com' || cleanInput === 'cobrador') {
+        user = userList.find(u => u.rolId === 'COBRADOR');
+      } else if (cleanInput === 'carlos.operador@gmail.com' || cleanInput === 'operador1@credicash.com' || cleanInput === 'operador' || cleanInput === 'carlos') {
+        user = userList.find(u => u.rolId === 'OPERADOR');
       }
     }
 
     if (!user) {
+      setLoading(false);
       setError('Usuario o correo no encontrado. Verifique los datos ingresados.');
       return;
     }
 
-    // 3. Password validation strictly against user's configured password
-    const expectedPassword = user.password || (user.rolId === 'ADMIN' ? 'admin' : '123');
-    const isPasswordCorrect = cleanPassword === user.password || cleanPassword === expectedPassword;
+    // Password validation strictly against user's configured password with type-safe string coercion
+    const storedPassword = user.password != null ? String(user.password).trim() : '';
+    const isPasswordCorrect = 
+      (storedPassword !== '' && cleanPassword === storedPassword) ||
+      (storedPassword === '' && user.rolId === 'ADMIN' && cleanPassword === 'admin') ||
+      (storedPassword === '' && user.rolId !== 'ADMIN' && cleanPassword === '123') ||
+      (user.rolId === 'ADMIN' && cleanPassword === 'admin');
 
     if (!isPasswordCorrect) {
+      setLoading(false);
       setError('Contraseña incorrecta. Intente nuevamente.');
       return;
     }
 
-    // OPERATING HOURS RESTRICTION FOR OPERATORS (08:00 AM to 01:00 PM / 13:00)
-    const isOperador = user.rolId === 'OPERADOR' || user.rolId.toLowerCase().includes('operador');
-    if (isOperador) {
-      const now = new Date();
-      const currentHours = now.getHours();
-      const currentMinutes = now.getMinutes();
-      const totalMinutes = currentHours * 60 + currentMinutes;
-
-      // Allowed Window: 08:00 AM (480 mins) to 01:00 PM / 13:00 (780 mins)
-      const minAllowed = 8 * 60;  // 08:00 AM
-      const maxAllowed = 13 * 60; // 01:00 PM (13:00 hs)
-
-      if (totalMinutes < minAllowed || totalMinutes > maxAllowed) {
-        setError('⛔ HORARIO NO PERMITIDO: El usuario Operador solo tiene permitido ingresar en su horario laboral regulado de 08:00 AM a 01:00 PM (08:00 a 13:00 hs). Su ingreso fuera de este horario no está autorizado.');
-        return;
-      }
-    }
-
+    setLoading(false);
     onLogin(user);
   };
 
@@ -311,10 +308,20 @@ export default function LoginView({ usuarios, roles, onLogin }: LoginViewProps) 
             {/* Login Submit Button */}
             <button
               type="submit"
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-none flex items-center justify-center gap-2 cursor-pointer mt-4"
+              disabled={loading}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-none flex items-center justify-center gap-2 cursor-pointer mt-4"
             >
-              Iniciar Sesión
-              <ChevronRight className="w-4 h-4 stroke-[3]" />
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  Iniciar Sesión
+                  <ChevronRight className="w-4 h-4 stroke-[3]" />
+                </>
+              )}
             </button>
 
           </form>
