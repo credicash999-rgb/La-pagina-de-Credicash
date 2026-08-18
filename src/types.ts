@@ -16,6 +16,8 @@ export interface Cliente {
   analista: string;
   operadorAsignadoId?: string;
   operadorAsignadoNombre?: string;
+  operadorTelefonicoId?: string;
+  operadorTelefonicoNombre?: string;
   cobradorAsignadoId?: string;
   cobradorAsignadoNombre?: string;
   montoDeudaInactivo?: number;
@@ -71,6 +73,10 @@ export interface Operacion {
   descripcion: string;
   operadorAsignadoId?: string;
   operadorAsignadoNombre?: string;
+  operadorTelefonicoId?: string;
+  operadorTelefonicoNombre?: string;
+  cobradorAsignadoId?: string;
+  cobradorAsignadoNombre?: string;
   capitalEntregado: number;
   promocionAplicada: string;
   descuentoPorcentaje: number;

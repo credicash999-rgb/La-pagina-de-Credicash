@@ -46,12 +46,14 @@ import GestionAdministracionView from './components/GestionAdministracionView';
 import AlertasOportunidadesView from './components/AlertasOportunidadesView';
 import CaptacionClientesView from './components/CaptacionClientesView';
 import VerificacionView from './components/VerificacionView';
+import AsignacionClientesView from './components/AsignacionClientesView';
 
 // Icons
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
-  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles, UserCheck, FileCheck
+  Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles, UserCheck, FileCheck,
+  AlertTriangle, RefreshCw
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -2230,9 +2232,18 @@ export default function App() {
         const isAssignedToUser = 
           c.operadorAsignadoId === activeUser?.id ||
           (c.operadorAsignadoNombre && activeUser?.nombre && c.operadorAsignadoNombre.toLowerCase() === activeUser.nombre.toLowerCase()) ||
+          c.operadorTelefonicoId === activeUser?.id ||
+          (c.operadorTelefonicoNombre && activeUser?.nombre && c.operadorTelefonicoNombre.toLowerCase() === activeUser.nombre.toLowerCase()) ||
+          c.cobradorAsignadoId === activeUser?.id ||
+          (c.cobradorAsignadoNombre && activeUser?.nombre && c.cobradorAsignadoNombre.toLowerCase() === activeUser.nombre.toLowerCase()) ||
           (c.analista && activeUser?.nombre && c.analista.toLowerCase() === activeUser.nombre.toLowerCase()) ||
           (c.captador && activeUser?.nombre && c.captador.toLowerCase() === activeUser.nombre.toLowerCase()) ||
-          operaciones.some(o => o.idCliente === c.id && (o.cobrador === activeUser?.nombre || o.operadorAsignadoId === activeUser?.id));
+          operaciones.some(o => o.idCliente === c.id && (
+            o.cobrador === activeUser?.nombre || 
+            o.operadorAsignadoId === activeUser?.id || 
+            o.operadorTelefonicoId === activeUser?.id || 
+            o.cobradorAsignadoId === activeUser?.id
+          ));
 
         return isAssignedToUser;
       })
@@ -2247,8 +2258,14 @@ export default function App() {
         return (
           o.cobrador === activeUser?.nombre || 
           o.operadorAsignadoId === activeUser?.id || 
+          o.operadorTelefonicoId === activeUser?.id || 
+          o.cobradorAsignadoId === activeUser?.id || 
           client.operadorAsignadoId === activeUser?.id || 
           client.operadorAsignadoNombre === activeUser?.nombre ||
+          client.operadorTelefonicoId === activeUser?.id || 
+          client.operadorTelefonicoNombre === activeUser?.nombre ||
+          client.cobradorAsignadoId === activeUser?.id || 
+          client.cobradorAsignadoNombre === activeUser?.nombre ||
           client.analista === activeUser?.nombre ||
           client.captador === activeUser?.nombre
         );
@@ -2464,7 +2481,20 @@ export default function App() {
                   <span>Gestión Administración</span>
                 </button>
 
-                {/* 3. Consola de Cobranzas */}
+                {/* 3. Asignación de Clientes */}
+                <button
+                  onClick={() => setActiveTab('asignar-clientes')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'asignar-clientes'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Asignación de Clientes</span>
+                </button>
+
+                {/* 4. Consola de Cobranzas */}
                 <button
                   onClick={() => setActiveTab('pagos-whatsapp')}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
@@ -3046,6 +3076,17 @@ export default function App() {
             <VerificacionView />
           )}
 
+          {activeTab === 'asignar-clientes' && isAdmin && (
+            <AsignacionClientesView
+              clientes={clientes}
+              usuarios={usuarios}
+              operaciones={operaciones}
+              activeUser={activeUser}
+              onUpdateCliente={handleUpdateCliente}
+              onNavigateTo={(tab) => setActiveTab(tab)}
+            />
+          )}
+
           {activeTab === 'usuarios' && isAdmin && (
             <UsuariosView
               usuarios={usuarios}
@@ -3066,7 +3107,7 @@ export default function App() {
           {(![
             'dashboard', 'clientes', 'clientes-inactivos', 'clientes-todos', 'nuevo-cliente',
             'operaciones', 'pagos', 'pagos-whatsapp', 'pagos-telefono',
-            'pagos-calle', 'cobrador-campo', 'gestion-admin', 'alertas-oportunidades', 
+            'pagos-calle', 'cobrador-campo', 'gestion-admin', 'asignar-clientes', 'alertas-oportunidades', 
             'captacion-clientes', 'verificacion',
             'liquidaciones', 'tesoreria',
             'configuracion', 'usuarios'
@@ -3078,6 +3119,7 @@ export default function App() {
             ((activeTab === 'pagos' || activeTab === 'pagos-whatsapp' || activeTab === 'pagos-telefono') && !activeUserRole.verPagos) ||
             (activeTab === 'tesoreria' && !activeUserRole.verTesoreria) ||
             (activeTab === 'configuracion' && !activeUserRole.verConfiguracion) ||
+            (activeTab === 'asignar-clientes' && !isAdmin) ||
             (activeTab === 'usuarios' && !isAdmin)
           ) && (
             activeUser?.rolId === 'COBRADOR' ? (

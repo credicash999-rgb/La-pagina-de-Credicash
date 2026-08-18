@@ -1170,45 +1170,47 @@ export default function PagosView({
 
       {(viewTab === 'cobranza' || !isUserAdmin) && (
       <>
-      {/* Mode Selector for Consola de Cobranzas */}
-      <div className="flex flex-wrap items-center gap-2 bg-slate-900 p-3 rounded-2xl border border-slate-800 shadow-md">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">Módulos de Cobranza:</span>
-        <button
-          onClick={() => setCurrentMode('WHATSAPP')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            currentMode === 'WHATSAPP'
-              ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <MessageCircle className="w-4 h-4 text-emerald-400" />
-          <span>Gestión diaria</span>
-        </button>
+      {/* Mode Selector for Consola de Cobranzas - Admin Only */}
+      {isUserAdmin && (
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900 p-3 rounded-2xl border border-slate-800 shadow-md">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">Módulos de Cobranza:</span>
+          <button
+            onClick={() => setCurrentMode('WHATSAPP')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              currentMode === 'WHATSAPP'
+                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <MessageCircle className="w-4 h-4 text-emerald-400" />
+            <span>Gestión diaria</span>
+          </button>
 
-        <button
-          onClick={() => setCurrentMode('TELEFONO')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            currentMode === 'TELEFONO'
-              ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-500/30'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <PhoneCall className="w-4 h-4 text-amber-400" />
-          <span>Gestión telefónica</span>
-        </button>
+          <button
+            onClick={() => setCurrentMode('TELEFONO')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              currentMode === 'TELEFONO'
+                ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-500/30'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <PhoneCall className="w-4 h-4 text-amber-400" />
+            <span>Gestión telefónica</span>
+          </button>
 
-        <button
-          onClick={() => setCurrentMode('CALLE')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-            currentMode === 'CALLE'
-              ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-500/30'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <MapPin className="w-4 h-4 text-teal-400" />
-          <span>Gestión domiciliaria</span>
-        </button>
-      </div>
+          <button
+            onClick={() => setCurrentMode('CALLE')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              currentMode === 'CALLE'
+                ? 'bg-teal-600 text-white shadow-sm ring-2 ring-teal-500/30'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <MapPin className="w-4 h-4 text-teal-400" />
+            <span>Gestión domiciliaria</span>
+          </button>
+        </div>
+      )}
 
       {/* Tab Navigation header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-emerald-950/90 p-5 rounded-2xl border border-emerald-800/80 shadow-md">
