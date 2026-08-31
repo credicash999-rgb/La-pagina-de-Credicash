@@ -334,7 +334,7 @@ export async function downloadAllFromFirestore(): Promise<{
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         delete data.lastUpdated;
-        items.push(data);
+        items.push({ id: doc.id, ...data });
       });
       return items;
     };

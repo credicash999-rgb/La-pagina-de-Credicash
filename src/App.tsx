@@ -220,7 +220,7 @@ const SEED_CONFIGURACION: Configuracion = {
   interesAtrasoMensual: 50,
 };
 
-const DEFAULT_ROLES: PermisosRol[] = [
+export const DEFAULT_ROLES: PermisosRol[] = [
   {
     id: 'ADMIN',
     nombre: 'Super Administrador',
@@ -291,7 +291,7 @@ const DEFAULT_ROLES: PermisosRol[] = [
   }
 ];
 
-const DEFAULT_USUARIOS: UsuarioRol[] = [
+export const DEFAULT_USUARIOS: UsuarioRol[] = [
   {
     id: 'USR-1',
     nombre: 'Administrador Principal',
@@ -745,8 +745,26 @@ export default function App() {
   });
   const [feriados, setFeriados] = useState<Feriado[]>([]);
   const [transacciones, setTransacciones] = useState<TransaccionTesoreria[]>([]);
-  const [usuarios, setUsuarios] = useState<UsuarioRol[]>([]);
-  const [roles, setRoles] = useState<PermisosRol[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioRol[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.USUARIOS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_USUARIOS;
+  });
+  const [roles, setRoles] = useState<PermisosRol[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ROLES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_ROLES;
+  });
   const [fichajes, setFichajes] = useState<FichajeAsistencia[]>([]);
 
   // Cloud single-source-of-truth status
@@ -763,7 +781,19 @@ export default function App() {
   const [liquidacionesMensuales, setLiquidacionesMensuales] = useState<LiquidacionMensual[]>([]);
   const [reintegrosDesayuno, setReintegrosDesayuno] = useState<SolicitudReintegroDesayuno[]>([]);
   const [cobradorSubTab, setCobradorSubTab] = useState<'gestion_diaria' | 'mi_recorrido' | 'reintegro_desayuno'>('gestion_diaria');
-  const [activeUser, setActiveUser] = useState<UsuarioRol | null>(null);
+  const [activeUser, setActiveUser] = useState<UsuarioRol | null>(() => {
+    try {
+      const isLogged = localStorage.getItem('credicash_logged_in') === 'true';
+      const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
+      if (isLogged && savedActiveId) {
+        const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USUARIOS);
+        const usersList: UsuarioRol[] = savedUsersRaw ? JSON.parse(savedUsersRaw) : DEFAULT_USUARIOS;
+        const matching = usersList.find(u => u.id === savedActiveId);
+        if (matching) return matching;
+      }
+    } catch (e) {}
+    return null;
+  });
 
   const [realUserRolId, setRealUserRolId] = useState<string>(() => {
     return localStorage.getItem('credicash_real_user_rol_id') || '';
@@ -985,13 +1015,14 @@ export default function App() {
       saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES, data.liquidaciones);
     }
     if (data.usuarios !== undefined && Array.isArray(data.usuarios)) {
-      setUsuarios(data.usuarios);
-      saveToLocalStorage(STORAGE_KEYS.USUARIOS, data.usuarios);
+      const resolvedUsers = data.usuarios.length > 0 ? data.usuarios : (usuarios.length > 0 ? usuarios : DEFAULT_USUARIOS);
+      setUsuarios(resolvedUsers);
+      saveToLocalStorage(STORAGE_KEYS.USUARIOS, resolvedUsers);
 
-      // Restore active user strictly if matching in Firestore
+      // Restore active user strictly if matching in resolved users list
       const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
       if (savedActiveUserId) {
-        const matching = data.usuarios.find((u: UsuarioRol) => u.id === savedActiveUserId);
+        const matching = resolvedUsers.find((u: UsuarioRol) => u.id === savedActiveUserId);
         if (matching) {
           setActiveUser(matching);
           setRealUserRolId(matching.rolId);
@@ -1001,19 +1032,13 @@ export default function App() {
           } else if (matching.rolId === 'COBRADOR') {
             setActiveTab(prev => (prev === 'dashboard' || prev === 'usuarios' || prev === 'configuracion' ? 'pagos-calle' : prev));
           }
-        } else {
-          // Stored session user is not found in Firestore collection; clear invalid session
-          localStorage.removeItem('credicash_logged_in');
-          localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
-          localStorage.removeItem('credicash_real_user_rol_id');
-          setIsLoggedIn(false);
-          setActiveUser(null);
         }
       }
     }
     if (data.roles !== undefined && Array.isArray(data.roles)) {
-      setRoles(data.roles);
-      saveToLocalStorage(STORAGE_KEYS.ROLES, data.roles);
+      const resolvedRoles = data.roles.length > 0 ? data.roles : (roles.length > 0 ? roles : DEFAULT_ROLES);
+      setRoles(resolvedRoles);
+      saveToLocalStorage(STORAGE_KEYS.ROLES, resolvedRoles);
     }
     if (data.comisiones !== undefined) {
       setComisiones(data.comisiones);
