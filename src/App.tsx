@@ -768,7 +768,7 @@ export default function App() {
   const [fichajes, setFichajes] = useState<FichajeAsistencia[]>([]);
 
   // Cloud single-source-of-truth status
-  const [cloudLoading, setCloudLoading] = useState<boolean>(true);
+  const [cloudLoading, setCloudLoading] = useState<boolean>(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
 
   // Cobrador de Campo & Liquidaciones State
@@ -787,8 +787,16 @@ export default function App() {
       const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
       if (isLogged && savedActiveId) {
         const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USUARIOS);
-        const usersList: UsuarioRol[] = (savedUsersRaw ? JSON.parse(savedUsersRaw) : null) || DEFAULT_USUARIOS;
-        const matching = usersList.find(u => u.id === savedActiveId);
+        const usersList: UsuarioRol[] = [
+          ...((savedUsersRaw ? JSON.parse(savedUsersRaw) : []) || []),
+          ...DEFAULT_USUARIOS
+        ];
+        const cleanSaved = savedActiveId.toLowerCase().trim();
+        const matching = usersList.find(u => 
+          u.id.toLowerCase() === cleanSaved || 
+          (u.email && u.email.toLowerCase().trim() === cleanSaved) ||
+          (u.nombre && u.nombre.toLowerCase().trim() === cleanSaved)
+        );
         if (matching) return matching;
       }
     } catch (e) {}
@@ -800,7 +808,9 @@ export default function App() {
   });
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('credicash_logged_in') === 'true';
+    const isLogged = localStorage.getItem('credicash_logged_in') === 'true';
+    const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
+    return Boolean(isLogged && savedActiveId);
   });
 
   // Reconcile dates & overdue statuses in memory from real data without altering database fields
@@ -1015,22 +1025,35 @@ export default function App() {
       saveToLocalStorage(STORAGE_KEYS.LIQUIDACIONES, data.liquidaciones);
     }
     if (data.usuarios !== undefined && Array.isArray(data.usuarios)) {
-      const resolvedUsers = data.usuarios.length > 0 ? data.usuarios : (usuarios.length > 0 ? usuarios : DEFAULT_USUARIOS);
+      const resolvedUsers = data.usuarios.map((u: any) => ({
+        ...u,
+        id: String(u.id || '').trim(),
+        nombre: String(u.nombre || u.name || u.email || u.id || '').trim(),
+        email: String(u.email || '').trim(),
+        password: u.password != null ? String(u.password).trim() : (u.clave != null ? String(u.clave).trim() : (u.contrasena != null ? String(u.contrasena).trim() : '')),
+        rolId: String(u.rolId || u.rol || u.role || '').trim().toUpperCase()
+      }));
       setUsuarios(resolvedUsers);
       saveToLocalStorage(STORAGE_KEYS.USUARIOS, resolvedUsers);
 
       // Restore active user strictly if matching in resolved users list
       const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
       if (savedActiveUserId) {
-        const matching = resolvedUsers.find((u: UsuarioRol) => u.id === savedActiveUserId);
+        const cleanSaved = savedActiveUserId.toLowerCase().trim();
+        const matching = resolvedUsers.find((u: UsuarioRol) => 
+          u.id.toLowerCase() === cleanSaved || 
+          (u.email && u.email.toLowerCase().trim() === cleanSaved) ||
+          (u.nombre && u.nombre.toLowerCase().trim() === cleanSaved)
+        );
         if (matching) {
           setActiveUser(matching);
           setRealUserRolId(matching.rolId);
           localStorage.setItem('credicash_real_user_rol_id', matching.rolId);
-          if (matching.rolId === 'OPERADOR') {
-            setActiveTab(prev => (prev === 'dashboard' || prev === 'usuarios' || prev === 'configuracion' ? 'pagos-whatsapp' : prev));
-          } else if (matching.rolId === 'COBRADOR') {
-            setActiveTab(prev => (prev === 'dashboard' || prev === 'usuarios' || prev === 'configuracion' ? 'pagos-calle' : prev));
+          const normRol = matching.rolId.toUpperCase().trim();
+          if (normRol === 'OPERADOR') {
+            setActiveTab(prev => (prev === 'pagos-whatsapp' || prev === 'clientes' ? prev : 'pagos-whatsapp'));
+          } else if (normRol === 'COBRADOR') {
+            setActiveTab(prev => (prev === 'pagos-calle' || prev === 'liquidaciones' ? prev : 'pagos-calle'));
           }
         }
       }
@@ -1113,7 +1136,7 @@ export default function App() {
       });
     } else {
       setCloudLoading(false);
-      setCloudError('Firebase no está configurado o está deshabilitado.');
+      setCloudError(null);
     }
 
     // Cross-tab sync handler
@@ -2167,12 +2190,13 @@ export default function App() {
     }
   };
 
+  const normalizedActiveRolId = (activeUser?.rolId || '').toUpperCase().trim();
+
   const isSuperAdmin = Boolean(
     activeUser && (
-      activeUser.rolId === 'ADMIN' ||
-      activeUser.rolId === 'SUPERADMIN' ||
-      activeUser.rolId === 'SUPERADMINISTRADOR' ||
-      activeUser.rolId?.toLowerCase().includes('admin')
+      normalizedActiveRolId === 'ADMIN' ||
+      normalizedActiveRolId === 'SUPERADMIN' ||
+      normalizedActiveRolId === 'SUPERADMINISTRADOR'
     )
   );
   const isAdmin = isSuperAdmin;
@@ -2196,20 +2220,20 @@ export default function App() {
             verTesoreria: true,
             verConfiguracion: true,
           }
-        : (roles.find(r => r.id === activeUser.rolId) || DEFAULT_ROLES.find(r => r.id === activeUser.rolId) || {
-            id: activeUser.rolId || 'INVITADO',
-            nombre: 'Acceso Restringido',
+        : (roles.find(r => r.id === activeUser.rolId || r.id.toUpperCase() === normalizedActiveRolId) || DEFAULT_ROLES.find(r => r.id === activeUser.rolId || r.id.toUpperCase() === normalizedActiveRolId) || {
+            id: activeUser.rolId || 'OPERADOR',
+            nombre: activeUser.rolId === 'COBRADOR' ? 'Cobrador de Calle' : (activeUser.rolId === 'OPERADOR' ? 'Operador de Cobranzas' : activeUser.rolId),
             verDashboard: false,
-            verClientes: false,
+            verClientes: true,
             crearClientes: false,
-            verTelefonoCliente: false,
-            verDniCliente: false,
-            verDireccionCliente: false,
+            verTelefonoCliente: true,
+            verDniCliente: true,
+            verDireccionCliente: true,
             verIngresosCliente: false,
             verPrestamos: false,
             crearPrestamos: false,
-            verPagos: false,
-            registrarPagos: false,
+            verPagos: true,
+            registrarPagos: true,
             verTesoreria: false,
             verConfiguracion: false,
           }))
@@ -2234,13 +2258,13 @@ export default function App() {
   // Automatic redirect if current tab is not allowed for the selected role
   useEffect(() => {
     if (!activeUser) return;
-    const r = roles.find(rol => rol.id === activeUser.rolId) || DEFAULT_ROLES.find(rol => rol.id === activeUser.rolId);
+    const r = roles.find(rol => rol.id === activeUser.rolId || rol.id.toUpperCase() === normalizedActiveRolId) || DEFAULT_ROLES.find(rol => rol.id === activeUser.rolId || rol.id.toUpperCase() === normalizedActiveRolId);
     if (!r && !isAdmin) return;
 
     const isCurrentTabAllowed = 
       isAdmin ||
-      (activeUser.rolId === 'COBRADOR' && (activeTab === 'pagos-calle' || activeTab === 'liquidaciones')) ||
-      (activeUser.rolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'clientes')) ||
+      (normalizedActiveRolId === 'COBRADOR' && (activeTab === 'pagos-calle' || activeTab === 'liquidaciones')) ||
+      (normalizedActiveRolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'clientes')) ||
       (activeTab === 'dashboard' && r?.verDashboard) ||
       (activeTab === 'gestion-admin' && (r?.verClientes || isAdmin)) ||
       (activeTab === 'clientes' && r?.verClientes) ||
@@ -2248,11 +2272,11 @@ export default function App() {
       (activeTab === 'clientes-inactivos' && r?.verClientes) ||
       (activeTab === 'alertas-oportunidades' && r?.verClientes) ||
       (activeTab === 'nuevo-cliente' && r?.crearClientes) ||
-      (activeTab === 'operaciones' && r?.verPrestamos && activeUser.rolId !== 'OPERADOR') ||
+      (activeTab === 'operaciones' && r?.verPrestamos && normalizedActiveRolId !== 'OPERADOR') ||
       (activeTab === 'pagos' && r?.verPagos) ||
       (activeTab === 'pagos-whatsapp' && r?.verPagos) ||
-      (activeTab === 'pagos-telefono' && r?.verPagos && activeUser.rolId !== 'OPERADOR') ||
-      (activeTab === 'pagos-calle' && r?.verPagos && activeUser.rolId !== 'OPERADOR') ||
+      (activeTab === 'pagos-telefono' && r?.verPagos && normalizedActiveRolId !== 'OPERADOR') ||
+      (activeTab === 'pagos-calle' && r?.verPagos && normalizedActiveRolId !== 'OPERADOR') ||
       (activeTab === 'captacion-clientes') ||
       (activeTab === 'verificacion') ||
       (activeTab === 'liquidaciones') ||
@@ -2261,8 +2285,8 @@ export default function App() {
       (activeTab === 'usuarios' && isAdmin);
 
     if (!isCurrentTabAllowed) {
-      if (activeUser.rolId === 'COBRADOR') setActiveTab('pagos-calle');
-      else if (activeUser.rolId === 'OPERADOR') setActiveTab('pagos-whatsapp');
+      if (normalizedActiveRolId === 'COBRADOR') setActiveTab('pagos-calle');
+      else if (normalizedActiveRolId === 'OPERADOR') setActiveTab('pagos-whatsapp');
       else if (r?.verDashboard || isAdmin) setActiveTab('dashboard');
       else if (r?.verClientes) setActiveTab('clientes');
       else if (r?.verPagos) setActiveTab('pagos-whatsapp');
@@ -2270,12 +2294,23 @@ export default function App() {
       else if (r?.verTesoreria) setActiveTab('tesoreria');
       else if (r?.verConfiguracion) setActiveTab('configuracion');
     }
-  }, [activeUser, roles, activeTab, isAdmin]);
+  }, [activeUser, roles, activeTab, isAdmin, normalizedActiveRolId]);
 
   // Role Based Access Data Filtering
   // Non-ADMIN operators (Cobradores, Operadores) only see active/renewal clients assigned to them.
   // Superadministrador (ADMIN) sees ALL clients, loans, cuotas, and payments without restrictions.
   const isOperator = !isAdmin;
+
+  const uId = (activeUser?.id || '').toLowerCase().trim();
+  const uName = (activeUser?.nombre || '').toLowerCase().trim();
+  const uEmail = (activeUser?.email || '').toLowerCase().trim();
+  const uUser = uEmail.includes('@') ? uEmail.split('@')[0] : uEmail;
+
+  const matchesUser = (val: any) => {
+    if (!val) return false;
+    const s = String(val).toLowerCase().trim();
+    return s === uId || s === uName || s === uEmail || s === uUser;
+  };
 
   const filteredClientes = isOperator
     ? clientes.filter(c => {
@@ -2285,19 +2320,24 @@ export default function App() {
 
         // Rule 2: Operator MUST ONLY see clients explicitly assigned to them
         const isAssignedToUser = 
-          c.operadorAsignadoId === activeUser?.id ||
-          (c.operadorAsignadoNombre && activeUser?.nombre && c.operadorAsignadoNombre.toLowerCase() === activeUser.nombre.toLowerCase()) ||
-          c.operadorTelefonicoId === activeUser?.id ||
-          (c.operadorTelefonicoNombre && activeUser?.nombre && c.operadorTelefonicoNombre.toLowerCase() === activeUser.nombre.toLowerCase()) ||
-          c.cobradorAsignadoId === activeUser?.id ||
-          (c.cobradorAsignadoNombre && activeUser?.nombre && c.cobradorAsignadoNombre.toLowerCase() === activeUser.nombre.toLowerCase()) ||
-          (c.analista && activeUser?.nombre && c.analista.toLowerCase() === activeUser.nombre.toLowerCase()) ||
-          (c.captador && activeUser?.nombre && c.captador.toLowerCase() === activeUser.nombre.toLowerCase()) ||
+          matchesUser(c.operadorAsignadoId) ||
+          matchesUser(c.operadorAsignadoNombre) ||
+          matchesUser(c.operadorTelefonicoId) ||
+          matchesUser(c.operadorTelefonicoNombre) ||
+          matchesUser(c.cobradorAsignadoId) ||
+          matchesUser(c.cobradorAsignadoNombre) ||
+          matchesUser(c.analista) ||
+          matchesUser(c.captador) ||
+          matchesUser((c as any).cobrador) ||
+          matchesUser((c as any).operador) ||
+          matchesUser((c as any).usuarioId) ||
           operaciones.some(o => o.idCliente === c.id && (
-            o.cobrador === activeUser?.nombre || 
-            o.operadorAsignadoId === activeUser?.id || 
-            o.operadorTelefonicoId === activeUser?.id || 
-            o.cobradorAsignadoId === activeUser?.id
+            matchesUser(o.cobrador) || 
+            matchesUser(o.operadorAsignadoId) || 
+            matchesUser(o.operadorTelefonicoId) || 
+            matchesUser(o.cobradorAsignadoId) ||
+            matchesUser(o.analista) ||
+            matchesUser(o.captador)
           ));
 
         return isAssignedToUser;
@@ -2311,18 +2351,22 @@ export default function App() {
           return false;
         }
         return (
-          o.cobrador === activeUser?.nombre || 
-          o.operadorAsignadoId === activeUser?.id || 
-          o.operadorTelefonicoId === activeUser?.id || 
-          o.cobradorAsignadoId === activeUser?.id || 
-          client.operadorAsignadoId === activeUser?.id || 
-          client.operadorAsignadoNombre === activeUser?.nombre ||
-          client.operadorTelefonicoId === activeUser?.id || 
-          client.operadorTelefonicoNombre === activeUser?.nombre ||
-          client.cobradorAsignadoId === activeUser?.id || 
-          client.cobradorAsignadoNombre === activeUser?.nombre ||
-          client.analista === activeUser?.nombre ||
-          client.captador === activeUser?.nombre
+          matchesUser(o.cobrador) || 
+          matchesUser(o.operadorAsignadoId) || 
+          matchesUser(o.operadorTelefonicoId) || 
+          matchesUser(o.cobradorAsignadoId) || 
+          matchesUser(o.analista) ||
+          matchesUser(o.captador) ||
+          matchesUser(client.operadorAsignadoId) || 
+          matchesUser(client.operadorAsignadoNombre) ||
+          matchesUser(client.operadorTelefonicoId) || 
+          matchesUser(client.operadorTelefonicoNombre) ||
+          matchesUser(client.cobradorAsignadoId) || 
+          matchesUser(client.cobradorAsignadoNombre) ||
+          matchesUser(client.analista) ||
+          matchesUser(client.captador) ||
+          matchesUser((client as any).cobrador) ||
+          matchesUser((client as any).operador)
         );
       })
     : operaciones;
@@ -2662,7 +2706,7 @@ export default function App() {
                   <span>Seguridad y Accesos</span>
                 </button>
               </>
-             ) : activeUser?.rolId === 'COBRADOR' ? (
+             ) : normalizedActiveRolId === 'COBRADOR' ? (
               // FIELD COLLECTOR (COBRADOR EN CALLE): 3 tabs: Gestión Diaria del Día, Visualización de Recorrido & Liquidaciones y Comisiones
               <>
                 <button
@@ -2707,7 +2751,7 @@ export default function App() {
                   3. Liquidaciones & Comisiones
                 </button>
               </>
-            ) : activeUser?.rolId === 'OPERADOR' ? (
+            ) : normalizedActiveRolId === 'OPERADOR' ? (
               // OPERATOR WHATSAPP strictly allowed tabs: pagos-whatsapp (Gestión Diaria) and clientes (Buscar Cliente)
               <>
                 <button

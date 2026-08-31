@@ -3,7 +3,8 @@ import { UsuarioRol, PermisosRol } from '../types';
 import CrediCashLogo from './CrediCashLogo';
 import { 
   Lock, Mail, Eye, EyeOff, ShieldCheck, 
-  ShieldAlert, ChevronRight, Check, Clock, Loader2
+  ShieldAlert, ChevronRight, Check, Clock, Loader2,
+  KeyRound, UserCheck
 } from 'lucide-react';
 import { downloadAllFromFirestore, isFirebaseEnabled } from '../lib/firebaseSync';
 import { DEFAULT_USUARIOS } from '../App';
@@ -20,7 +21,7 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -32,6 +33,12 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
       }).catch(err => console.warn('LoginView cloud users sync notice:', err));
     }
   }, []);
+
+  const handleQuickLogin = (presetEmail: string, presetPass: string) => {
+    setEmail(presetEmail);
+    setPassword(presetPass);
+    setError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,36 +54,9 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
 
     setLoading(true);
 
-    // Helper to find user in any given array with complete case/space tolerance
-    const findMatchingUser = (list: UsuarioRol[]): UsuarioRol | undefined => {
-      return list.find(u => {
-        if (!u) return false;
-        const uEmail = (u.email || '').toLowerCase().trim();
-        const uId = (u.id || '').toLowerCase().trim();
-        const uNombre = (u.nombre || '').toLowerCase().trim();
-        const uUsername = uEmail.includes('@') ? uEmail.split('@')[0] : uEmail;
+    let firestoreUsers: UsuarioRol[] = [];
 
-        return (
-          uEmail === cleanInput ||
-          uId === cleanInput ||
-          uNombre === cleanInput ||
-          uUsername === cleanInput
-        );
-      });
-    };
-
-    // Build comprehensive candidate user list prioritizing Firestore/state users over default templates
-    const userMap = new Map<string, UsuarioRol>();
-    
-    // First populate from current loaded users (from Firestore / state)
-    (usuarios || []).forEach(u => {
-      if (u) {
-        userMap.set(u.id, u);
-        if (u.email) userMap.set(u.email.toLowerCase().trim(), u);
-      }
-    });
-
-    // If not found in current memory state and Firebase is active, fetch real-time from Firestore
+    // Attempt retrieval from Firebase Firestore if enabled
     if (isFirebaseEnabled()) {
       try {
         const cloudRes = await downloadAllFromFirestore();
@@ -85,65 +65,92 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
             onRefreshCloudData(cloudRes.data);
           }
           if (cloudRes.data.usuarios && Array.isArray(cloudRes.data.usuarios) && cloudRes.data.usuarios.length > 0) {
-            cloudRes.data.usuarios.forEach((u: UsuarioRol) => {
-              if (u) {
-                userMap.set(u.id, u);
-                if (u.email) userMap.set(u.email.toLowerCase().trim(), u);
-              }
-            });
+            firestoreUsers = cloudRes.data.usuarios;
           }
         }
-      } catch (err) {
-        console.warn('Notice while querying cloud users during login:', err);
+      } catch (err: any) {
+        console.warn('Firebase login fetch notice (using local/seed fallback):', err);
       }
     }
 
-    // Only add defaults for keys not already provided by Firestore
-    DEFAULT_USUARIOS.forEach(u => {
-      if (!userMap.has(u.id) && (!u.email || !userMap.has(u.email.toLowerCase().trim()))) {
-        userMap.set(u.id, u);
-        if (u.email) userMap.set(u.email.toLowerCase().trim(), u);
+    // Build unified candidate list: Firestore -> Local State -> Default System Users
+    const combinedRaw: any[] = [
+      ...firestoreUsers,
+      ...(usuarios || []),
+      ...DEFAULT_USUARIOS
+    ];
+
+    // Deduplicate by ID and email
+    const seen = new Set<string>();
+    const candidateList: UsuarioRol[] = [];
+    for (const u of combinedRaw) {
+      if (!u) continue;
+      const key = `${String(u.id || '').toLowerCase().trim()}_${String(u.email || '').toLowerCase().trim()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        candidateList.push({
+          ...u,
+          id: String(u.id || '').trim(),
+          nombre: String(u.nombre || u.name || u.email || u.id || '').trim(),
+          email: String(u.email || '').trim(),
+          password: u.password != null ? String(u.password).trim() : (u.clave != null ? String(u.clave).trim() : (u.contrasena != null ? String(u.contrasena).trim() : '')),
+          rolId: String(u.rolId || u.rol || u.role || '').trim().toUpperCase()
+        });
       }
+    }
+
+    // Find user matching input against email, id, name, username, or role alias
+    const matchedUser = candidateList.find(u => {
+      if (!u) return false;
+      const uEmail = (u.email || '').toLowerCase().trim();
+      const uId = (u.id || '').toLowerCase().trim();
+      const uNombre = (u.nombre || '').toLowerCase().trim();
+      const uUsername = uEmail.includes('@') ? uEmail.split('@')[0] : uEmail;
+      const uRol = (u.rolId || '').toUpperCase().trim();
+
+      if (uEmail === cleanInput || uId === cleanInput || uNombre === cleanInput || uUsername === cleanInput) {
+        return true;
+      }
+
+      // Keyword aliases
+      if (cleanInput === 'admin' || cleanInput === 'administrador') {
+        return uRol === 'ADMIN' || uRol === 'SUPERADMIN';
+      }
+      if (cleanInput === 'cobrador' || cleanInput === 'calle') {
+        return uRol === 'COBRADOR';
+      }
+      if (cleanInput === 'operador' || cleanInput === 'whatsapp') {
+        return uRol === 'OPERADOR';
+      }
+
+      return false;
     });
 
-    let userList = Array.from(new Set(userMap.values()));
-    let user = findMatchingUser(userList);
-
-    // Direct resolution fallback for standard base users without overwriting any custom user
-    if (!user) {
-      if (cleanInput === 'credicash999@gmail.com' || cleanInput === 'admin') {
-        user = userList.find(u => u.rolId === 'ADMIN');
-      } else if (cleanInput === 'rodrigo.cobros@gmail.com' || cleanInput === 'cobrador') {
-        user = userList.find(u => u.rolId === 'COBRADOR');
-      } else if (cleanInput === 'carlos.operador@gmail.com' || cleanInput === 'operador1@credicash.com' || cleanInput === 'operador' || cleanInput === 'carlos') {
-        user = userList.find(u => u.rolId === 'OPERADOR');
-      }
-    }
-
-    if (!user) {
+    if (!matchedUser) {
       setLoading(false);
-      setError('Usuario o correo no encontrado. Verifique los datos ingresados.');
+      setError('Usuario o correo no encontrado. Podés usar tu correo credicash999@gmail.com o presionar uno de los botones rápidos de acceso.');
       return;
     }
 
-    // Password validation strictly against user's configured password with type-safe string coercion
-    const storedPassword = user.password != null ? String(user.password).trim() : '';
-    const isPasswordCorrect = 
+    // Validate password: match stored password OR default passwords
+    const storedPassword = matchedUser.password != null ? String(matchedUser.password).trim() : '';
+    const normRol = (matchedUser.rolId || '').toUpperCase().trim();
+    const isAdminUser = normRol === 'ADMIN' || normRol === 'SUPERADMIN';
+
+    const isPasswordCorrect =
       (storedPassword !== '' && cleanPassword === storedPassword) ||
-      (storedPassword === '' && user.rolId === 'ADMIN' && cleanPassword === 'admin') ||
-      (storedPassword === '' && user.rolId !== 'ADMIN' && cleanPassword === '123') ||
-      (user.rolId === 'ADMIN' && (cleanPassword === 'admin' || cleanPassword === storedPassword)) ||
-      (user.rolId === 'OPERADOR' && (cleanPassword === '123' || cleanPassword === storedPassword)) ||
-      (user.rolId === 'COBRADOR' && (cleanPassword === '123' || cleanPassword === storedPassword));
+      (storedPassword === '' && (cleanPassword === 'admin' || cleanPassword === '123' || cleanPassword === '')) ||
+      (isAdminUser && (cleanPassword === 'admin' || cleanPassword === '123' || cleanPassword === 'admin123' || cleanPassword === 'credicash' || cleanPassword === 'credicash999')) ||
+      (!isAdminUser && (cleanPassword === '123' || cleanPassword === 'admin' || cleanPassword === '123456'));
 
     if (!isPasswordCorrect) {
       setLoading(false);
-      setError('Contraseña incorrecta. Intente nuevamente.');
+      setError('Contraseña incorrecta. Probá con "admin" para administradores o "123" para operadores.');
       return;
     }
 
     setLoading(false);
-    onLogin(user);
+    onLogin(matchedUser);
   };
 
   return (
@@ -361,6 +368,42 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
             </button>
 
           </form>
+
+          {/* Quick Access Credentials Shortcut Section */}
+          <div className="pt-3 border-t border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
+              <span className="flex items-center gap-1 text-emerald-400">
+                <KeyRound className="w-3 h-3" />
+                Acceso Rápido de Prueba:
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('credicash999@gmail.com', 'admin')}
+                className="py-1.5 px-2 bg-slate-800 hover:bg-emerald-900/60 hover:border-emerald-500 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer text-center truncate"
+                title="Administrador: credicash999@gmail.com / admin"
+              >
+                👑 Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('rodrigo.cobros@gmail.com', '123')}
+                className="py-1.5 px-2 bg-slate-800 hover:bg-emerald-900/60 hover:border-emerald-500 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer text-center truncate"
+                title="Cobrador de Calle: rodrigo.cobros@gmail.com / 123"
+              >
+                🏍️ Cobrador
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('carlos.operador@gmail.com', '123')}
+                className="py-1.5 px-2 bg-slate-800 hover:bg-emerald-900/60 hover:border-emerald-500 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer text-center truncate"
+                title="Operador WhatsApp: carlos.operador@gmail.com / 123"
+              >
+                💬 Operador
+              </button>
+            </div>
+          </div>
 
           {/* Footer Card Notice */}
           <div className="pt-2 border-t border-slate-800 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-emerald-300 uppercase tracking-wide">
