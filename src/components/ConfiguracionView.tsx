@@ -1541,6 +1541,50 @@ export default function ConfiguracionView({
                 </button>
               </div>
 
+              {/* Reglas de Seguridad de Firestore (Solución al error de permisos) */}
+              <div className="p-3.5 bg-amber-950/40 border border-amber-500/50 rounded-xl space-y-2 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black text-amber-300 uppercase tracking-wide flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                    Reglas de Seguridad de Firebase Firestore (Solución a error de permisos)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}`);
+                      alert('¡Reglas de Firestore copiadas al portapapeles! Pegalas en tu consola de Firebase > Firestore Database > pestaña "Reglas" y hacé clic en "Publicar".');
+                    }}
+                    className="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[10px] font-black uppercase tracking-wider cursor-pointer transition-colors shrink-0"
+                  >
+                    Copiar Reglas
+                  </button>
+                </div>
+                <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  Si tu aplicación muestra <b>"Error de permisos en Firebase Firestore"</b>, significa que tu consola de Firebase tiene bloqueada la lectura/escritura. Para resolverlo:
+                </p>
+                <ol className="list-decimal list-inside text-[10px] text-amber-100/80 space-y-1">
+                  <li>Entrá a tu consola de Firebase &gt; <b>Firestore Database</b> &gt; pestaña <b>Reglas (Rules)</b>.</li>
+                  <li>Copiá y pegá las siguientes reglas y hacé clic en <b>Publicar (Publish)</b>:</li>
+                </ol>
+                <div className="p-2 bg-slate-950 rounded border border-amber-800/80 font-mono text-[10px] text-emerald-300">
+                  <code>{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}`}</code>
+                </div>
+              </div>
+
               {/* Share link to configure phones/other PCs securely with login requirement */}
               <div className="mt-4 p-4 bg-slate-900 border-2 border-amber-500/50 rounded-2xl space-y-2.5 shadow-lg">
                 <span className="text-xs font-black uppercase text-amber-300 flex items-center gap-2">

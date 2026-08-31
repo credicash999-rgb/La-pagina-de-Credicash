@@ -434,6 +434,18 @@ export function subscribeToFirestore(onDataChange: (data: any) => void): () => v
 
   const collectionsToListen = ['clientes', 'operaciones', 'cuotas', 'pagos', 'transacciones', 'usuarios', 'roles', 'comisiones'];
   const unsubscribes: (() => void)[] = [];
+  let syncTimeout: any = null;
+
+  const debouncedSync = () => {
+    if (syncTimeout) clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => {
+      downloadAllFromFirestore().then(res => {
+        if (res.success && res.data) {
+          onDataChange(res.data);
+        }
+      }).catch(() => {});
+    }, 400);
+  };
 
   collectionsToListen.forEach((colName) => {
     let collectionFirstLoad = true;
@@ -446,20 +458,21 @@ export function subscribeToFirestore(onDataChange: (data: any) => void): () => v
         }
         // Only trigger download if there are actual document changes in snapshot
         if (snapshot.docChanges().length > 0) {
-          downloadAllFromFirestore().then(res => {
-            if (res.success && res.data) {
-              onDataChange(res.data);
-            }
-          });
+          debouncedSync();
         }
-      }, (err) => console.warn(`Snapshot listener notice on ${colName}:`, err));
+      }, (_err) => {
+        // Handled silently to avoid polluting dev console with offline warnings
+      });
       unsubscribes.push(unsub);
-    } catch (err) {
-      console.warn(`Failed to attach snapshot on ${colName}`, err);
+    } catch (_err) {
+      // Ignored if offline
     }
   });
 
   return () => {
-    unsubscribes.forEach(u => u());
+    if (syncTimeout) clearTimeout(syncTimeout);
+    unsubscribes.forEach(u => {
+      try { u(); } catch (_) {}
+    });
   };
 }

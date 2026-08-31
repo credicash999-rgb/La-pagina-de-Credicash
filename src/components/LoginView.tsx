@@ -3,8 +3,7 @@ import { UsuarioRol, PermisosRol } from '../types';
 import CrediCashLogo from './CrediCashLogo';
 import { 
   Lock, Mail, Eye, EyeOff, ShieldCheck, 
-  ShieldAlert, ChevronRight, Check, Clock, Loader2,
-  KeyRound, UserCheck
+  ShieldAlert, ChevronRight, Check, Clock, Loader2
 } from 'lucide-react';
 import { downloadAllFromFirestore, isFirebaseEnabled } from '../lib/firebaseSync';
 import { DEFAULT_USUARIOS } from '../App';
@@ -33,12 +32,6 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
       }).catch(err => console.warn('LoginView cloud users sync notice:', err));
     }
   }, []);
-
-  const handleQuickLogin = (presetEmail: string, presetPass: string) => {
-    setEmail(presetEmail);
-    setPassword(presetPass);
-    setError(null);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +121,7 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
 
     if (!matchedUser) {
       setLoading(false);
-      setError('Usuario o correo no encontrado. Podés usar tu correo credicash999@gmail.com o presionar uno de los botones rápidos de acceso.');
+      setError('Usuario o correo no encontrado. Verifique sus credenciales.');
       return;
     }
 
@@ -145,7 +138,7 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
 
     if (!isPasswordCorrect) {
       setLoading(false);
-      setError('Contraseña incorrecta. Probá con "admin" para administradores o "123" para operadores.');
+      setError('Contraseña incorrecta. Verifique sus credenciales.');
       return;
     }
 
@@ -368,42 +361,6 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
             </button>
 
           </form>
-
-          {/* Quick Access Credentials Shortcut Section */}
-          <div className="pt-3 border-t border-slate-800 space-y-2">
-            <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
-              <span className="flex items-center gap-1 text-emerald-400">
-                <KeyRound className="w-3 h-3" />
-                Acceso Rápido de Prueba:
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('credicash999@gmail.com', 'admin')}
-                className="py-1.5 px-2 bg-slate-800 hover:bg-emerald-900/60 hover:border-emerald-500 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer text-center truncate"
-                title="Administrador: credicash999@gmail.com / admin"
-              >
-                👑 Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('rodrigo.cobros@gmail.com', '123')}
-                className="py-1.5 px-2 bg-slate-800 hover:bg-emerald-900/60 hover:border-emerald-500 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer text-center truncate"
-                title="Cobrador de Calle: rodrigo.cobros@gmail.com / 123"
-              >
-                🏍️ Cobrador
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('carlos.operador@gmail.com', '123')}
-                className="py-1.5 px-2 bg-slate-800 hover:bg-emerald-900/60 hover:border-emerald-500 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer text-center truncate"
-                title="Operador WhatsApp: carlos.operador@gmail.com / 123"
-              >
-                💬 Operador
-              </button>
-            </div>
-          </div>
 
           {/* Footer Card Notice */}
           <div className="pt-2 border-t border-slate-800 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-emerald-300 uppercase tracking-wide">
