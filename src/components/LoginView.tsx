@@ -65,12 +65,10 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
       });
     };
 
-    // Build comprehensive candidate user list prioritizing passed state, local, and defaults
+    // Build comprehensive candidate user list prioritizing Firestore/state users over default templates
     const userMap = new Map<string, UsuarioRol>();
-    DEFAULT_USUARIOS.forEach(u => {
-      userMap.set(u.id, u);
-      if (u.email) userMap.set(u.email.toLowerCase().trim(), u);
-    });
+    
+    // First populate from current loaded users (from Firestore / state)
     (usuarios || []).forEach(u => {
       if (u) {
         userMap.set(u.id, u);
@@ -78,32 +76,38 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
       }
     });
 
-    let userList = Array.from(new Set(userMap.values()));
-    let user = findMatchingUser(userList);
-
     // If not found in current memory state and Firebase is active, fetch real-time from Firestore
-    if (!user && isFirebaseEnabled()) {
+    if (isFirebaseEnabled()) {
       try {
         const cloudRes = await downloadAllFromFirestore();
         if (cloudRes.success && cloudRes.data) {
           if (onRefreshCloudData) {
             onRefreshCloudData(cloudRes.data);
           }
-          if (cloudRes.data.usuarios && cloudRes.data.usuarios.length > 0) {
+          if (cloudRes.data.usuarios && Array.isArray(cloudRes.data.usuarios) && cloudRes.data.usuarios.length > 0) {
             cloudRes.data.usuarios.forEach((u: UsuarioRol) => {
               if (u) {
                 userMap.set(u.id, u);
                 if (u.email) userMap.set(u.email.toLowerCase().trim(), u);
               }
             });
-            userList = Array.from(new Set(userMap.values()));
-            user = findMatchingUser(userList);
           }
         }
       } catch (err) {
         console.warn('Notice while querying cloud users during login:', err);
       }
     }
+
+    // Only add defaults for keys not already provided by Firestore
+    DEFAULT_USUARIOS.forEach(u => {
+      if (!userMap.has(u.id) && (!u.email || !userMap.has(u.email.toLowerCase().trim()))) {
+        userMap.set(u.id, u);
+        if (u.email) userMap.set(u.email.toLowerCase().trim(), u);
+      }
+    });
+
+    let userList = Array.from(new Set(userMap.values()));
+    let user = findMatchingUser(userList);
 
     // Direct resolution fallback for standard base users without overwriting any custom user
     if (!user) {

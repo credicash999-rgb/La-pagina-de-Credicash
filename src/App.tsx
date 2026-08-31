@@ -784,15 +784,12 @@ export default function App() {
   const [activeUser, setActiveUser] = useState<UsuarioRol | null>(() => {
     try {
       const isLogged = localStorage.getItem('credicash_logged_in') === 'true';
-      if (isLogged) {
-        const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
+      const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
+      if (isLogged && savedActiveId) {
         const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USUARIOS);
         const usersList: UsuarioRol[] = (savedUsersRaw ? JSON.parse(savedUsersRaw) : null) || DEFAULT_USUARIOS;
-        if (savedActiveId) {
-          const matching = usersList.find(u => u.id === savedActiveId);
-          if (matching) return matching;
-        }
-        return usersList[0] || DEFAULT_USUARIOS[0];
+        const matching = usersList.find(u => u.id === savedActiveId);
+        if (matching) return matching;
       }
     } catch (e) {}
     return null;
@@ -2401,25 +2398,21 @@ export default function App() {
     }
   };
 
-  if (!isLoggedIn) {
-    return <LoginView usuarios={usuarios} roles={roles} onLogin={handleLogin} onRefreshCloudData={applyCloudSnapshotData} />;
-  }
-
-  // Safety fallback: If logged in but activeUser is somehow null, assign primary user
-  const effectiveActiveUser = activeUser || usuarios[0] || DEFAULT_USUARIOS[0];
-
-  if (cloudLoading && !activeUser) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-sans p-6">
-        <div className="flex flex-col items-center gap-4 text-center max-w-md">
-          <CrediCashLogo size="lg" showSubtitle={true} />
-          <div className="flex items-center gap-3 mt-6 text-emerald-400">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm font-semibold tracking-wide">Cargando sistema CrediCash...</span>
+  if (!isLoggedIn || !activeUser) {
+    if (isLoggedIn && cloudLoading) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-sans p-6">
+          <div className="flex flex-col items-center gap-4 text-center max-w-md">
+            <CrediCashLogo size="lg" showSubtitle={true} />
+            <div className="flex items-center gap-3 mt-6 text-emerald-400">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span className="text-sm font-semibold tracking-wide">Cargando sesión y datos de Firestore...</span>
+            </div>
           </div>
         </div>
-      </div>
-    );
+      );
+    }
+    return <LoginView usuarios={usuarios} roles={roles} onLogin={handleLogin} onRefreshCloudData={applyCloudSnapshotData} />;
   }
 
   return (
