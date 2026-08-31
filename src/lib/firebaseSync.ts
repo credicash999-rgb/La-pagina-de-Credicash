@@ -358,16 +358,12 @@ export async function downloadAllFromFirestore(): Promise<{
 
     // Fetch config
     let configuracion: Configuracion | undefined = undefined;
-    try {
-      const configDoc = await getDoc(doc(db, 'system_config', 'global'));
-      if (configDoc.exists()) {
-        const configData = configDoc.data();
-        delete configData.id;
-        delete configData.lastUpdated;
-        configuracion = configData as Configuracion;
-      }
-    } catch (e) {
-      console.warn('Notice while fetching global config from Firestore:', e);
+    const configDoc = await getDoc(doc(db, 'system_config', 'global'));
+    if (configDoc.exists()) {
+      const configData = configDoc.data();
+      delete configData.id;
+      delete configData.lastUpdated;
+      configuracion = configData as Configuracion;
     }
 
     return {
@@ -387,8 +383,13 @@ export async function downloadAllFromFirestore(): Promise<{
       }
     };
   } catch (error: any) {
-    console.error('Error during download from Firestore:', error);
-    return { success: false, error: error.message || 'Error de conexión o permisos en Firestore.' };
+    console.error('Error during download from Firestore:', error?.message || error);
+    return { 
+      success: false, 
+      error: error?.message?.includes('Missing or insufficient permissions')
+        ? 'Error de permisos en Firebase Firestore: Verifique la autorización del usuario y las reglas de seguridad configuradas.'
+        : (error?.message || 'Error de conexión con Firebase Firestore.')
+    };
   }
 }
 

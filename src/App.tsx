@@ -784,12 +784,15 @@ export default function App() {
   const [activeUser, setActiveUser] = useState<UsuarioRol | null>(() => {
     try {
       const isLogged = localStorage.getItem('credicash_logged_in') === 'true';
-      const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
-      if (isLogged && savedActiveId) {
+      if (isLogged) {
+        const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
         const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USUARIOS);
-        const usersList: UsuarioRol[] = savedUsersRaw ? JSON.parse(savedUsersRaw) : DEFAULT_USUARIOS;
-        const matching = usersList.find(u => u.id === savedActiveId);
-        if (matching) return matching;
+        const usersList: UsuarioRol[] = (savedUsersRaw ? JSON.parse(savedUsersRaw) : null) || DEFAULT_USUARIOS;
+        if (savedActiveId) {
+          const matching = usersList.find(u => u.id === savedActiveId);
+          if (matching) return matching;
+        }
+        return usersList[0] || DEFAULT_USUARIOS[0];
       }
     } catch (e) {}
     return null;
@@ -2402,26 +2405,18 @@ export default function App() {
     return <LoginView usuarios={usuarios} roles={roles} onLogin={handleLogin} onRefreshCloudData={applyCloudSnapshotData} />;
   }
 
-  if (!activeUser || (cloudLoading && !activeUser)) {
+  // Safety fallback: If logged in but activeUser is somehow null, assign primary user
+  const effectiveActiveUser = activeUser || usuarios[0] || DEFAULT_USUARIOS[0];
+
+  if (cloudLoading && !activeUser) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-sans p-6">
         <div className="flex flex-col items-center gap-4 text-center max-w-md">
           <CrediCashLogo size="lg" showSubtitle={true} />
           <div className="flex items-center gap-3 mt-6 text-emerald-400">
             <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm font-semibold tracking-wide">Validando sesión y permisos en Firestore...</span>
+            <span className="text-sm font-semibold tracking-wide">Cargando sistema CrediCash...</span>
           </div>
-          {cloudError && (
-            <div className="mt-4 p-3 bg-red-950/60 border border-red-800/80 rounded-xl text-red-200 text-xs">
-              <p>{cloudError}</p>
-              <button
-                onClick={handleLogout}
-                className="mt-3 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs text-white border border-slate-700 cursor-pointer"
-              >
-                Volver al inicio de sesión
-              </button>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -2504,10 +2499,19 @@ export default function App() {
         <aside className="md:w-64 shrink-0 flex flex-col gap-2">
           {/* Cloud Error / Offline Notice */}
           {cloudError && (
-            <div className="p-3 bg-rose-950/80 border border-rose-600/80 rounded-xl text-rose-200 text-xs shadow-md mb-1">
-              <div className="flex items-center gap-2 font-bold text-rose-100">
-                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>Aviso de Sincronización</span>
+            <div className="p-3 bg-rose-950/80 border border-rose-600/80 rounded-xl text-rose-200 text-xs shadow-md mb-1 relative">
+              <div className="flex items-center justify-between font-bold text-rose-100">
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>Aviso de Nube</span>
+                </div>
+                <button
+                  onClick={() => setCloudError(null)}
+                  className="text-rose-400 hover:text-white text-xs px-1 rounded cursor-pointer"
+                  title="Cerrar aviso"
+                >
+                  ✕
+                </button>
               </div>
               <div className="text-[11px] text-rose-300 mt-1 leading-snug">
                 {cloudError}
@@ -2518,7 +2522,7 @@ export default function App() {
                 className="mt-2.5 w-full py-1.5 bg-rose-700 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <RefreshCw className={`w-3 h-3 ${cloudLoading ? 'animate-spin' : ''}`} />
-                <span>{cloudLoading ? 'Conectando...' : 'Reintentar'}</span>
+                <span>{cloudLoading ? 'Conectando...' : 'Reintentar sincronización'}</span>
               </button>
             </div>
           )}
