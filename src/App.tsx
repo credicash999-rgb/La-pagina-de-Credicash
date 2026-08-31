@@ -53,7 +53,7 @@ import {
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
   Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles, UserCheck, FileCheck,
-  AlertTriangle, RefreshCw
+  AlertTriangle, RefreshCw, Loader2
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -707,7 +707,12 @@ const SEED_LIQUIDACIONES: LiquidacionPersonal[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const savedRole = localStorage.getItem('credicash_real_user_rol_id');
+    if (savedRole === 'OPERADOR') return 'pagos-whatsapp';
+    if (savedRole === 'COBRADOR') return 'pagos-calle';
+    return 'dashboard';
+  });
 
   // Core State
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -758,15 +763,10 @@ export default function App() {
   const [liquidacionesMensuales, setLiquidacionesMensuales] = useState<LiquidacionMensual[]>([]);
   const [reintegrosDesayuno, setReintegrosDesayuno] = useState<SolicitudReintegroDesayuno[]>([]);
   const [cobradorSubTab, setCobradorSubTab] = useState<'gestion_diaria' | 'mi_recorrido' | 'reintegro_desayuno'>('gestion_diaria');
-  const [activeUser, setActiveUser] = useState<UsuarioRol>({
-    id: 'USR-1',
-    nombre: 'Administrador Principal',
-    email: 'credicash999@gmail.com',
-    rolId: 'ADMIN'
-  });
+  const [activeUser, setActiveUser] = useState<UsuarioRol | null>(null);
 
   const [realUserRolId, setRealUserRolId] = useState<string>(() => {
-    return localStorage.getItem('credicash_real_user_rol_id') || 'ADMIN';
+    return localStorage.getItem('credicash_real_user_rol_id') || '';
   });
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
@@ -988,12 +988,26 @@ export default function App() {
       setUsuarios(data.usuarios);
       saveToLocalStorage(STORAGE_KEYS.USUARIOS, data.usuarios);
 
-      // Restore active user if matching
+      // Restore active user strictly if matching in Firestore
       const savedActiveUserId = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER_ID);
       if (savedActiveUserId) {
         const matching = data.usuarios.find((u: UsuarioRol) => u.id === savedActiveUserId);
         if (matching) {
           setActiveUser(matching);
+          setRealUserRolId(matching.rolId);
+          localStorage.setItem('credicash_real_user_rol_id', matching.rolId);
+          if (matching.rolId === 'OPERADOR') {
+            setActiveTab(prev => (prev === 'dashboard' || prev === 'usuarios' || prev === 'configuracion' ? 'pagos-whatsapp' : prev));
+          } else if (matching.rolId === 'COBRADOR') {
+            setActiveTab(prev => (prev === 'dashboard' || prev === 'usuarios' || prev === 'configuracion' ? 'pagos-calle' : prev));
+          }
+        } else {
+          // Stored session user is not found in Firestore collection; clear invalid session
+          localStorage.removeItem('credicash_logged_in');
+          localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
+          localStorage.removeItem('credicash_real_user_rol_id');
+          setIsLoggedIn(false);
+          setActiveUser(null);
         }
       }
     }
@@ -2133,34 +2147,50 @@ export default function App() {
       activeUser.rolId === 'ADMIN' ||
       activeUser.rolId === 'SUPERADMIN' ||
       activeUser.rolId === 'SUPERADMINISTRADOR' ||
-      activeUser.rolId?.toLowerCase().includes('admin') ||
-      activeUser.email?.toLowerCase() === 'credicash999@gmail.com' ||
-      activeUser.id === 'USR-1'
+      activeUser.rolId?.toLowerCase().includes('admin')
     )
   );
   const isAdmin = isSuperAdmin;
 
-  const activeUserRole: PermisosRol = isSuperAdmin
-    ? {
-        id: activeUser?.rolId || 'ADMIN',
-        nombre: 'Superadministrador',
-        verDashboard: true,
-        verClientes: true,
-        crearClientes: true,
-        verTelefonoCliente: true,
-        verDniCliente: true,
-        verDireccionCliente: true,
-        verIngresosCliente: true,
-        verPrestamos: true,
-        crearPrestamos: true,
-        verPagos: true,
-        registrarPagos: true,
-        verTesoreria: true,
-        verConfiguracion: true,
-      }
-    : (roles.find(r => r.id === activeUser?.rolId) || DEFAULT_ROLES.find(r => r.id === activeUser?.rolId) || {
-        id: activeUser?.rolId || 'INVITADO',
-        nombre: 'Acceso Restringido',
+  const activeUserRole: PermisosRol = activeUser
+    ? (isSuperAdmin
+        ? {
+            id: activeUser.rolId || 'ADMIN',
+            nombre: 'Superadministrador',
+            verDashboard: true,
+            verClientes: true,
+            crearClientes: true,
+            verTelefonoCliente: true,
+            verDniCliente: true,
+            verDireccionCliente: true,
+            verIngresosCliente: true,
+            verPrestamos: true,
+            crearPrestamos: true,
+            verPagos: true,
+            registrarPagos: true,
+            verTesoreria: true,
+            verConfiguracion: true,
+          }
+        : (roles.find(r => r.id === activeUser.rolId) || DEFAULT_ROLES.find(r => r.id === activeUser.rolId) || {
+            id: activeUser.rolId || 'INVITADO',
+            nombre: 'Acceso Restringido',
+            verDashboard: false,
+            verClientes: false,
+            crearClientes: false,
+            verTelefonoCliente: false,
+            verDniCliente: false,
+            verDireccionCliente: false,
+            verIngresosCliente: false,
+            verPrestamos: false,
+            crearPrestamos: false,
+            verPagos: false,
+            registrarPagos: false,
+            verTesoreria: false,
+            verConfiguracion: false,
+          }))
+    : {
+        id: 'CARGANDO',
+        nombre: 'Cargando sesión...',
         verDashboard: false,
         verClientes: false,
         crearClientes: false,
@@ -2174,12 +2204,12 @@ export default function App() {
         registrarPagos: false,
         verTesoreria: false,
         verConfiguracion: false,
-      });
+      };
 
   // Automatic redirect if current tab is not allowed for the selected role
   useEffect(() => {
-    if (!activeUser || roles.length === 0) return;
-    const r = roles.find(rol => rol.id === activeUser.rolId);
+    if (!activeUser) return;
+    const r = roles.find(rol => rol.id === activeUser.rolId) || DEFAULT_ROLES.find(rol => rol.id === activeUser.rolId);
     if (!r && !isAdmin) return;
 
     const isCurrentTabAllowed = 
@@ -2193,7 +2223,7 @@ export default function App() {
       (activeTab === 'clientes-inactivos' && r?.verClientes) ||
       (activeTab === 'alertas-oportunidades' && r?.verClientes) ||
       (activeTab === 'nuevo-cliente' && r?.crearClientes) ||
-      (activeTab === 'operaciones' && r?.verPrestamos) ||
+      (activeTab === 'operaciones' && r?.verPrestamos && activeUser.rolId !== 'OPERADOR') ||
       (activeTab === 'pagos' && r?.verPagos) ||
       (activeTab === 'pagos-whatsapp' && r?.verPagos) ||
       (activeTab === 'pagos-telefono' && r?.verPagos && activeUser.rolId !== 'OPERADOR') ||
@@ -2345,6 +2375,31 @@ export default function App() {
 
   if (!isLoggedIn) {
     return <LoginView usuarios={usuarios} roles={roles} onLogin={handleLogin} onRefreshCloudData={applyCloudSnapshotData} />;
+  }
+
+  if (!activeUser || (cloudLoading && !activeUser)) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-sans p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <CrediCashLogo size="lg" showSubtitle={true} />
+          <div className="flex items-center gap-3 mt-6 text-emerald-400">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span className="text-sm font-semibold tracking-wide">Validando sesión y permisos en Firestore...</span>
+          </div>
+          {cloudError && (
+            <div className="mt-4 p-3 bg-red-950/60 border border-red-800/80 rounded-xl text-red-200 text-xs">
+              <p>{cloudError}</p>
+              <button
+                onClick={handleLogout}
+                className="mt-3 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs text-white border border-slate-700 cursor-pointer"
+              >
+                Volver al inicio de sesión
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -3132,6 +3187,21 @@ export default function App() {
                 onReprogramarVisita={handleReprogramarVisita}
                 onRegistrarContactoRecuperado={handleRegistrarContactoRecuperado}
                 onUpdateCliente={handleUpdateCliente}
+              />
+            ) : activeUser?.rolId === 'OPERADOR' ? (
+              <PagosView
+                operaciones={filteredOperaciones}
+                cuotas={filteredCuotas}
+                pagos={filteredPagos}
+                clientes={clientes}
+                usuarios={usuarios}
+                activeUser={activeUser}
+                configuracion={configuracion}
+                onAddPago={handleAddPago}
+                onReorganizePago={handleReorganizePagoAllocation}
+                onDeletePago={handleDeletePago}
+                canAddPago={activeUserRole.registrarPagos}
+                mode="WHATSAPP"
               />
             ) : (
               <DashboardView
