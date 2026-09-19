@@ -760,7 +760,14 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEYS.ROLES);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map<string, PermisosRol>();
+          DEFAULT_ROLES.forEach(r => map.set(r.id.toUpperCase().trim(), r));
+          parsed.forEach((r: PermisosRol) => {
+            if (r && r.id) map.set(r.id.toUpperCase().trim(), r);
+          });
+          return Array.from(map.values());
+        }
       }
     } catch (e) {}
     return DEFAULT_ROLES;
@@ -986,6 +993,8 @@ export default function App() {
     localStorage.removeItem('credicash_logged_in');
     localStorage.removeItem('credicash_real_user_rol_id');
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER_ID);
+    setActiveUser(null);
+    setRealUserRolId(null);
     setIsLoggedIn(false);
   };
 
@@ -1059,7 +1068,15 @@ export default function App() {
       }
     }
     if (data.roles !== undefined && Array.isArray(data.roles)) {
-      const resolvedRoles = data.roles.length > 0 ? data.roles : (roles.length > 0 ? roles : DEFAULT_ROLES);
+      const map = new Map<string, PermisosRol>();
+      DEFAULT_ROLES.forEach(r => map.set(r.id.toUpperCase().trim(), r));
+      (roles || []).forEach(r => {
+        if (r && r.id) map.set(r.id.toUpperCase().trim(), r);
+      });
+      data.roles.forEach((r: PermisosRol) => {
+        if (r && r.id) map.set(r.id.toUpperCase().trim(), r);
+      });
+      const resolvedRoles = Array.from(map.values());
       setRoles(resolvedRoles);
       saveToLocalStorage(STORAGE_KEYS.ROLES, resolvedRoles);
     }
@@ -1936,13 +1953,9 @@ export default function App() {
       deleteDocFromFirestore('usuarios', id);
     }
     
-    // If the currently active user is deleted, fall back to Admin
-    if (activeUser.id === id) {
-      const adminUser = list.find(u => u.rolId === 'ADMIN') || list[0];
-      if (adminUser) {
-        setActiveUser(adminUser);
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER_ID, adminUser.id);
-      }
+    // If the currently active user is deleted, log out immediately
+    if (activeUser?.id === id) {
+      handleLogout();
     }
   };
 
@@ -1956,11 +1969,27 @@ export default function App() {
   };
 
   const handleAddRole = (nuevo: PermisosRol) => {
-    const list = [...roles, nuevo];
+    const cleanId = (nuevo.id || '').toUpperCase().trim();
+    const cleanNuevo = { ...nuevo, id: cleanId };
+    const list = [...roles.filter(r => r.id.toUpperCase().trim() !== cleanId), cleanNuevo];
     setRoles(list);
     saveToLocalStorage(STORAGE_KEYS.ROLES, list);
     if (isFirebaseEnabled() && isAutoSyncEnabled()) {
-      uploadDocToFirestore('roles', nuevo.id, nuevo);
+      uploadDocToFirestore('roles', cleanId, cleanNuevo);
+    }
+  };
+
+  const handleDeleteRole = (id: string) => {
+    const cleanId = (id || '').toUpperCase().trim();
+    if (['ADMIN', 'OPERADOR', 'COBRADOR', 'ATC'].includes(cleanId)) {
+      alert('No es posible eliminar los roles base predeterminados del sistema.');
+      return;
+    }
+    const list = roles.filter(r => r.id.toUpperCase().trim() !== cleanId);
+    setRoles(list);
+    saveToLocalStorage(STORAGE_KEYS.ROLES, list);
+    if (isFirebaseEnabled() && isAutoSyncEnabled()) {
+      deleteDocFromFirestore('roles', cleanId);
     }
   };
 
@@ -2974,7 +3003,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'clientes-todos' && (
+          {activeTab === 'clientes-todos' && isAdmin && (
             <ClientesTodosView
               clientes={clientes}
               operaciones={operaciones}
@@ -2989,7 +3018,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'clientes-inactivos' && (
+          {activeTab === 'clientes-inactivos' && (isAdmin || activeUserRole.verClientes) && (
             <ClientesInactivosView
               clientes={clientes}
               operaciones={operaciones}
@@ -3010,7 +3039,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'operaciones' && activeUserRole.verPrestamos && activeUser?.rolId !== 'OPERADOR' && (
+          {activeTab === 'operaciones' && (isAdmin || (activeUserRole.verPrestamos && activeUser?.rolId !== 'OPERADOR')) && (
             <OperacionesView
               operaciones={filteredOperaciones}
               clientes={filteredClientes}
@@ -3083,7 +3112,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'gestion-admin' && (
+          {activeTab === 'gestion-admin' && isAdmin && (
             <GestionAdministracionView
               clientes={clientes}
               operaciones={operaciones}
@@ -3106,7 +3135,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'alertas-oportunidades' && (
+          {activeTab === 'alertas-oportunidades' && isAdmin && (
             <AlertasOportunidadesView
               clientes={clientes}
               operaciones={operaciones}
@@ -3209,6 +3238,7 @@ export default function App() {
               onDeleteUsuario={handleDeleteUsuario}
               onUpdateRolePermisos={handleUpdateRolePermisos}
               onAddRole={handleAddRole}
+              onDeleteRole={handleDeleteRole}
             />
           )}
 

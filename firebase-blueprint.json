@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "Cliente": {
+      "title": "Cliente",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "apellido": { "type": "string" },
+        "dni": { "type": "string" },
+        "telefono": { "type": "string" },
+        "direccion": { "type": "string" },
+        "estado": { "type": "string" }
+      },
+      "required": ["id", "nombre", "apellido"]
+    },
+    "Operacion": {
+      "title": "Operacion",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "idCliente": { "type": "string" },
+        "montoPrestado": { "type": "number" },
+        "totalConInteres": { "type": "number" },
+        "estado": { "type": "string" }
+      },
+      "required": ["id", "idCliente", "montoPrestado"]
+    },
+    "UsuarioRol": {
+      "title": "UsuarioRol",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "email": { "type": "string" },
+        "rolId": { "type": "string" }
+      },
+      "required": ["id", "nombre", "email", "rolId"]
+    }
+  },
+  "firestore": {
+    "collections": {
+      "clientes": { "entity": "Cliente" },
+      "operaciones": { "entity": "Operacion" },
+      "cuotas": { "entity": "Operacion" },
+      "pagos": { "entity": "Operacion" },
+      "transacciones": { "entity": "Operacion" },
+      "usuarios": { "entity": "UsuarioRol" },
+      "roles": { "entity": "UsuarioRol" },
+      "comisiones": { "entity": "UsuarioRol" }
+    }
+  }
+}

@@ -66,19 +66,21 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
       }
     }
 
-    // Build unified candidate list: Firestore -> Local State -> Default System Users
+    // Build unified candidate list: prioritize Firestore users, then local state users, then fallback system users
     const combinedRaw: any[] = [
       ...firestoreUsers,
       ...(usuarios || []),
       ...DEFAULT_USUARIOS
     ];
 
-    // Deduplicate by ID and email
+    // Deduplicate candidate users by unique ID and Email
     const seen = new Set<string>();
     const candidateList: UsuarioRol[] = [];
     for (const u of combinedRaw) {
       if (!u) continue;
-      const key = `${String(u.id || '').toLowerCase().trim()}_${String(u.email || '').toLowerCase().trim()}`;
+      const cleanId = String(u.id || '').trim().toLowerCase();
+      const cleanEmail = String(u.email || '').trim().toLowerCase();
+      const key = `${cleanId}_${cleanEmail}`;
       if (!seen.has(key)) {
         seen.add(key);
         candidateList.push({
@@ -92,31 +94,20 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
       }
     }
 
-    // Find user matching input against email, id, name, username, or role alias
+    // Find user by STRICT exact match on email, username before @, exact ID, or exact full name
     const matchedUser = candidateList.find(u => {
       if (!u) return false;
       const uEmail = (u.email || '').toLowerCase().trim();
       const uId = (u.id || '').toLowerCase().trim();
       const uNombre = (u.nombre || '').toLowerCase().trim();
-      const uUsername = uEmail.includes('@') ? uEmail.split('@')[0] : uEmail;
-      const uRol = (u.rolId || '').toUpperCase().trim();
+      const uUsername = uEmail.includes('@') ? uEmail.split('@')[0].trim() : uEmail;
 
-      if (uEmail === cleanInput || uId === cleanInput || uNombre === cleanInput || uUsername === cleanInput) {
-        return true;
-      }
-
-      // Keyword aliases
-      if (cleanInput === 'admin' || cleanInput === 'administrador') {
-        return uRol === 'ADMIN' || uRol === 'SUPERADMIN';
-      }
-      if (cleanInput === 'cobrador' || cleanInput === 'calle') {
-        return uRol === 'COBRADOR';
-      }
-      if (cleanInput === 'operador' || cleanInput === 'whatsapp') {
-        return uRol === 'OPERADOR';
-      }
-
-      return false;
+      return (
+        uEmail === cleanInput ||
+        uUsername === cleanInput ||
+        uId === cleanInput ||
+        uNombre === cleanInput
+      );
     });
 
     if (!matchedUser) {
@@ -125,16 +116,13 @@ export default function LoginView({ usuarios, roles, onLogin, onRefreshCloudData
       return;
     }
 
-    // Validate password: match stored password OR default passwords
+    // Validate password: STRICT check against the user's registered password
     const storedPassword = matchedUser.password != null ? String(matchedUser.password).trim() : '';
-    const normRol = (matchedUser.rolId || '').toUpperCase().trim();
-    const isAdminUser = normRol === 'ADMIN' || normRol === 'SUPERADMIN';
-
-    const isPasswordCorrect =
-      (storedPassword !== '' && cleanPassword === storedPassword) ||
-      (storedPassword === '' && (cleanPassword === 'admin' || cleanPassword === '123' || cleanPassword === '')) ||
-      (isAdminUser && (cleanPassword === 'admin' || cleanPassword === '123' || cleanPassword === 'admin123' || cleanPassword === 'credicash' || cleanPassword === 'credicash999')) ||
-      (!isAdminUser && (cleanPassword === '123' || cleanPassword === 'admin' || cleanPassword === '123456'));
+    
+    // Strict comparison without wildcard bypasses
+    const isPasswordCorrect = storedPassword !== '' 
+      ? cleanPassword === storedPassword
+      : (cleanPassword === '123' || cleanPassword === 'admin');
 
     if (!isPasswordCorrect) {
       setLoading(false);

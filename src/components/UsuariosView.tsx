@@ -19,6 +19,7 @@ interface UsuariosViewProps {
   onDeleteUsuario: (id: string) => void;
   onUpdateRolePermisos: (rol: PermisosRol) => void;
   onAddRole: (rol: PermisosRol) => void;
+  onDeleteRole?: (id: string) => void;
 }
 
 export default function UsuariosView({
@@ -33,6 +34,7 @@ export default function UsuariosView({
   onDeleteUsuario,
   onUpdateRolePermisos,
   onAddRole,
+  onDeleteRole,
 }: UsuariosViewProps) {
   const [activeTab, setActiveTab] = useState<'USUARIOS' | 'PRESENTISMO'>('USUARIOS');
 
@@ -224,19 +226,29 @@ export default function UsuariosView({
 
   const handleCreateRole = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nuevoRolNombre) return;
+    if (!nuevoRolNombre.trim()) return;
 
-    const rolId = nuevoRolNombre.toUpperCase().replace(/\s+/g, '_');
+    const cleanName = nuevoRolNombre.trim();
+    // Normalize clean ID
+    const rolId = cleanName
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+
+    const finalId = rolId || `ROL_${Date.now()}`;
     
     // Check if exists
-    if (roles.some(r => r.id === rolId)) {
-      alert('Ya existe un rol con este nombre.');
+    if (roles.some(r => r.id.toUpperCase() === finalId || r.nombre.toLowerCase() === cleanName.toLowerCase())) {
+      alert('Ya existe un rol con este nombre o identificador.');
       return;
     }
 
     const nuevo: PermisosRol = {
-      id: rolId,
-      nombre: nuevoRolNombre,
+      id: finalId,
+      nombre: cleanName,
       verDashboard: true,
       verClientes: true,
       crearClientes: false,
@@ -253,10 +265,10 @@ export default function UsuariosView({
     };
 
     onAddRole(nuevo);
-    setSelectedRolId(rolId);
+    setSelectedRolId(finalId);
+    setNuevoRolId(finalId);
     setNuevoRolNombre('');
     setShowAddRole(false);
-    alert(`Nuevo rol "${nuevoRolNombre}" creado con éxito. Ahora puede configurar sus accesos en el panel de la derecha.`);
   };
 
   const togglePermission = (field: keyof Omit<PermisosRol, 'id' | 'nombre'>) => {
@@ -419,12 +431,12 @@ export default function UsuariosView({
                 <select
                   value={rolFiltroAsistencia}
                   onChange={(e) => setRolFiltroAsistencia(e.target.value)}
-                  className="px-3 py-1.5 bg-slate-900 text-white font-bold text-xs border border-emerald-700 rounded-xl focus:outline-none focus:border-emerald-400"
+                  className="px-3 py-1.5 bg-slate-900 text-white font-bold text-xs border border-emerald-700 rounded-xl focus:outline-none focus:border-emerald-400 cursor-pointer"
                 >
-                  <option value="OPERADOR">Solo Operadores</option>
-                  <option value="TODOS">Todos los Roles</option>
-                  <option value="COBRADOR">Solo Cobradores</option>
-                  <option value="ADMIN">Solo Administradores</option>
+                  <option value="TODOS">Todos los Roles ({usuarios.length})</option>
+                  {roles.map(r => (
+                    <option key={r.id} value={r.id}>{r.nombre} ({r.id})</option>
+                  ))}
                 </select>
               </div>
 
@@ -674,7 +686,7 @@ export default function UsuariosView({
                   className="w-full px-3.5 py-2 text-xs bg-slate-900 text-white border border-emerald-700 rounded-lg focus:outline-none focus:border-emerald-400 transition-all cursor-pointer font-bold"
                 >
                   {roles.map(r => (
-                    <option key={r.id} value={r.id}>{r.nombre}</option>
+                    <option key={r.id} value={r.id}>{r.nombre} ({r.id})</option>
                   ))}
                 </select>
               </div>
@@ -744,8 +756,11 @@ export default function UsuariosView({
                 </thead>
                 <tbody className="divide-y divide-emerald-800/60 text-xs">
                   {usuarios.map(u => {
-                    const r = roles.find(rol => rol.id === u.rolId);
+                    const r = roles.find(rol => rol.id.toUpperCase() === u.rolId?.toUpperCase() || rol.nombre.toLowerCase() === u.rolId?.toLowerCase());
+                    const isSuperAdminUser = u.rolId === 'ADMIN' || u.email?.toLowerCase().trim() === 'credicash999@gmail.com';
                     const isActiveSimulated = activeUser.id === u.id;
+                    const isSystemRole = ['ADMIN', 'COBRADOR', 'OPERADOR', 'ATC'].includes(u.rolId?.toUpperCase());
+
                     return (
                       <tr key={u.id} className={`hover:bg-emerald-900/60 transition-colors ${isActiveSimulated ? 'bg-emerald-900/80' : ''}`}>
                         <td className="p-3">
@@ -770,9 +785,13 @@ export default function UsuariosView({
                           <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                             u.rolId === 'ADMIN' ? 'bg-purple-950 text-purple-300 border-purple-800' :
                             u.rolId === 'COBRADOR' ? 'bg-amber-950 text-amber-300 border-amber-800' :
-                            u.rolId === 'OPERADOR' ? 'bg-blue-950 text-blue-300 border-blue-800' : 'bg-slate-900 text-slate-300 border-slate-700'
+                            u.rolId === 'OPERADOR' ? 'bg-blue-950 text-blue-300 border-blue-800' :
+                            u.rolId === 'ATC' ? 'bg-teal-950 text-teal-300 border-teal-800' :
+                            'bg-emerald-900 text-emerald-200 border-emerald-600 font-extrabold shadow-xs'
                           }`}>
+                            <Shield className="w-2.5 h-2.5 shrink-0" />
                             {r?.nombre || u.rolId}
+                            {!isSystemRole && <span className="text-[9px] opacity-75 font-mono">({u.rolId})</span>}
                           </span>
                         </td>
                         <td className="p-3 text-emerald-200/80 font-mono text-[11px] font-bold">
@@ -787,7 +806,7 @@ export default function UsuariosView({
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-                            {u.rolId === 'ADMIN' && u.email === 'credicash999@gmail.com' ? (
+                            {isSuperAdminUser && u.email === 'credicash999@gmail.com' ? (
                               <span className="text-[10px] text-emerald-400/60 italic">Creador (Fijo)</span>
                             ) : (
                               <button
@@ -866,25 +885,64 @@ export default function UsuariosView({
             )}
 
             {/* Select Role to edit */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Seleccionar Rol para Configurar</label>
-              <div className="flex flex-wrap gap-1.5">
-                {roles.map(r => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRolId(r.id);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
-                      selectedRolId === r.id
-                        ? 'bg-emerald-500 text-slate-950 shadow-md'
-                        : 'bg-slate-900 hover:bg-slate-800 text-emerald-200 border border-emerald-800'
-                    }`}
-                  >
-                    {r.nombre}
-                  </button>
-                ))}
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Roles Configurados ({roles.length})</span>
+                <span className="text-[10px] text-emerald-400 font-normal">Haga clic en un rol para configurar accesos</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {roles.map(r => {
+                  const isSelected = selectedRole?.id === r.id;
+                  const isBuiltIn = ['ADMIN', 'OPERADOR', 'COBRADOR', 'ATC'].includes(r.id.toUpperCase());
+                  const usersCount = usuarios.filter(u => u.rolId?.toUpperCase() === r.id.toUpperCase() || u.rolId?.toLowerCase() === r.nombre.toLowerCase()).length;
+                  return (
+                    <div
+                      key={r.id}
+                      onClick={() => setSelectedRolId(r.id)}
+                      className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex flex-col justify-between gap-1 relative ${
+                        isSelected
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md font-black'
+                          : 'bg-slate-900 hover:bg-slate-800 text-emerald-200 border-emerald-800 font-bold'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="truncate">{r.nombre}</span>
+                        {!isBuiltIn && onDeleteRole && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (usersCount > 0) {
+                                alert(`No se puede eliminar el rol "${r.nombre}" porque hay ${usersCount} usuario(s) asignado(s). Reasigne primero a los usuarios.`);
+                                return;
+                              }
+                              if (confirm(`¿Desea eliminar el rol personalizado "${r.nombre}"?`)) {
+                                onDeleteRole(r.id);
+                                if (selectedRolId === r.id) {
+                                  setSelectedRolId('OPERADOR');
+                                }
+                              }
+                            }}
+                            className={`p-1 rounded-md transition-colors ${
+                              isSelected ? 'hover:bg-emerald-600 text-slate-950' : 'hover:bg-rose-950 text-rose-400 border border-transparent hover:border-rose-700'
+                            }`}
+                            title="Eliminar rol personalizado"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] opacity-80 pt-1 border-t border-current/10">
+                        <span className="font-mono text-[9px]">{r.id}</span>
+                        <span className={`px-1.5 py-0.2 rounded-full font-bold text-[9px] ${
+                          isSelected ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                        }`}>
+                          {usersCount} {usersCount === 1 ? 'usuario' : 'usuarios'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
