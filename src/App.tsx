@@ -55,7 +55,7 @@ import {
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
   Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles, UserCheck, FileCheck,
-  AlertTriangle, RefreshCw, Loader2, Eye, EyeOff, QrCode
+  AlertTriangle, RefreshCw, Loader2, Eye, EyeOff, QrCode, PanelLeft, PanelLeftClose, Menu
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -720,6 +720,9 @@ export default function App() {
   const [simularVistaOperador, setSimularVistaOperador] = useState<boolean>(() => {
     return localStorage.getItem('credicash_simular_operador') === 'true';
   });
+
+  // State to collapse/expand sidebar for maximized workspace on tablets/iPads
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   const handleToggleSimularOperador = (simular: boolean) => {
     setSimularVistaOperador(simular);
@@ -2721,7 +2724,24 @@ export default function App() {
       
       {/* Executive Financial Excel Top Bar Header */}
       <nav className="h-16 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between px-4 sm:px-8 shrink-0 shadow-md">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsSidebarCollapsed(prev => !prev)}
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer border border-slate-700 flex items-center gap-1.5 shadow-xs"
+            title={isSidebarCollapsed ? 'Mostrar Menú Lateral' : 'Ocultar Menú Lateral (Maximizar Espacio para Tablet)'}
+          >
+            {isSidebarCollapsed ? (
+              <>
+                <PanelLeft className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-[11px] font-bold hidden sm:inline text-emerald-300">Ver Menú</span>
+              </>
+            ) : (
+              <>
+                <PanelLeftClose className="w-4 h-4 text-slate-300 shrink-0" />
+                <span className="text-[11px] font-bold hidden sm:inline">Menú</span>
+              </>
+            )}
+          </button>
           <CrediCashLogo size="md" showSubtitle={true} />
         </div>
 
@@ -2828,10 +2848,10 @@ export default function App() {
       </nav>
 
       {/* Main Container */}
-      <div className="w-full px-4 md:px-8 py-4 md:py-6 flex-1 flex flex-col md:flex-row gap-6">
+      <div className={`w-full ${activeTab === 'gestion-whatsapp' ? 'px-2 md:px-4 py-2 md:py-3' : 'px-4 md:px-8 py-4 md:py-6'} flex-1 flex flex-col md:flex-row gap-4 md:gap-6`}>
         
         {/* Navigation Sidebar */}
-        <aside className="md:w-64 shrink-0 flex flex-col gap-2">
+        <aside className={`${isSidebarCollapsed ? 'hidden' : 'flex'} md:w-64 shrink-0 flex-col gap-2 transition-all`}>
           {/* Cloud Error / Offline Notice */}
           {cloudError && (
             <div className="p-3 bg-rose-950/80 border border-rose-600/80 rounded-xl text-rose-200 text-xs shadow-md mb-1 relative">

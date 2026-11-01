@@ -983,30 +983,32 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
             </div>
           )}
 
-          {/* Toggle between Chat and Ficha on mobile */}
-          <div className="flex lg:hidden bg-[#202c33] p-0.5 rounded-lg border border-[#2a3942]">
+          {/* Segmented Toggle between Chat and Ficha on mobile and tablets */}
+          <div className="flex 2xl:hidden bg-[#202c33] p-0.5 rounded-lg border border-[#2a3942]">
             <button
               onClick={() => setMobileActivePane('CHAT')}
-              className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
-                mobileActivePane === 'CHAT' ? 'bg-[#00a884] text-slate-950' : 'text-slate-300'
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-all ${
+                mobileActivePane === 'CHAT' ? 'bg-[#00a884] text-slate-950 font-black shadow-xs' : 'text-slate-300 hover:text-white'
               }`}
             >
-              Chat
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>Chat</span>
             </button>
             <button
               onClick={() => setMobileActivePane('FICHA')}
-              className={`px-2.5 py-1 text-xs font-bold rounded cursor-pointer ${
-                mobileActivePane === 'FICHA' ? 'bg-emerald-600 text-white' : 'text-slate-300'
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-all ${
+                mobileActivePane === 'FICHA' ? 'bg-emerald-600 text-white font-black shadow-xs' : 'text-slate-300 hover:text-white'
               }`}
             >
-              Ficha
+              <FileText className="w-3.5 h-3.5" />
+              <span>Ficha</span>
             </button>
           </div>
 
-          {/* Toggle right Ficha panel on desktop */}
+          {/* Toggle right Ficha panel on ultra-wide desktop only */}
           <button
             onClick={() => setShowRightPanel(!showRightPanel)}
-            className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+            className={`hidden 2xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
               showRightPanel
                 ? 'bg-emerald-700 text-white border-emerald-500'
                 : 'bg-[#202c33] text-slate-300 border-[#2a3942] hover:text-white'
@@ -1021,8 +1023,10 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
 
       {/* MAIN CONTAINER: 3 COLUMNS */}
       <div className="flex-1 flex overflow-hidden">
-        {/* COLUMN 1: CLIENT LIST (LEFT) */}
-        <div className="w-72 md:w-80 bg-[#111b21] border-r border-[#222d34] flex flex-col shrink-0">
+        {/* COLUMN 1: CLIENT LIST (LEFT) - Sleek & responsive for iPads */}
+        <div className={`w-full md:w-64 lg:w-72 2xl:w-80 bg-[#111b21] border-r border-[#222d34] flex-col shrink-0 ${
+          selectedClienteId ? 'hidden md:flex' : 'flex'
+        }`}>
           {/* Search box */}
           <div className="p-2.5 border-b border-[#222d34] bg-[#111b21]">
             <div className="relative">
@@ -1157,15 +1161,24 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
         {/* COLUMN 2: CENTER WHATSAPP CHAT */}
         <div
           className={`flex-1 bg-[#0b141a] flex-col min-w-0 relative ${
-            mobileActivePane === 'CHAT' ? 'flex' : 'hidden lg:flex'
+            mobileActivePane === 'CHAT' ? 'flex' : 'hidden 2xl:flex'
           }`}
         >
           {currentSelection ? (
             <>
               {/* CHAT HEADER WITH LOAN SELECTOR AND ACTION BUTTONS */}
-              <div className="bg-[#202c33] border-b border-[#2a3942] px-4 py-2 flex flex-col gap-2 shrink-0 z-10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
+              <div className="bg-[#202c33] border-b border-[#2a3942] px-4 py-2.5 flex flex-col gap-2 shrink-0 z-10">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                    {/* Back to Contacts on mobile/compact tablet */}
+                    <button
+                      onClick={() => setSelectedClienteId(null)}
+                      className="md:hidden p-1.5 rounded-lg bg-[#111b21] hover:bg-[#2a3942] text-slate-300 hover:text-white cursor-pointer mr-0.5 border border-[#2a3942] shrink-0"
+                      title="Volver a lista de contactos"
+                    >
+                      <ChevronRight className="w-4 h-4 rotate-180" />
+                    </button>
+
                     <div className="w-10 h-10 rounded-full bg-emerald-800 border border-emerald-600/40 flex items-center justify-center text-white font-bold text-sm shrink-0">
                       {(modoSuperAdminReal
                         ? currentSelection.cliente.nombre
@@ -1180,11 +1193,11 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                             ? `${currentSelection.cliente.nombre} ${currentSelection.cliente.apellido || ''}`.trim()
                             : `${currentSelection.cliente.id} · ${obtenerPrimerNombrePila(currentSelection.cliente)}`}
                         </h3>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#111b21] text-emerald-400 border border-[#2a3942]">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#111b21] text-emerald-400 border border-[#2a3942] shrink-0">
                           {currentSelection.cliente.id}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                      <div className="text-[11px] text-slate-400 flex items-center gap-2 truncate">
                         {modoSuperAdminReal ? (
                           <span>📞 {currentSelection.cliente.telefono || 'Sin teléfono'} • DNI: {currentSelection.cliente.dni || 'Sin DNI'}</span>
                         ) : (
@@ -1192,13 +1205,13 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                             🔒 DNI: {obtenerDniParcial(currentSelection.cliente.dni)} • Teléfono y domicilio protegidos
                           </span>
                         )}
-                        {selectedOp && <span>• Préstamo: {selectedOp.id}</span>}
+                        {selectedOp && <span className="hidden sm:inline">• Préstamo: {selectedOp.id}</span>}
                       </div>
                     </div>
                   </div>
 
                   {/* Header Fast Action Buttons */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={() => {
                         setActiveAction('pago');
@@ -1207,7 +1220,8 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00a884] hover:bg-[#008f72] text-slate-950 font-black text-xs cursor-pointer shadow-md transition-all active:scale-95"
                     >
                       <CreditCard className="w-3.5 h-3.5" />
-                      <span>Ingresar Pago</span>
+                      <span className="hidden sm:inline">Ingresar Pago</span>
+                      <span className="sm:hidden">Cobrar</span>
                     </button>
 
                     <button
@@ -1216,6 +1230,16 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
                       <span>Mora</span>
+                    </button>
+
+                    {/* View Ficha on tablets/iPads right from chat header */}
+                    <button
+                      onClick={() => setMobileActivePane('FICHA')}
+                      className="flex 2xl:hidden items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#111b21] hover:bg-[#2a3942] text-emerald-300 border border-emerald-600/40 text-xs font-bold cursor-pointer transition-all active:scale-95"
+                      title="Ver Ficha y Amortizaciones del Cliente"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Ficha</span>
                     </button>
                   </div>
                 </div>
@@ -1643,61 +1667,64 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* QUICK RESPONSE TEMPLATES BAR */}
-              <div className="bg-[#111b21] border-t border-[#222d34] px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+              {/* QUICK RESPONSE TEMPLATES BAR - TOUCH & TABLET OPTIMIZED */}
+              <div className="bg-[#111b21] border-t border-[#222d34] px-3 py-2 flex items-center gap-2 overflow-x-auto touch-pan-x scrollbar-thin shrink-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-[#00a884]" />
+                  <Sparkles className="w-3.5 h-3.5 text-[#00a884]" />
                   Plantillas:
                 </span>
                 <button
                   onClick={() => handleApplyTemplate('RECORDATORIO')}
-                  className="px-2.5 py-1 rounded-md bg-[#202c33] hover:bg-[#2a3942] text-[11px] text-amber-300 border border-amber-600/30 whitespace-nowrap cursor-pointer transition-all"
+                  className="px-3 py-1.5 rounded-lg bg-[#202c33] hover:bg-[#2a3942] active:scale-95 text-xs font-semibold text-amber-300 border border-amber-600/30 whitespace-nowrap cursor-pointer transition-all shadow-xs"
                 >
                   📅 Recordatorio Hoy
                 </button>
                 <button
                   onClick={() => handleApplyTemplate('MORA')}
-                  className="px-2.5 py-1 rounded-md bg-[#202c33] hover:bg-[#2a3942] text-[11px] text-rose-300 border border-rose-600/30 whitespace-nowrap cursor-pointer transition-all"
+                  className="px-3 py-1.5 rounded-lg bg-[#202c33] hover:bg-[#2a3942] active:scale-95 text-xs font-semibold text-rose-300 border border-rose-600/30 whitespace-nowrap cursor-pointer transition-all shadow-xs"
                 >
                   ⚠️ Aviso de Mora (+50%)
                 </button>
                 <button
                   onClick={() => handleApplyTemplate('CBU')}
-                  className="px-2.5 py-1 rounded-md bg-[#202c33] hover:bg-[#2a3942] text-[11px] text-teal-300 border border-teal-600/30 whitespace-nowrap cursor-pointer transition-all"
+                  className="px-3 py-1.5 rounded-lg bg-[#202c33] hover:bg-[#2a3942] active:scale-95 text-xs font-semibold text-teal-300 border border-teal-600/30 whitespace-nowrap cursor-pointer transition-all shadow-xs"
                 >
                   🏦 CBU / Alias Oficial
                 </button>
                 <button
                   onClick={() => handleApplyTemplate('RENOVACION')}
-                  className="px-2.5 py-1 rounded-md bg-[#202c33] hover:bg-[#2a3942] text-[11px] text-emerald-300 border border-emerald-600/30 whitespace-nowrap cursor-pointer transition-all"
+                  className="px-3 py-1.5 rounded-lg bg-[#202c33] hover:bg-[#2a3942] active:scale-95 text-xs font-semibold text-emerald-300 border border-emerald-600/30 whitespace-nowrap cursor-pointer transition-all shadow-xs"
                 >
                   ⭐ Renovación
                 </button>
                 <button
                   onClick={() => handleApplyTemplate('COMPROMISO')}
-                  className="px-2.5 py-1 rounded-md bg-[#202c33] hover:bg-[#2a3942] text-[11px] text-sky-300 border border-sky-600/30 whitespace-nowrap cursor-pointer transition-all"
+                  className="px-3 py-1.5 rounded-lg bg-[#202c33] hover:bg-[#2a3942] active:scale-95 text-xs font-semibold text-sky-300 border border-sky-600/30 whitespace-nowrap cursor-pointer transition-all shadow-xs"
                 >
                   🤝 Confirmar Compromiso
                 </button>
               </div>
 
-              {/* CHAT INPUT BAR */}
-              <div className="bg-[#202c33] border-t border-[#2a3942] p-2.5 flex items-center gap-2 shrink-0">
+              {/* CHAT INPUT BAR - TOUCH & TABLET OPTIMIZED */}
+              <div className="bg-[#202c33] border-t border-[#2a3942] p-3 flex items-end gap-2.5 shrink-0">
                 <button
                   onClick={() => setIsNotaInternaMode(!isNotaInternaMode)}
-                  className={`p-2 rounded-lg border transition-all cursor-pointer ${
+                  className={`h-11 px-3 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs ${
                     isNotaInternaMode
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-black'
                       : 'bg-[#111b21] text-slate-400 border-[#2a3942] hover:text-amber-400'
                   }`}
                   title={isNotaInternaMode ? 'Modo Nota Interna activado' : 'Activar Modo Nota Interna'}
                 >
-                  <Lock className="w-4 h-4" />
+                  <Lock className="w-4 h-4 shrink-0" />
+                  <span className="text-xs font-bold hidden sm:inline">
+                    {isNotaInternaMode ? 'Nota Interna' : 'Nota'}
+                  </span>
                 </button>
 
                 <div className="flex-1 relative">
                   <textarea
-                    rows={1}
+                    rows={2}
                     placeholder={
                       isNotaInternaMode
                         ? 'Escribir nota interna de auditoría (no se envía al cliente)...'
@@ -1711,7 +1738,7 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                         handleSendMessage();
                       }
                     }}
-                    className={`w-full py-2 px-3 rounded-lg text-xs md:text-sm resize-none focus:outline-hidden border transition-all ${
+                    className={`w-full py-2.5 px-3.5 rounded-xl text-sm leading-relaxed resize-none focus:outline-hidden border transition-all ${
                       isNotaInternaMode
                         ? 'bg-amber-950/40 text-amber-200 border-amber-600/60 placeholder-amber-400/60 focus:ring-1 focus:ring-amber-500'
                         : 'bg-[#2a3942] text-slate-100 border-transparent placeholder-slate-400 focus:ring-1 focus:ring-[#00a884]'
@@ -1722,14 +1749,14 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputText.trim()}
-                  className={`p-2.5 rounded-full transition-all cursor-pointer shadow-md ${
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-md ${
                     isNotaInternaMode
-                      ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                      : 'bg-[#00a884] text-slate-950 hover:bg-[#008f72] disabled:opacity-40 disabled:cursor-not-allowed'
+                      ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 active:scale-95'
+                      : 'bg-[#00a884] text-slate-950 hover:bg-[#008f72] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed'
                   }`}
                   title={isNotaInternaMode ? 'Guardar Nota Interna' : 'Enviar Mensaje'}
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-5 h-5" />
                 </button>
               </div>
             </>
@@ -1748,15 +1775,23 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
         {/* COLUMN 3: RIGHT PANEL - THE EXACT PREVIOUS "FICHA DEL CLIENTE" FROM PAGOS VIEW */}
         {(showRightPanel || mobileActivePane === 'FICHA') && currentSelection && (
           <div
-            className={`w-full lg:w-96 bg-[#111b21] border-l border-[#222d34] flex-col shrink-0 overflow-y-auto p-4 space-y-4 ${
-              mobileActivePane === 'FICHA' ? 'flex' : 'hidden lg:flex'
+            className={`w-full 2xl:w-96 bg-[#111b21] border-l border-[#222d34] flex-col shrink-0 overflow-y-auto p-4 space-y-4 ${
+              mobileActivePane === 'FICHA' ? 'flex' : 'hidden 2xl:flex'
             }`}
           >
             {/* Header info */}
             <div className="flex items-center justify-between pb-2 border-b border-[#222d34]">
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-emerald-400" />
-                <h4 className="font-extrabold text-xs text-slate-200 uppercase tracking-wider">
+                <button
+                  onClick={() => setMobileActivePane('CHAT')}
+                  className="2xl:hidden px-3 py-1.5 rounded-lg bg-[#00a884] hover:bg-[#008f72] text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer mr-1 shadow-md transition-all active:scale-95"
+                  title="Regresar a la conversación del cliente"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>Volver al Chat</span>
+                </button>
+                <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                <h4 className="font-extrabold text-xs text-slate-200 uppercase tracking-wider truncate">
                   Ficha de Resumen del Cliente
                 </h4>
               </div>
@@ -1765,7 +1800,8 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                   setShowRightPanel(false);
                   setMobileActivePane('CHAT');
                 }}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-[#202c33]"
+                title="Cerrar Ficha"
               >
                 <X className="w-4 h-4" />
               </button>
