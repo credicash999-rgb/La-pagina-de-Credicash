@@ -47,13 +47,14 @@ import AlertasOportunidadesView from './components/AlertasOportunidadesView';
 import CaptacionClientesView from './components/CaptacionClientesView';
 import VerificacionView from './components/VerificacionView';
 import AsignacionClientesView from './components/AsignacionClientesView';
+import { WhatsAppDesk } from './components/WhatsAppGestion/WhatsAppDesk';
 
 // Icons
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
   Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles, UserCheck, FileCheck,
-  AlertTriangle, RefreshCw, Loader2
+  AlertTriangle, RefreshCw, Loader2, Eye, EyeOff
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -714,6 +715,21 @@ export default function App() {
     return 'dashboard';
   });
 
+  // State to simulate Operator view for Superadmin testing & auditing
+  const [simularVistaOperador, setSimularVistaOperador] = useState<boolean>(() => {
+    return localStorage.getItem('credicash_simular_operador') === 'true';
+  });
+
+  const handleToggleSimularOperador = (simular: boolean) => {
+    setSimularVistaOperador(simular);
+    localStorage.setItem('credicash_simular_operador', String(simular));
+    if (simular) {
+      if (activeTab === 'dashboard' || !['gestion-whatsapp', 'pagos-whatsapp', 'clientes'].includes(activeTab)) {
+        setActiveTab('gestion-whatsapp');
+      }
+    }
+  };
+
   // Core State with Persistent Local Storage & Auto-Vault Fallback
   const [clientes, setClientes] = useState<Cliente[]>(() => {
     try {
@@ -1167,6 +1183,24 @@ export default function App() {
       } catch (e) {}
     }
   }, [clientes, operaciones, cuotas, pagos, transacciones, usuarios, roles, configuracion]);
+
+  // Sync state to internal Express server cache for WhatsApp CRM endpoints
+  useEffect(() => {
+    if (clientes && clientes.length > 0) {
+      try {
+        fetch('/api/v1/crm/internal/sync-cache', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientes,
+            operaciones,
+            cuotas,
+            configuracion
+          })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+  }, [clientes, operaciones, cuotas, configuracion]);
 
   // Comprehensive helper to apply cloud snapshot to state strictly from Firestore
   const applyCloudSnapshotData = (data: any) => {
@@ -2469,13 +2503,21 @@ export default function App() {
   // Automatic redirect if current tab is not allowed for the selected role
   useEffect(() => {
     if (!activeUser) return;
+
+    if (simularVistaOperador) {
+      if (!['gestion-whatsapp', 'pagos-whatsapp', 'clientes'].includes(activeTab)) {
+        setActiveTab('gestion-whatsapp');
+      }
+      return;
+    }
+
     const r = roles.find(rol => rol.id === activeUser.rolId || rol.id.toUpperCase() === normalizedActiveRolId) || DEFAULT_ROLES.find(rol => rol.id === activeUser.rolId || rol.id.toUpperCase() === normalizedActiveRolId);
     if (!r && !isAdmin) return;
 
     const isCurrentTabAllowed = 
       isAdmin ||
       (normalizedActiveRolId === 'COBRADOR' && (activeTab === 'pagos-calle' || activeTab === 'liquidaciones')) ||
-      (normalizedActiveRolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'clientes')) ||
+      (normalizedActiveRolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'gestion-whatsapp' || activeTab === 'clientes')) ||
       (activeTab === 'dashboard' && r?.verDashboard) ||
       (activeTab === 'gestion-admin' && (r?.verClientes || isAdmin)) ||
       (activeTab === 'clientes' && r?.verClientes) ||
@@ -2486,6 +2528,7 @@ export default function App() {
       (activeTab === 'operaciones' && r?.verPrestamos && normalizedActiveRolId !== 'OPERADOR') ||
       (activeTab === 'pagos' && r?.verPagos) ||
       (activeTab === 'pagos-whatsapp' && r?.verPagos) ||
+      (activeTab === 'gestion-whatsapp' && (r?.verPagos || isAdmin)) ||
       (activeTab === 'pagos-telefono' && r?.verPagos && normalizedActiveRolId !== 'OPERADOR') ||
       (activeTab === 'pagos-calle' && r?.verPagos && normalizedActiveRolId !== 'OPERADOR') ||
       (activeTab === 'captacion-clientes') ||
@@ -2505,7 +2548,7 @@ export default function App() {
       else if (r?.verTesoreria) setActiveTab('tesoreria');
       else if (r?.verConfiguracion) setActiveTab('configuracion');
     }
-  }, [activeUser, roles, activeTab, isAdmin, normalizedActiveRolId]);
+  }, [activeUser, roles, activeTab, isAdmin, normalizedActiveRolId, simularVistaOperador]);
 
   // Role Based Access Data Filtering
   // Non-ADMIN operators (Cobradores, Operadores) only see active/renewal clients assigned to them.
@@ -2695,6 +2738,34 @@ export default function App() {
           <div className="hidden md:block h-8 w-px bg-slate-800"></div>
           
           <div className="flex items-center gap-4">
+            {isAdmin && (
+              <button
+                onClick={() => handleToggleSimularOperador(!simularVistaOperador)}
+                className={`px-3 py-1.5 text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer border transition-all ${
+                  simularVistaOperador
+                    ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400/50'
+                    : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-700/60'
+                }`}
+                title={
+                  simularVistaOperador
+                    ? 'Modo Simulación Operador Activo. Haga clic para volver a Vista Super Administrador'
+                    : 'Simular cómo ve el sistema y las pestañas un Operador de WhatsApp'
+                }
+              >
+                {simularVistaOperador ? (
+                  <>
+                    <EyeOff className="w-4 h-4 text-slate-950 shrink-0" />
+                    <span>👁️ Vista Operador (Activa)</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Simular Vista Operador</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {!isAdmin && (
               <button
                 onClick={handleRestoreAdminSession}
@@ -2797,7 +2868,7 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-1.5 bg-slate-900 p-3.5 rounded-2xl border border-slate-800 shadow-md">
-            {isAdmin ? (
+            {isAdmin && !simularVistaOperador ? (
               // Comprehensive Main Menu - Absolute Access for Superadmin
               <>
                 {/* 1. Consola Dashboard */}
@@ -2876,6 +2947,22 @@ export default function App() {
                 >
                   <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
                   <span>Consola de Cobranzas</span>
+                </button>
+
+                {/* 6b. Gestión WhatsApp Web (Estación Descentralizada) */}
+                <button
+                  onClick={() => setActiveTab('gestion-whatsapp')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'gestion-whatsapp'
+                      ? 'bg-gradient-to-r from-[#00a884] to-[#005c4b] text-white border-2 border-[#25d366] ring-2 ring-[#00a884]/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-[#00a884]'
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4 shrink-0 text-[#25d366]" />
+                  <div className="flex items-center gap-1.5">
+                    <span>Gestión WhatsApp</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-[#005c4b] text-[#25d366] font-bold border border-[#00a884]/40">CRM Web</span>
+                  </div>
                 </button>
 
                 {/* 7. Clientes Inactivos */}
@@ -3014,9 +3101,43 @@ export default function App() {
                   3. Liquidaciones & Comisiones
                 </button>
               </>
-            ) : normalizedActiveRolId === 'OPERADOR' ? (
-              // OPERATOR WHATSAPP strictly allowed tabs: pagos-whatsapp (Gestión Diaria) and clientes (Buscar Cliente)
+            ) : (normalizedActiveRolId === 'OPERADOR' || simularVistaOperador) ? (
+              // OPERATOR WHATSAPP strictly allowed tabs: gestion-whatsapp (WhatsApp Desk Web), pagos-whatsapp (Gestión Diaria) and clientes (Buscar Cliente)
               <>
+                {simularVistaOperador && (
+                  <div className="p-3 bg-amber-950/90 border border-amber-600/80 rounded-xl mb-2 text-xs text-amber-200 shadow-md animate-fade-in">
+                    <div className="flex items-center gap-1.5 font-black text-amber-300 uppercase text-[10px] mb-1">
+                      <EyeOff className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Modo Simulación Operador</span>
+                    </div>
+                    <p className="text-[11px] text-amber-100/90 leading-tight mb-2">
+                      Dashboard y opciones de Super Admin ocultas. Así ve el operador la pantalla.
+                    </p>
+                    <button
+                      onClick={() => handleToggleSimularOperador(false)}
+                      className="w-full py-1.5 px-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-lg cursor-pointer transition-all flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Volver a Super Admin</span>
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setActiveTab('gestion-whatsapp')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
+                    activeTab === 'gestion-whatsapp'
+                      ? 'bg-gradient-to-r from-[#00a884] to-[#005c4b] text-white font-black border-2 border-[#25d366] shadow-sm ring-2 ring-[#00a884]/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4 shrink-0 text-[#25d366]" />
+                  <div className="flex items-center gap-1.5">
+                    <span>Gestión WhatsApp</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-[#005c4b] text-[#25d366] font-bold border border-[#00a884]/40">CRM Web</span>
+                  </div>
+                </button>
+
                 <button
                   onClick={() => setActiveTab('pagos-whatsapp')}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
@@ -3050,6 +3171,18 @@ export default function App() {
                 {activeUserRole.verPagos && (
                   <div className="space-y-1 pl-2 border-l-2 border-slate-700 mt-1 mb-2">
                     <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider block px-2 py-1">Consolas de Cobranza</span>
+                    <button
+                      onClick={() => setActiveTab('gestion-whatsapp')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
+                        activeTab === 'gestion-whatsapp'
+                          ? 'bg-[#00a884] text-slate-950 font-black border border-[#25d366] shadow-sm'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
+                      }`}
+                    >
+                      <MessageCircle className="w-4 h-4 shrink-0 text-[#25d366]" />
+                      Gestión WhatsApp Web
+                    </button>
+
                     <button
                       onClick={() => setActiveTab('pagos-whatsapp')}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
@@ -3284,6 +3417,29 @@ export default function App() {
               onAddOperacion={handleAddOperacion}
               onUpdateOperacion={handleUpdateOperacion}
               onAddCuotas={handleAddCuotas}
+              onDeleteOperacion={handleDeleteOperacion}
+            />
+          )}
+
+          {activeTab === 'gestion-whatsapp' && (isAdmin || activeUserRole.verPagos) && (
+            <WhatsAppDesk
+              clientes={clientes}
+              operaciones={operaciones}
+              cuotas={cuotas}
+              pagos={pagos}
+              compromisosPago={compromisosPago}
+              usuarios={usuarios}
+              activeUser={activeUser}
+              configuracion={configuracion}
+              feriados={feriados}
+              isAdmin={isAdmin}
+              simularVistaOperador={simularVistaOperador}
+              onToggleSimularOperador={handleToggleSimularOperador}
+              onAddPago={handleAddPago}
+              onAddCompromisoPago={handleAddCompromisoPago}
+              onUpdateCliente={handleUpdateCliente}
+              onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onNavigateTo={(tab) => setActiveTab(tab)}
             />
           )}
 
@@ -3296,9 +3452,14 @@ export default function App() {
               usuarios={usuarios}
               activeUser={activeUser}
               configuracion={configuracion}
+              feriados={feriados}
               onAddPago={handleAddPago}
               onReorganizePago={handleReorganizePagoAllocation}
               onDeletePago={handleDeletePago}
+              onDeleteOperacion={handleDeleteOperacion}
+              onAddOperacion={handleAddOperacion}
+              onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onUpdateCliente={handleUpdateCliente}
               canAddPago={activeUserRole.registrarPagos}
               mode="WHATSAPP"
             />
@@ -3313,9 +3474,14 @@ export default function App() {
               usuarios={usuarios}
               activeUser={activeUser}
               configuracion={configuracion}
+              feriados={feriados}
               onAddPago={handleAddPago}
               onReorganizePago={handleReorganizePagoAllocation}
               onDeletePago={handleDeletePago}
+              onDeleteOperacion={handleDeleteOperacion}
+              onAddOperacion={handleAddOperacion}
+              onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onUpdateCliente={handleUpdateCliente}
               canAddPago={activeUserRole.registrarPagos}
               mode="TELEFONO"
             />

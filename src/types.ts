@@ -58,6 +58,7 @@ export interface Cliente {
   fotoCasa?: string;
   gpsLat?: number;
   gpsLng?: number;
+  aliasAnonimo?: string; // Nombre protegido para operadores de WhatsApp (ej: "Martín (CLI-8492)")
   observaciones?: string;
 }
 
@@ -108,6 +109,9 @@ export interface Operacion {
   motivoCierre: string;
   observaciones: string;
   cuotasGeneradas: boolean;
+  esRefinanciacion?: boolean;
+  idOperacionOrigen?: string;
+  historialRefinanciacion?: any;
 }
 
 export interface Cuota {
@@ -211,6 +215,24 @@ export interface Configuracion {
   moraSemanalAplicaDesdeDias?: number;
   moraQuincenalAplicaDesdeDias?: number;
   moraMensualAplicaDesdeDias?: number;
+
+  // Cuentas Bancarias Oficiales de Recepción
+  cbuOficial?: string;
+  aliasOficial?: string;
+
+  // Integración CRM WhatsApp Descentralizado
+  crmWebhookUrl?: string;
+  crmApiKey?: string;
+
+  // Parámetros de Mora Modular Independiente por Tipo de Crédito
+  moraDiarioIntervaloDias?: number;    // Por defecto: 2 días hábiles
+  moraDiarioPorcentaje?: number;       // Por defecto: 50%
+  moraSemanalIntervaloDias?: number;   // Por defecto: 5 días hábiles
+  moraSemanalPorcentaje?: number;      // Por defecto: 50%
+  moraQuincenalIntervaloDias?: number; // Por defecto: 7 días hábiles
+  moraQuincenalPorcentaje?: number;    // Por defecto: 50%
+  moraMensualIntervaloDias?: number;   // Por defecto: 10 días hábiles
+  moraMensualPorcentaje?: number;      // Por defecto: 50%
 }
 
 export interface TransaccionTesoreria {

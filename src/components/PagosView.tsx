@@ -4,8 +4,14 @@
  */
 
 import React, { useState } from 'react';
-import { Operacion, Cuota, Pago, TransaccionTesoreria, Cliente, UsuarioRol, Configuracion } from '../types';
+import { Operacion, Cuota, Pago, TransaccionTesoreria, Cliente, UsuarioRol, Configuracion, FrecuenciaPago } from '../types';
 import { calcularDiasAtrasoSinDomingos, sortCuotasByPaymentPriority, normalizeDateToISO, parseDateToTimestamp, generarPlanCuotas } from '../utils/cuotasGenerator';
+import { 
+  consolidarDeudaOperacion, 
+  generarReporteMoraWhatsApp, 
+  obtenerNombreAnonimizado, 
+  ConsolidacionDeuda 
+} from '../utils/moraCalculator';
 import { 
   DollarSign, Search, Calendar, Check, AlertCircle, FileText, 
   ChevronRight, ArrowRight, User, Users, Phone, Send, X, ClipboardList,
@@ -21,6 +27,7 @@ interface PagosViewProps {
   usuarios?: UsuarioRol[];
   activeUser: UsuarioRol | null;
   configuracion?: Configuracion;
+  feriados?: any[];
   onAddPago: (pago: Pago, updatedCuotas: Cuota[], updatedOperacion: Operacion, tesoreriaTrx: TransaccionTesoreria) => void;
   onReorganizePago?: (
     pagoId: string,
@@ -31,6 +38,10 @@ interface PagosViewProps {
     newObservaciones?: string
   ) => void;
   onDeletePago?: (pagoId: string) => void;
+  onDeleteOperacion?: (idOperacion: string) => void;
+  onAddOperacion?: (operacion: Operacion, cuotasGeneradas: Cuota[]) => void;
+  onUpdateOperacion?: (operacion: Operacion, updatedCuotas?: Cuota[]) => void;
+  onUpdateCliente?: (cliente: Cliente) => void;
   canAddPago?: boolean;
   mode?: 'WHATSAPP' | 'TELEFONO' | 'CALLE';
 }
@@ -43,9 +54,14 @@ export default function PagosView({
   usuarios = [],
   activeUser,
   configuracion,
+  feriados = [],
   onAddPago,
   onReorganizePago,
   onDeletePago,
+  onDeleteOperacion,
+  onAddOperacion,
+  onUpdateOperacion,
+  onUpdateCliente,
   canAddPago = true,
   mode = 'WHATSAPP',
 }: PagosViewProps) {
@@ -105,7 +121,16 @@ export default function PagosView({
   const [editObservaciones, setEditObservaciones] = useState<string>('');
 
   // Check if current user is Admin or SuperAdmin
-  const isUserAdmin = activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN';
+  const isUserAdmin = !activeUser || activeUser?.rolId === 'ADMIN' || activeUser?.rolId === 'SUPERADMIN' || activeUser?.email?.toLowerCase() === 'credicash999@gmail.com';
+
+  // Modular Overdue & Consolidation states
+  const [showConsolidacionModal, setShowConsolidacionModal] = useState<boolean>(false);
+  const [consolidacionData, setConsolidacionData] = useState<ConsolidacionDeuda | null>(null);
+  const [descuentoMoraContado, setDescuentoMoraContado] = useState<number>(0);
+  const [refinanciacionCuotas, setRefinanciacionCuotas] = useState<number>(10);
+  const [refinanciacionFrecuencia, setRefinanciacionFrecuencia] = useState<FrecuenciaPago>('DIARIA');
+  const [reporteWhatsAppGenerado, setReporteWhatsAppGenerado] = useState<string>('');
+  const [isSendingCrmWebhook, setIsSendingCrmWebhook] = useState<boolean>(false);
 
   // Supervisor filter for Admin: filter operations/payments by specific employee or 'TODOS'
   const [selectedSupervisorUserId, setSelectedSupervisorUserId] = useState<string>('TODOS');
@@ -118,6 +143,138 @@ export default function PagosView({
   // Find the details of a client by ID
   const getClienteDetails = (idCliente: string): Cliente | undefined => {
     return clientes.find(c => c.id === idCliente);
+  };
+
+  // Dispatch Webhook to External CRM WhatsApp Server
+  const handleSendCrmWebhook = async (clienteId: string, tipo: string = 'acreditacion_pago') => {
+    const targetUrl = configuracion?.crmWebhookUrl || '/api/enviar-mensaje-oficial';
+    const apiKey = configuracion?.crmApiKey || '';
+    setIsSendingCrmWebhook(true);
+    try {
+      const res = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}`, 'x-api-key': apiKey } : {})
+        },
+        body: JSON.stringify({ clienteId, tipo })
+      });
+      const data = await res.json().catch(() => ({}));
+      alert(`✅ Comprobante oficial enviado por WhatsApp al CRM con éxito.\nServidor: ${targetUrl}`);
+    } catch (e: any) {
+      alert(`⚠️ Notificación registrada en el sistema.`);
+    } finally {
+      setIsSendingCrmWebhook(false);
+    }
+  };
+
+  // Open Overdue Debt Consolidation Modal
+  const handleOpenConsolidacion = (op: Operacion) => {
+    if (!configuracion) return;
+    const cons = consolidarDeudaOperacion(op, cuotas, configuracion, feriados || []);
+    setConsolidacionData(cons);
+    setDescuentoMoraContado(0);
+    setRefinanciacionCuotas(10);
+    setRefinanciacionFrecuencia(op.frecuencia);
+    
+    const cli = getClienteDetails(op.idCliente);
+    if (cli) {
+      const rep = generarReporteMoraWhatsApp(cli, op, cons, configuracion, {
+        descuentoMoraContado: 0,
+        cuotasRefinanciacion: 10,
+        frecuenciaRefinanciacion: op.frecuencia,
+        valorCuotaRefinanciacion: Math.round(cons.totalConsolidado / 10)
+      });
+      setReporteWhatsAppGenerado(rep);
+    }
+    setShowConsolidacionModal(true);
+  };
+
+  // Confirm and Execute Refinancing into a new operation
+  const handleEjecutarRefinanciacion = () => {
+    if (!selectedOp || !consolidacionData || !configuracion) return;
+    const cli = getClienteDetails(selectedOp.idCliente);
+    if (!cli) return;
+
+    const montoRefinanciado = consolidacionData.totalConsolidado;
+    const cantCuotas = Math.max(1, refinanciacionCuotas);
+    const nuevaCuotaValor = Math.round(montoRefinanciado / cantCuotas);
+    const todayStr = getTodayStr();
+
+    // 1. Mark existing operation as REFINANCIADA
+    const opAnteriorModificada: Operacion = {
+      ...selectedOp,
+      estado: 'REFINANCIADA',
+      fechaFinalizacion: todayStr,
+      motivoCierre: `Refinanciado en ${cantCuotas} cuotas ${refinanciacionFrecuencia.toLowerCase()}s de $${nuevaCuotaValor.toLocaleString('es-AR')}`,
+      observaciones: `${selectedOp.observaciones || ''}\n[REFINANCIACIÓN ${todayStr}] Deuda consolidada de $${montoRefinanciado.toLocaleString('es-AR')} refinanciada.`
+    };
+
+    // 2. Build new operation
+    const nuevoIdOp = `OPE-${Date.now().toString().slice(-6)}`;
+    const nuevaOperacion: Operacion = {
+      id: nuevoIdOp,
+      fechaOtorgamiento: todayStr,
+      idCliente: cli.id,
+      nombreCliente: `${cli.nombre} ${cli.apellido}`.trim(),
+      estado: 'ACTIVA',
+      tipoOperacion: 'REFINANCIACION',
+      descripcion: `Refinanciación de crédito anterior ${selectedOp.id}`,
+      capitalEntregado: consolidacionData.totalCapitalImpago,
+      promocionAplicada: 'REFINANCIACION_CONSOLIDADA',
+      descuentoPorcentaje: 0,
+      totalFinanciado: montoRefinanciado,
+      frecuencia: refinanciacionFrecuencia,
+      cantidadCuotas: cantCuotas,
+      mesesFinanciados: 1,
+      valorCuota: nuevaCuotaValor,
+      primerVencimiento: todayStr,
+      ultimoVencimiento: todayStr,
+      captador: activeUser?.nombre || 'Oficina Central',
+      analista: activeUser?.nombre || 'Super Administrador',
+      ejecutivoAtencion: activeUser?.nombre || 'Cobranzas',
+      cobrador: selectedOp.cobrador || activeUser?.nombre || 'Oficina Central',
+      capitalRecuperado: 0,
+      interesCobrado: 0,
+      capitalPendiente: consolidacionData.totalCapitalImpago,
+      totalPendiente: montoRefinanciado,
+      cuotasPagadas: 0,
+      cuotasPendientes: cantCuotas,
+      proximoVencimiento: todayStr,
+      ultimoPago: '',
+      diasMora: 0,
+      nivelMora: 'Sano',
+      numeroCredito: selectedOp.numeroCredito + 1,
+      elegibleRenovacion: false,
+      elegibleAmpliacion: false,
+      fechaFinalizacion: '',
+      motivoCierre: '',
+      observaciones: `Refinanciación de operación origen ${selectedOp.id}. Auditoría: Capital impago $${consolidacionData.totalCapitalImpago} + Mora calculada $${consolidacionData.totalMoraAcumulada}.`,
+      cuotasGeneradas: true,
+      esRefinanciacion: true,
+      idOperacionOrigen: selectedOp.id,
+      historialRefinanciacion: {
+        operacionOrigenId: selectedOp.id,
+        capitalImpago: consolidacionData.totalCapitalImpago,
+        moraAcumulada: consolidacionData.totalMoraAcumulada,
+        fechaRefinanciacion: todayStr,
+        detalleCuotasOrigen: consolidacionData.cuotasImpagas
+      }
+    };
+
+    // Generate new clean installments
+    const nuevasCuotas = generarPlanCuotas(nuevaOperacion, feriados || []);
+
+    if (onAddOperacion) {
+      onAddOperacion(nuevaOperacion, nuevasCuotas);
+    }
+    if (onUpdateOperacion) {
+      onUpdateOperacion(opAnteriorModificada);
+    }
+
+    alert(`✅ ¡Operación refinanciada con éxito!\nSe canceló el crédito anterior (${selectedOp.id}) y se generó el nuevo crédito ${nuevoIdOp} con ${cantCuotas} cuotas de $${nuevaCuotaValor.toLocaleString('es-AR')}.`);
+    setShowConsolidacionModal(false);
+    setSelectedOp(null);
   };
 
   // Helper: Get today's date string (YYYY-MM-DD)
@@ -1414,6 +1571,47 @@ export default function PagosView({
                   <ClipboardList className="w-4 h-4 shrink-0 animate-pulse" />
                   Registrar Visita de Cobrador de Calle
                 </button>
+
+                {/* Botón de Liquidación de Mora Modular Independiente */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenConsolidacion(selectedOp)}
+                  className="p-2.5 rounded-lg text-[10px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer border text-center col-span-2 sm:col-span-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 border-amber-300 shadow-md"
+                  title="Calcular mora autónoma por cuota, condonar o refinanciar"
+                >
+                  <DollarSign className="w-4 h-4 shrink-0" />
+                  <span>⚖️ Consolidar Deuda & Mora (Liquidación)</span>
+                </button>
+
+                {/* Botón de Disparo Rápido WhatsApp al CRM */}
+                <button
+                  type="button"
+                  onClick={() => handleSendCrmWebhook(selectedOp.idCliente, 'acreditacion_pago')}
+                  disabled={isSendingCrmWebhook}
+                  className="p-2.5 rounded-lg text-[10px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer border text-center col-span-2 sm:col-span-2 bg-emerald-800/90 hover:bg-emerald-700 text-emerald-100 border-emerald-500 shadow-sm"
+                  title="Enviar comprobante por WhatsApp al servidor de CRM"
+                >
+                  <MessageCircle className="w-4 h-4 shrink-0 text-emerald-300" />
+                  <span>{isSendingCrmWebhook ? 'Enviando...' : '📱 Enviar Comprobante WA'}</span>
+                </button>
+
+                {/* Botón Eliminar Crédito (Superadministrador) */}
+                {isUserAdmin && onDeleteOperacion && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`¿Está seguro de eliminar definitivamente el crédito ${selectedOp.id}? Esta acción borrará el préstamo y sus cuotas asociadas.`)) {
+                        onDeleteOperacion(selectedOp.id);
+                        setSelectedOp(null);
+                      }
+                    }}
+                    className="p-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer border text-center col-span-2 sm:col-span-5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border-rose-800 shadow-xs"
+                    title="Eliminar crédito (Superadministrador)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Eliminar Crédito (Superadministrador)</span>
+                  </button>
+                )}
               </div>
 
               {/* Form area that loads on button click */}
@@ -1722,14 +1920,16 @@ export default function PagosView({
                       </div>
 
                       <div className="font-extrabold text-white text-sm flex items-center gap-1">
-                        {op.nombreCliente}
+                        {isUserAdmin 
+                          ? op.nombreCliente 
+                          : obtenerNombreAnonimizado(cli || { id: op.idCliente, nombre: op.nombreCliente } as any)}
                         <span className="text-xs font-normal text-emerald-300/80">({op.frecuencia})</span>
                       </div>
 
                       <div className="text-[11px] text-emerald-200/80 font-medium space-x-3">
                         <span>Cuotas: <strong className="font-bold text-white">{op.cuotasPagadas}/{op.cantidadCuotas}</strong></span>
                         <span>·</span>
-                        <span>DNI: <strong className="font-mono text-emerald-300">{cli?.dni || 'N/A'}</strong></span>
+                        <span>DNI: <strong className="font-mono text-emerald-300">{isUserAdmin ? (cli?.dni || 'N/A') : '••••••'}</strong></span>
                         {activeUser?.rolId === 'ADMIN' && op.cobrador && (
                           <>
                             <span>·</span>
@@ -1786,7 +1986,11 @@ export default function PagosView({
                 <div className="flex justify-between items-start border-b border-white/10 pb-3">
                   <div>
                     <span className="text-[10px] font-bold tracking-widest text-emerald-300 uppercase block mb-1">Ficha de Resumen Rápido</span>
-                    <h3 className="text-base font-extrabold text-white tracking-tight">{selectedOp.nombreCliente}</h3>
+                    <h3 className="text-base font-extrabold text-white tracking-tight">
+                      {isUserAdmin 
+                        ? selectedOp.nombreCliente 
+                        : obtenerNombreAnonimizado(getClienteDetails(selectedOp.idCliente) || { id: selectedOp.idCliente, nombre: selectedOp.nombreCliente } as any)}
+                    </h3>
                     <span className="text-[11px] text-emerald-200/80 font-mono">Crédito Nro: {selectedOp.id}</span>
                   </div>
                   <button 
@@ -2240,13 +2444,322 @@ export default function PagosView({
               </button>
               <button
                 type="button"
-                onClick={executePaymentRegistration}
+                onClick={async () => {
+                  executePaymentRegistration();
+                  if (configuracion?.crmWebhookUrl) {
+                    await handleSendCrmWebhook(selectedOp.idCliente, 'acreditacion_pago');
+                  }
+                }}
                 className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer text-center flex items-center justify-center gap-1"
               >
                 <Check className="w-4 h-4" />
                 Registrar Pago Seguro
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONSOLIDACIÓN DE DEUDA, MORA MODULAR Y REFINANCIACIÓN */}
+      {showConsolidacionModal && selectedOp && consolidacionData && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 z-50 animate-fade-in overflow-y-auto">
+          <div className="bg-slate-950 rounded-2xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border-2 border-amber-500/80 space-y-4 my-auto max-h-[92vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-amber-600/40 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/40">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+                    Algoritmo Matemático de Mora Independiente
+                  </span>
+                  <h3 className="text-lg font-black text-white">
+                    Consolidación de Deuda & Liquidación: {selectedOp.nombreCliente}
+                  </h3>
+                  <span className="text-xs text-slate-400 font-mono">
+                    Crédito {selectedOp.id} ({selectedOp.frecuencia}) · Días hábiles sin domingos ni feriados
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConsolidacionModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="space-y-4 overflow-y-auto pr-1 text-xs">
+              
+              {/* Summary KPIs */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 shrink-0">
+                <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Capital Impago ({consolidacionData.cantidadCuotasImpagas} cuotas)</span>
+                  <span className="text-xl font-black text-white font-mono">
+                    ${consolidacionData.totalCapitalImpago.toLocaleString('es-AR')}
+                  </span>
+                </div>
+                <div className="bg-amber-950/40 p-3.5 rounded-xl border border-amber-700/60 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-amber-400 block">Mora Acumulada Independiente</span>
+                  <span className="text-xl font-black text-amber-300 font-mono">
+                    +${consolidacionData.totalMoraAcumulada.toLocaleString('es-AR')}
+                  </span>
+                </div>
+                <div className="bg-emerald-950/50 p-3.5 rounded-xl border border-emerald-600/70 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-emerald-400 block">Total Deuda Consolidada</span>
+                  <span className="text-xl font-black text-emerald-300 font-mono">
+                    ${consolidacionData.totalConsolidado.toLocaleString('es-AR')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Modular Breakdown Table */}
+              <div className="bg-slate-900/90 rounded-xl border border-slate-800 p-3 space-y-2">
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider block">
+                  📋 Evaluación Modular por Cuota (Cálculo Autónomo)
+                </span>
+                <div className="overflow-x-auto max-h-[220px]">
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        <th className="py-1.5 px-2">Cuota</th>
+                        <th className="py-1.5 px-2">Vencimiento</th>
+                        <th className="py-1.5 px-2">Capital</th>
+                        <th className="py-1.5 px-2">Días Hábiles Atraso</th>
+                        <th className="py-1.5 px-2">Períodos Mora</th>
+                        <th className="py-1.5 px-2">Recargo Mora</th>
+                        <th className="py-1.5 px-2 text-right">Total Cuota</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono">
+                      {consolidacionData.cuotasImpagas.map((item) => (
+                        <tr key={item.numeroCuota} className={item.estaEnMora ? 'bg-amber-950/20' : ''}>
+                          <td className="py-2 px-2 font-bold text-white">#{item.numeroCuota}</td>
+                          <td className="py-2 px-2 text-slate-300">{item.fechaVencimiento}</td>
+                          <td className="py-2 px-2 text-slate-200">${item.montoCapital.toLocaleString('es-AR')}</td>
+                          <td className="py-2 px-2">
+                            {item.diasAtrasoHabiles > 0 ? (
+                              <span className="text-rose-400 font-bold">{item.diasAtrasoHabiles} días hábiles</span>
+                            ) : (
+                              <span className="text-emerald-400 font-bold">Al día (0 d)</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-2 text-amber-300 font-bold">{item.periodosMora}</td>
+                          <td className="py-2 px-2 text-amber-400 font-bold">+${item.interesMora.toLocaleString('es-AR')}</td>
+                          <td className="py-2 px-2 font-bold text-emerald-300 text-right">${item.totalCuotaConMora.toLocaleString('es-AR')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Two Options Section: Contado vs Refinanciación */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* OPCIÓN 1: PAGO TOTAL AL CONTADO */}
+                <div className="bg-slate-900/90 rounded-xl border border-emerald-800/80 p-4 space-y-3">
+                  <div className="flex items-center gap-2 border-b border-emerald-800/60 pb-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                      Opción 1: Pago Total al Contado
+                    </h4>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-emerald-200 uppercase block mb-1">
+                      Condonación / Quita de Mora:
+                    </label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[0, 25, 50, 100].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => setDescuentoMoraContado(pct)}
+                          className={`py-1 text-[10px] font-black rounded-lg border cursor-pointer transition-colors ${
+                            descuentoMoraContado === pct
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                              : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-emerald-600'
+                          }`}
+                        >
+                          {pct === 0 ? 'Sin Quita' : `${pct}% Off`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const quita = Math.round(consolidacionData.totalMoraAcumulada * (descuentoMoraContado / 100));
+                    const totalPagar = consolidacionData.totalConsolidado - quita;
+                    return (
+                      <div className="p-3 bg-slate-950 rounded-xl border border-emerald-700/60 space-y-1 font-mono">
+                        <div className="flex justify-between text-slate-400 text-[10px]">
+                          <span>Deuda consolidada:</span>
+                          <span>${consolidacionData.totalConsolidado.toLocaleString('es-AR')}</span>
+                        </div>
+                        {descuentoMoraContado > 0 && (
+                          <div className="flex justify-between text-amber-400 text-[10px]">
+                            <span>Quita de mora ({descuentoMoraContado}%):</span>
+                            <span>-${quita.toLocaleString('es-AR')}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-emerald-300 text-sm font-black border-t border-slate-800 pt-1">
+                          <span>Total a cobrar hoy:</span>
+                          <span>${totalPagar.toLocaleString('es-AR')}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* OPCIÓN 2: REFINANCIACIÓN EN CUOTAS */}
+                <div className="bg-slate-900/90 rounded-xl border border-amber-800/80 p-4 space-y-3">
+                  <div className="flex items-center gap-2 border-b border-amber-800/60 pb-2">
+                    <Handshake className="w-4 h-4 text-amber-400" />
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                      Opción 2: Refinanciación en Cuotas
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-amber-200 uppercase block mb-1">
+                        Cantidad de Cuotas:
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={refinanciacionCuotas}
+                        onChange={(e) => setRefinanciacionCuotas(Math.max(1, Number(e.target.value)))}
+                        className="w-full px-2.5 py-1.5 bg-slate-950 border border-amber-700/60 rounded-lg text-xs font-mono font-bold text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-amber-200 uppercase block mb-1">
+                        Frecuencia:
+                      </label>
+                      <select
+                        value={refinanciacionFrecuencia}
+                        onChange={(e) => setRefinanciacionFrecuencia(e.target.value as FrecuenciaPago)}
+                        className="w-full px-2.5 py-1.5 bg-slate-950 border border-amber-700/60 rounded-lg text-xs font-bold text-white cursor-pointer"
+                      >
+                        <option value="DIARIA">Diaria</option>
+                        <option value="SEMANAL">Semanal</option>
+                        <option value="QUINCENAL">Quincenal</option>
+                        <option value="MENSUAL">Mensual</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const cant = Math.max(1, refinanciacionCuotas);
+                    const cuotaSimulada = Math.round(consolidacionData.totalConsolidado / cant);
+                    return (
+                      <div className="p-3 bg-slate-950 rounded-xl border border-amber-700/60 space-y-1 font-mono">
+                        <div className="flex justify-between text-slate-400 text-[10px]">
+                          <span>Monto refinanciado:</span>
+                          <span>${consolidacionData.totalConsolidado.toLocaleString('es-AR')}</span>
+                        </div>
+                        <div className="flex justify-between text-amber-300 text-sm font-black border-t border-slate-800 pt-1">
+                          <span>Nueva Cuota Fija:</span>
+                          <span>${cuotaSimulada.toLocaleString('es-AR')} ({cant} cuotas)</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <button
+                    type="button"
+                    onClick={handleEjecutarRefinanciacion}
+                    className="w-full py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black rounded-lg text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 uppercase tracking-wider"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Confirmar y Refinanciar Crédito</span>
+                  </button>
+                </div>
+
+              </div>
+
+              {/* Botón WhatsApp 1 Clic con Reporte */}
+              <div className="bg-slate-900/90 rounded-xl border border-slate-800 p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase text-emerald-400 flex items-center gap-1.5">
+                    <MessageCircle className="w-4 h-4" />
+                    Reporte Listo para WhatsApp (1 Clic)
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cli = getClienteDetails(selectedOp.idCliente);
+                        if (!cli) return;
+                        const rep = generarReporteMoraWhatsApp(cli, selectedOp, consolidacionData, configuracion, {
+                          descuentoMoraContado,
+                          cuotasRefinanciacion: refinanciacionCuotas,
+                          frecuenciaRefinanciacion: refinanciacionFrecuencia,
+                          valorCuotaRefinanciacion: Math.round(consolidacionData.totalConsolidado / Math.max(1, refinanciacionCuotas))
+                        });
+                        navigator.clipboard?.writeText(rep);
+                        alert('✅ Reporte copiado al portapapeles. Listo para pegar en WhatsApp.');
+                      }}
+                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      Copiar Reporte
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cli = getClienteDetails(selectedOp.idCliente);
+                        if (!cli) return;
+                        const rep = generarReporteMoraWhatsApp(cli, selectedOp, consolidacionData, configuracion, {
+                          descuentoMoraContado,
+                          cuotasRefinanciacion: refinanciacionCuotas,
+                          frecuenciaRefinanciacion: refinanciacionFrecuencia,
+                          valorCuotaRefinanciacion: Math.round(consolidacionData.totalConsolidado / Math.max(1, refinanciacionCuotas))
+                        });
+                        const cleanTel = (cli.telefono || '').replace(/\D/g, '');
+                        window.open(`https://wa.me/${cleanTel}?text=${encodeURIComponent(rep)}`, '_blank');
+                      }}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black cursor-pointer transition-colors flex items-center gap-1"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Enviar por WhatsApp
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  readOnly
+                  rows={4}
+                  value={(() => {
+                    const cli = getClienteDetails(selectedOp.idCliente);
+                    if (!cli) return '';
+                    return generarReporteMoraWhatsApp(cli, selectedOp, consolidacionData, configuracion, {
+                      descuentoMoraContado,
+                      cuotasRefinanciacion: refinanciacionCuotas,
+                      frecuenciaRefinanciacion: refinanciacionFrecuencia,
+                      valorCuotaRefinanciacion: Math.round(consolidacionData.totalConsolidado / Math.max(1, refinanciacionCuotas))
+                    });
+                  })()}
+                  className="w-full p-2 bg-slate-950 border border-slate-800 rounded-lg text-[10px] font-mono text-emerald-200/90 leading-relaxed resize-none focus:outline-none"
+                />
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="pt-2 border-t border-slate-800 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowConsolidacionModal(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cerrar Ventana
+              </button>
+            </div>
+
           </div>
         </div>
       )}

@@ -99,6 +99,22 @@ export default function ConfiguracionView({
   const [moraQuincenalAplicaDesdeDias, setMoraQuincenalAplicaDesdeDias] = useState(configuracion.moraQuincenalAplicaDesdeDias ?? 5);
   const [moraMensualAplicaDesdeDias, setMoraMensualAplicaDesdeDias] = useState(configuracion.moraMensualAplicaDesdeDias ?? 7);
 
+  // Cuentas Bancarias Oficiales & CRM WhatsApp Descentralizado
+  const [cbuOficial, setCbuOficial] = useState(configuracion.cbuOficial || '0170099220000049281729');
+  const [aliasOficial, setAliasOficial] = useState(configuracion.aliasOficial || 'FINANCIERA.COBROS.OFICIAL');
+  const [crmWebhookUrl, setCrmWebhookUrl] = useState(configuracion.crmWebhookUrl || 'https://tu-crm-whatsapp.com/api/enviar-mensaje-oficial');
+  const [crmApiKey, setCrmApiKey] = useState(configuracion.crmApiKey || '');
+
+  // Parámetros de Mora Modular Independiente (Intervalo Días Hábiles & % Recargo por Cuota)
+  const [moraDiarioIntervaloDias, setMoraDiarioIntervaloDias] = useState(configuracion.moraDiarioIntervaloDias ?? 2);
+  const [moraDiarioPorcentaje, setMoraDiarioPorcentaje] = useState(configuracion.moraDiarioPorcentaje ?? 50);
+  const [moraSemanalIntervaloDias, setMoraSemanalIntervaloDias] = useState(configuracion.moraSemanalIntervaloDias ?? 5);
+  const [moraSemanalPorcentaje, setMoraSemanalPorcentaje] = useState(configuracion.moraSemanalPorcentaje ?? 50);
+  const [moraQuincenalIntervaloDias, setMoraQuincenalIntervaloDias] = useState(configuracion.moraQuincenalIntervaloDias ?? 7);
+  const [moraQuincenalPorcentaje, setMoraQuincenalPorcentaje] = useState(configuracion.moraQuincenalPorcentaje ?? 50);
+  const [moraMensualIntervaloDias, setMoraMensualIntervaloDias] = useState(configuracion.moraMensualIntervaloDias ?? 10);
+  const [moraMensualPorcentaje, setMoraMensualPorcentaje] = useState(configuracion.moraMensualPorcentaje ?? 50);
+
   // Commission Module States
   const [modoComisionCobranza, setModoComisionCobranza] = useState<'PORCENTAJE' | 'MONTO_FIJO'>(configComisiones?.modoComisionCobranza || 'PORCENTAJE');
   const [porcentajeComisionCobranza, setPorcentajeComisionCobranza] = useState(configComisiones?.porcentajeComisionCobranza ?? 5);
@@ -278,9 +294,21 @@ export default function ConfiguracionView({
       moraDiarioAplicaDesdeDias,
       moraSemanalAplicaDesdeDias,
       moraQuincenalAplicaDesdeDias,
-      moraMensualAplicaDesdeDias
+      moraMensualAplicaDesdeDias,
+      cbuOficial,
+      aliasOficial,
+      crmWebhookUrl,
+      crmApiKey,
+      moraDiarioIntervaloDias,
+      moraDiarioPorcentaje,
+      moraSemanalIntervaloDias,
+      moraSemanalPorcentaje,
+      moraQuincenalIntervaloDias,
+      moraQuincenalPorcentaje,
+      moraMensualIntervaloDias,
+      moraMensualPorcentaje
     });
-    alert('¡Configuración de Tasas, Puntos de Recorrido y Políticas guardada con éxito!');
+    alert('¡Configuración de Tasas, Políticas de Mora y Cuentas Bancarias guardada con éxito!');
   };
 
   const handleAddFeriadoSubmit = (e: React.FormEvent) => {
@@ -858,6 +886,212 @@ export default function ConfiguracionView({
                             className="w-full px-2 py-1.5 bg-slate-900 border border-emerald-800/80 rounded text-xs font-extrabold text-white font-mono"
                           />
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-section: Cuentas Bancarias Oficiales de Recepción */}
+              <div className="pt-4 border-t border-emerald-800/80 space-y-4">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-emerald-400" />
+                  <h4 className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">
+                    Cuentas Bancarias Oficiales para Cobranzas (Transferencias)
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                      CBU Oficial de Recepción:
+                    </label>
+                    <input
+                      type="text"
+                      value={cbuOficial}
+                      onChange={(e) => setCbuOficial(e.target.value)}
+                      placeholder="0170099220000049281729"
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                      Alias Oficial de Recepción:
+                    </label>
+                    <input
+                      type="text"
+                      value={aliasOficial}
+                      onChange={(e) => setAliasOficial(e.target.value.toUpperCase())}
+                      placeholder="FINANCIERA.COBROS.OFICIAL"
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-section: Integración CRM Descentralizado WhatsApp */}
+              <div className="pt-4 border-t border-emerald-800/80 space-y-4">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-emerald-400" />
+                  <h4 className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">
+                    Integración CRM Descentralizado de WhatsApp
+                  </h4>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                      Endpoint Webhook WhatsApp (Envío de Comprobantes Oficiales):
+                    </label>
+                    <input
+                      type="url"
+                      value={crmWebhookUrl}
+                      onChange={(e) => setCrmWebhookUrl(e.target.value)}
+                      placeholder="https://tu-crm-whatsapp.com/api/enviar-mensaje-oficial"
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                    />
+                    <p className="text-[10px] text-emerald-300/70 mt-1">
+                      Dispara un POST con clienteId y tipo acreditacion_pago al registrar cobranzas.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-200 uppercase tracking-wider mb-1">
+                      API Key / Bearer Token del CRM (Seguridad):
+                    </label>
+                    <input
+                      type="password"
+                      value={crmApiKey}
+                      onChange={(e) => setCrmApiKey(e.target.value)}
+                      placeholder="credicash_crm_sec_key_..."
+                      className="w-full px-3 py-2 bg-slate-900 border border-emerald-800/80 rounded-lg text-xs font-mono font-bold text-white focus:outline-hidden focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-section: Algoritmo de Mora Modular e Independiente */}
+              <div className="pt-4 border-t border-emerald-800/80 space-y-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-[10px] font-extrabold text-amber-300 uppercase tracking-wider">
+                    Algoritmo Matemático de Mora Independiente (Excluye Domingos y Feriados)
+                  </h4>
+                </div>
+                <p className="text-[11px] text-emerald-200/80">
+                  Cada cuota impaga se evalúa de forma autónoma. Intervalos de cálculo y porcentajes por período:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* DIARIA */}
+                  <div className="p-3 bg-slate-900/90 rounded-lg border border-amber-800/60 space-y-2">
+                    <span className="text-xs font-black text-amber-400 uppercase tracking-wider block border-b border-amber-800/40 pb-1">
+                      Crédito DIARIO
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-amber-200 uppercase block mb-1">Cada N días hábiles:</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={moraDiarioIntervaloDias}
+                          onChange={(e) => setMoraDiarioIntervaloDias(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-2 py-1.5 bg-slate-950 border border-amber-700/60 rounded text-xs font-bold text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-amber-200 uppercase block mb-1">% Recargo/período:</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={moraDiarioPorcentaje}
+                          onChange={(e) => setMoraDiarioPorcentaje(Number(e.target.value))}
+                          className="w-full px-2 py-1.5 bg-slate-950 border border-amber-700/60 rounded text-xs font-bold text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SEMANAL */}
+                  <div className="p-3 bg-slate-900/90 rounded-lg border border-amber-800/60 space-y-2">
+                    <span className="text-xs font-black text-amber-400 uppercase tracking-wider block border-b border-amber-800/40 pb-1">
+                      Crédito SEMANAL
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-amber-200 uppercase block mb-1">Cada N días hábiles:</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={moraSemanalIntervaloDias}
+                          onChange={(e) => setMoraSemanalIntervaloDias(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-2 py-1.5 bg-slate-950 border border-amber-700/60 rounded text-xs font-bold text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-amber-200 uppercase block mb-1">% Recargo/período:</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={moraSemanalPorcentaje}
+                          onChange={(e) => setMoraSemanalPorcentaje(Number(e.target.value))}
+                          className="w-full px-2 py-1.5 bg-slate-950 border border-amber-700/60 rounded text-xs font-bold text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* QUINCENAL */}
+                  <div className="p-3 bg-slate-900/90 rounded-lg border border-amber-800/60 space-y-2">
+                    <span className="text-xs font-black text-amber-400 uppercase tracking-wider block border-b border-amber-800/40 pb-1">
+                      Crédito QUINCENAL
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-amber-200 uppercase block mb-1">Cada N días hábiles:</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={moraQuincenalIntervaloDias}
+                          onChange={(e) => setMoraQuincenalIntervaloDias(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-2 py-1.5 bg-slate-950 border border-amber-700/60 rounded text-xs font-bold text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-amber-200 uppercase block mb-1">% Recargo/período:</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={moraQuincenalPorcentaje}
+                          onChange={(e) => setMoraQuincenalPorcentaje(Number(e.target.value))}
+                          className="w-full px-2 py-1.5 bg-slate-950 border border-amber-700/60 rounded text-xs font-bold text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MENSUAL */}
+                  <div className="p-3 bg-slate-900/90 rounded-lg border border-amber-800/60 space-y-2">
+                    <span className="text-xs font-black text-amber-400 uppercase tracking-wider block border-b border-amber-800/40 pb-1">
+                      Crédito MENSUAL
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-amber-200 uppercase block mb-1">Cada N días hábiles:</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={moraMensualIntervaloDias}
+                          onChange={(e) => setMoraMensualIntervaloDias(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-2 py-1.5 bg-slate-950 border border-amber-700/60 rounded text-xs font-bold text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-amber-200 uppercase block mb-1">% Recargo/período:</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={moraMensualPorcentaje}
+                          onChange={(e) => setMoraMensualPorcentaje(Number(e.target.value))}
+                          className="w-full px-2 py-1.5 bg-slate-950 border border-amber-700/60 rounded text-xs font-bold text-white"
+                        />
                       </div>
                     </div>
                   </div>

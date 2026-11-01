@@ -21,6 +21,7 @@ interface OperacionesViewProps {
   onAddOperacion: (operacion: Operacion, cuotasGeneradas: Cuota[]) => void;
   onUpdateOperacion: (operacion: Operacion) => void;
   onAddCuotas: (nuevasCuotas: Cuota[]) => void;
+  onDeleteOperacion?: (idOperacion: string) => void;
 }
 
 export default function OperacionesView({
@@ -33,6 +34,7 @@ export default function OperacionesView({
   onAddOperacion,
   onUpdateOperacion,
   onAddCuotas,
+  onDeleteOperacion,
 }: OperacionesViewProps) {
   
   // Step 1: Smart Search for Client
@@ -1023,10 +1025,27 @@ export default function OperacionesView({
                             <div>Saldo Pendiente (Debiendo): <strong className="text-rose-400 font-extrabold">${op.totalPendiente.toLocaleString('es-ES')}</strong></div>
                             <div>Cuotas Amortizadas: <strong className="text-white">{op.cuotasPagadas} de {op.cantidadCuotas} pagadas</strong></div>
                           </div>
-                          <div className="text-[9px] text-emerald-300/70 border-t border-emerald-800/80 pt-1 mt-1 font-bold">
-                            {esElegibleRenovacion 
-                              ? '✅ Completó el 70% de cuotas (Elegible para Renovación)' 
-                              : `⚠️ Faltan pagar ${cuotasFaltantesRenovacion} cuotas para ser elegible para renovación.`}
+                          <div className="text-[9px] text-emerald-300/70 border-t border-emerald-800/80 pt-1 mt-1 font-bold flex justify-between items-center">
+                            <span>
+                              {esElegibleRenovacion 
+                                ? '✅ Completó el 70% de cuotas (Elegible para Renovación)' 
+                                : `⚠️ Faltan pagar ${cuotasFaltantesRenovacion} cuotas para ser elegible para renovación.`}
+                            </span>
+                            {activeUser?.rolId === 'ADMIN' && onDeleteOperacion && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`¿Está seguro de eliminar de forma permanente el crédito ${op.id}? Esta acción eliminará el crédito y todas sus cuotas asociadas.`)) {
+                                    onDeleteOperacion(op.id);
+                                  }
+                                }}
+                                className="px-2 py-0.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 hover:text-rose-100 border border-rose-800 rounded text-[9px] font-black cursor-pointer transition-colors"
+                                title="Eliminar crédito (Superadministrador)"
+                              >
+                                🗑️ Eliminar Crédito
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
