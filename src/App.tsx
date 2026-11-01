@@ -48,13 +48,14 @@ import CaptacionClientesView from './components/CaptacionClientesView';
 import VerificacionView from './components/VerificacionView';
 import AsignacionClientesView from './components/AsignacionClientesView';
 import { WhatsAppDesk } from './components/WhatsAppGestion/WhatsAppDesk';
+import { VincularWhatsAppQRView } from './components/WhatsAppGestion/VincularWhatsAppQRView';
 
 // Icons
 import { 
   LayoutDashboard, Users, UserPlus, Briefcase, DollarSign, 
   Percent, Activity, Settings, Calendar, ShieldCheck, Mail, LogOut, CheckCircle2, ShieldAlert,
   Smartphone, PhoneCall, MapPin, Search, MessageCircle, Clock, ListOrdered, UserX, Bell, Sparkles, UserCheck, FileCheck,
-  AlertTriangle, RefreshCw, Loader2, Eye, EyeOff
+  AlertTriangle, RefreshCw, Loader2, Eye, EyeOff, QrCode
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
@@ -2505,7 +2506,7 @@ export default function App() {
     if (!activeUser) return;
 
     if (simularVistaOperador) {
-      if (!['gestion-whatsapp', 'pagos-whatsapp', 'clientes'].includes(activeTab)) {
+      if (!['gestion-whatsapp', 'clientes'].includes(activeTab)) {
         setActiveTab('gestion-whatsapp');
       }
       return;
@@ -2517,7 +2518,7 @@ export default function App() {
     const isCurrentTabAllowed = 
       isAdmin ||
       (normalizedActiveRolId === 'COBRADOR' && (activeTab === 'pagos-calle' || activeTab === 'liquidaciones')) ||
-      (normalizedActiveRolId === 'OPERADOR' && (activeTab === 'pagos-whatsapp' || activeTab === 'gestion-whatsapp' || activeTab === 'clientes')) ||
+      (normalizedActiveRolId === 'OPERADOR' && (activeTab === 'gestion-whatsapp' || activeTab === 'clientes')) ||
       (activeTab === 'dashboard' && r?.verDashboard) ||
       (activeTab === 'gestion-admin' && (r?.verClientes || isAdmin)) ||
       (activeTab === 'clientes' && r?.verClientes) ||
@@ -2526,8 +2527,8 @@ export default function App() {
       (activeTab === 'alertas-oportunidades' && r?.verClientes) ||
       (activeTab === 'nuevo-cliente' && r?.crearClientes) ||
       (activeTab === 'operaciones' && r?.verPrestamos && normalizedActiveRolId !== 'OPERADOR') ||
-      (activeTab === 'pagos' && r?.verPagos) ||
-      (activeTab === 'pagos-whatsapp' && r?.verPagos) ||
+      (activeTab === 'pagos' && r?.verPagos && normalizedActiveRolId !== 'OPERADOR') ||
+      (activeTab === 'pagos-whatsapp' && r?.verPagos && normalizedActiveRolId !== 'OPERADOR') ||
       (activeTab === 'gestion-whatsapp' && (r?.verPagos || isAdmin)) ||
       (activeTab === 'pagos-telefono' && r?.verPagos && normalizedActiveRolId !== 'OPERADOR') ||
       (activeTab === 'pagos-calle' && r?.verPagos && normalizedActiveRolId !== 'OPERADOR') ||
@@ -2540,10 +2541,10 @@ export default function App() {
 
     if (!isCurrentTabAllowed) {
       if (normalizedActiveRolId === 'COBRADOR') setActiveTab('pagos-calle');
-      else if (normalizedActiveRolId === 'OPERADOR') setActiveTab('pagos-whatsapp');
+      else if (normalizedActiveRolId === 'OPERADOR') setActiveTab('gestion-whatsapp');
       else if (r?.verDashboard || isAdmin) setActiveTab('dashboard');
       else if (r?.verClientes) setActiveTab('clientes');
-      else if (r?.verPagos) setActiveTab('pagos-whatsapp');
+      else if (r?.verPagos) setActiveTab('gestion-whatsapp');
       else if (r?.verPrestamos) setActiveTab('operaciones');
       else if (r?.verTesoreria) setActiveTab('tesoreria');
       else if (r?.verConfiguracion) setActiveTab('configuracion');
@@ -2683,6 +2684,8 @@ export default function App() {
       case 'nuevo-cliente': return 'Nuevo Cliente (Ficha)';
       case 'operaciones': return 'Nuevo Crédito';
       case 'pagos': return 'Consola del Operador de Pagos';
+      case 'gestion-whatsapp': return 'Gestión WhatsApp Web (CRM)';
+      case 'vincular-whatsapp': return 'Vincular WhatsApp Oficial (QR)';
       case 'pagos-whatsapp': return 'Gestión diaria (Cobranzas)';
       case 'pagos-telefono': return 'Gestión telefónica (Cobranzas)';
       case 'pagos-calle': return 'Gestión domiciliaria (Cobranzas)';
@@ -2965,6 +2968,22 @@ export default function App() {
                   </div>
                 </button>
 
+                {/* 6c. Vincular WhatsApp QR (Configuración Oficial Superadmin) */}
+                <button
+                  onClick={() => setActiveTab('vincular-whatsapp')}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-black transition-all text-left cursor-pointer shadow-xs ${
+                    activeTab === 'vincular-whatsapp'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-emerald-600'
+                  }`}
+                >
+                  <QrCode className="w-4 h-4 shrink-0 text-[#25d366]" />
+                  <div className="flex items-center gap-1.5">
+                    <span>Vincular WhatsApp (QR)</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-950 text-[#25d366] font-bold border border-emerald-500/40">Superadmin</span>
+                  </div>
+                </button>
+
                 {/* 7. Clientes Inactivos */}
                 <button
                   onClick={() => setActiveTab('clientes-inactivos')}
@@ -3136,18 +3155,6 @@ export default function App() {
                     <span>Gestión WhatsApp</span>
                     <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-[#005c4b] text-[#25d366] font-bold border border-[#00a884]/40">CRM Web</span>
                   </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('pagos-whatsapp')}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-left cursor-pointer ${
-                    activeTab === 'pagos-whatsapp'
-                      ? 'bg-emerald-600 text-white font-black border border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white border border-transparent'
-                  }`}
-                >
-                  <MessageCircle className="w-4 h-4 shrink-0 text-emerald-400" />
-                  Gestión Diaria
                 </button>
 
                 <button
@@ -3360,12 +3367,13 @@ export default function App() {
               onAddPago={handleAddPago}
               onUpdateOperacion={handleUpdateOperacionWithCuotas}
               onDeleteOperacion={handleDeleteOperacion}
-              canManage={activeUserRole.crearClientes}
-              isAdmin={isAdmin}
-              verTelefonoCliente={activeUserRole.verTelefonoCliente}
-              verDniCliente={activeUserRole.verDniCliente}
-              verDireccionCliente={activeUserRole.verDireccionCliente}
-              verIngresosCliente={activeUserRole.verIngresosCliente}
+              canManage={isAdmin && !simularVistaOperador}
+              isAdmin={isAdmin && !simularVistaOperador}
+              simularVistaOperador={simularVistaOperador}
+              verTelefonoCliente={isAdmin && !simularVistaOperador && activeUserRole.verTelefonoCliente}
+              verDniCliente={isAdmin && !simularVistaOperador && activeUserRole.verDniCliente}
+              verDireccionCliente={isAdmin && !simularVistaOperador && activeUserRole.verDireccionCliente}
+              verIngresosCliente={isAdmin && !simularVistaOperador && activeUserRole.verIngresosCliente}
               onNavigateTo={(tab) => setActiveTab(tab)}
             />
           )}
@@ -3439,6 +3447,13 @@ export default function App() {
               onAddCompromisoPago={handleAddCompromisoPago}
               onUpdateCliente={handleUpdateCliente}
               onUpdateOperacion={handleUpdateOperacionWithCuotas}
+              onNavigateTo={(tab) => setActiveTab(tab)}
+            />
+          )}
+
+          {activeTab === 'vincular-whatsapp' && isAdmin && (
+            <VincularWhatsAppQRView
+              isAdmin={isAdmin}
               onNavigateTo={(tab) => setActiveTab(tab)}
             />
           )}
@@ -3643,19 +3658,20 @@ export default function App() {
           )}
 
           {/* Fallback default render if activeTab does not match any valid view */}
-          {(![
-            'dashboard', 'clientes', 'clientes-inactivos', 'clientes-todos', 'nuevo-cliente',
-            'operaciones', 'pagos', 'pagos-whatsapp', 'pagos-telefono',
-            'pagos-calle', 'cobrador-campo', 'gestion-admin', 'asignar-clientes', 'alertas-oportunidades', 
-            'captacion-clientes', 'verificacion',
-            'liquidaciones', 'tesoreria',
-            'configuracion', 'usuarios'
-          ].includes(activeTab) ||
-            (activeTab === 'dashboard' && !activeUserRole.verDashboard) ||
+          {!['gestion-whatsapp', 'vincular-whatsapp'].includes(activeTab) && (
+            ![
+              'dashboard', 'clientes', 'clientes-inactivos', 'clientes-todos', 'nuevo-cliente',
+              'operaciones', 'pagos', 'pagos-whatsapp', 'pagos-telefono',
+              'pagos-calle', 'cobrador-campo', 'gestion-admin', 'asignar-clientes', 'alertas-oportunidades', 
+              'captacion-clientes', 'verificacion',
+              'liquidaciones', 'tesoreria',
+              'configuracion', 'usuarios', 'gestion-whatsapp', 'vincular-whatsapp'
+            ].includes(activeTab) ||
+            (activeTab === 'dashboard' && (!activeUserRole.verDashboard || simularVistaOperador || activeUser?.rolId === 'OPERADOR')) ||
             (activeTab === 'clientes' && !activeUserRole.verClientes) ||
             (activeTab === 'nuevo-cliente' && !activeUserRole.crearClientes) ||
             (activeTab === 'operaciones' && !activeUserRole.verPrestamos) ||
-            ((activeTab === 'pagos' || activeTab === 'pagos-whatsapp' || activeTab === 'pagos-telefono') && !activeUserRole.verPagos) ||
+            ((activeTab === 'pagos' || activeTab === 'pagos-whatsapp' || activeTab === 'pagos-telefono') && (!activeUserRole.verPagos || simularVistaOperador || activeUser?.rolId === 'OPERADOR')) ||
             (activeTab === 'tesoreria' && !activeUserRole.verTesoreria) ||
             (activeTab === 'configuracion' && !activeUserRole.verConfiguracion) ||
             (activeTab === 'asignar-clientes' && !isAdmin) ||
@@ -3684,20 +3700,25 @@ export default function App() {
                 onRegistrarContactoRecuperado={handleRegistrarContactoRecuperado}
                 onUpdateCliente={handleUpdateCliente}
               />
-            ) : activeUser?.rolId === 'OPERADOR' ? (
-              <PagosView
-                operaciones={filteredOperaciones}
-                cuotas={filteredCuotas}
-                pagos={filteredPagos}
+            ) : (activeUser?.rolId === 'OPERADOR' || simularVistaOperador) ? (
+              <WhatsAppDesk
                 clientes={clientes}
+                operaciones={operaciones}
+                cuotas={cuotas}
+                pagos={pagos}
+                compromisosPago={compromisosPago}
                 usuarios={usuarios}
                 activeUser={activeUser}
                 configuracion={configuracion}
+                feriados={feriados}
+                isAdmin={isAdmin}
+                simularVistaOperador={simularVistaOperador}
+                onToggleSimularOperador={handleToggleSimularOperador}
                 onAddPago={handleAddPago}
-                onReorganizePago={handleReorganizePagoAllocation}
-                onDeletePago={handleDeletePago}
-                canAddPago={activeUserRole.registrarPagos}
-                mode="WHATSAPP"
+                onAddCompromisoPago={handleAddCompromisoPago}
+                onUpdateCliente={handleUpdateCliente}
+                onUpdateOperacion={handleUpdateOperacionWithCuotas}
+                onNavigateTo={(tab) => setActiveTab(tab)}
               />
             ) : (
               <DashboardView

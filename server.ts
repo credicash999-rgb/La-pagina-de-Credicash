@@ -120,13 +120,55 @@ async function startServer() {
     return res.json(responsePayload);
   });
 
-  // Mock receiver webhook for local tests
+  // WhatsApp Gateway Session state (In-memory gateway for QR Code linking)
+  let whatsappGatewaySession = {
+    connected: true,
+    phoneNumber: '+54 9 11 3829-4912',
+    device: 'WhatsApp Mobile (Empresa)',
+    batteryLevel: 94,
+    lastSync: new Date().toISOString(),
+    qrCodeString: 'CREDICASH_WA_GW_' + Date.now()
+  };
+
+  // Get current WhatsApp QR gateway status
+  app.get('/api/v1/crm/whatsapp/session', (_req: Request, res: Response) => {
+    res.json(whatsappGatewaySession);
+  });
+
+  // Link WhatsApp via QR code
+  app.post('/api/v1/crm/whatsapp/session/link', (req: Request, res: Response) => {
+    const { phoneNumber, device } = req.body || {};
+    whatsappGatewaySession.connected = true;
+    if (phoneNumber) whatsappGatewaySession.phoneNumber = phoneNumber;
+    if (device) whatsappGatewaySession.device = device;
+    whatsappGatewaySession.lastSync = new Date().toISOString();
+    res.json({ success: true, session: whatsappGatewaySession });
+  });
+
+  // Disconnect WhatsApp session
+  app.post('/api/v1/crm/whatsapp/session/disconnect', (_req: Request, res: Response) => {
+    whatsappGatewaySession.connected = false;
+    whatsappGatewaySession.qrCodeString = 'CREDICASH_WA_GW_' + Date.now();
+    whatsappGatewaySession.lastSync = new Date().toISOString();
+    res.json({ success: true, session: whatsappGatewaySession });
+  });
+
+  // Refresh QR code
+  app.post('/api/v1/crm/whatsapp/session/refresh-qr', (_req: Request, res: Response) => {
+    whatsappGatewaySession.qrCodeString = 'CREDICASH_WA_GW_' + Date.now();
+    res.json({ qrCodeString: whatsappGatewaySession.qrCodeString });
+  });
+
+  // Mock receiver webhook for local tests and outbound messages
   app.post('/api/enviar-mensaje-oficial', (req: Request, res: Response) => {
     console.log('[CRM WHATSAPP WEBHOOK RECEIVED]:', req.body);
+    whatsappGatewaySession.lastSync = new Date().toISOString();
     return res.json({
       success: true,
       mensaje: 'Notificación oficial enviada con éxito por WhatsApp',
       timestamp: new Date().toISOString(),
+      sessionConnected: whatsappGatewaySession.connected,
+      fromNumber: whatsappGatewaySession.phoneNumber,
       recibido: req.body
     });
   });

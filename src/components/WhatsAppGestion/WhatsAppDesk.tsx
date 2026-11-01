@@ -19,7 +19,9 @@ import {
 import {
   consolidarDeudaOperacion,
   generarReporteMoraWhatsApp,
-  obtenerNombreAnonimizado
+  obtenerNombreAnonimizado,
+  obtenerPrimerNombrePila,
+  obtenerDniParcial
 } from '../../utils/moraCalculator';
 import {
   sortCuotasByPaymentPriority,
@@ -56,7 +58,8 @@ import {
   Building,
   ClipboardList,
   MapPin,
-  ExternalLink
+  ExternalLink,
+  QrCode
 } from 'lucide-react';
 
 interface WhatsAppMessage {
@@ -160,6 +163,16 @@ export const WhatsAppDesk: React.FC<WhatsAppDeskProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [isSendingWebhook, setIsSendingWebhook] = useState(false);
+  const [waConnected, setWaConnected] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('credicash_whatsapp_qr_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.connected !== false;
+      }
+    } catch (e) {}
+    return true;
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -329,7 +342,7 @@ export const WhatsAppDesk: React.FC<WhatsAppDeskProps> = ({
     const cItem = currentSelection;
     if (!cItem) return;
 
-    const clientName = modoSuperAdminReal ? cItem.cliente.nombre : obtenerNombreAnonimizado(cItem.cliente);
+    const clientSalutation = modoSuperAdminReal ? cItem.cliente.nombre : obtenerPrimerNombrePila(cItem.cliente);
     const cbu = configuracion.cbuOficial || '0170099220000049281729';
     const alias = configuracion.aliasOficial || 'FINANCIERA.COBROS.OFICIAL';
 
@@ -337,7 +350,7 @@ export const WhatsAppDesk: React.FC<WhatsAppDeskProps> = ({
       {
         id: `MSG-INIT-1-${Date.now()}`,
         sender: 'OPERADOR',
-        texto: `Hola ${clientName}, te escribimos de CrediCash Cobranzas Oficial. Recordá que podés abonar tus cuotas por transferencia oficial a nuestro Alias: ${alias} o CBU: ${cbu}. ¡Estamos para ayudarte!`,
+        texto: `Hola ${clientSalutation}, te escribimos de CrediCash Cobranzas Oficial. Recordá que podés abonar tus cuotas por transferencia oficial a nuestro Alias: ${alias} o CBU: ${cbu}. ¡Estamos para ayudarte!`,
         hora: '09:15',
         fecha: todayStr,
       }
@@ -363,7 +376,7 @@ export const WhatsAppDesk: React.FC<WhatsAppDeskProps> = ({
       defaultSeed.push({
         id: `MSG-INIT-2-${Date.now()}`,
         sender: 'OPERADOR',
-        texto: `Hola ${clientName}, te recordamos que hoy vence la cuota de tu crédito ${selectedOp?.id || ''}. Monto: $${(selectedOp?.valorCuota || 0).toLocaleString('es-AR')}.`,
+        texto: `Hola ${clientSalutation}, te recordamos que hoy vence la cuota de tu crédito ${selectedOp?.id || ''}. Monto: $${(selectedOp?.valorCuota || 0).toLocaleString('es-AR')}.`,
         hora: '11:05',
         fecha: todayStr,
       });
@@ -423,7 +436,7 @@ export const WhatsAppDesk: React.FC<WhatsAppDeskProps> = ({
   const handleApplyTemplate = (templateType: 'RECORDATORIO' | 'MORA' | 'CBU' | 'RENOVACION' | 'COMPROMISO') => {
     if (!currentSelection) return;
     const { cliente, consolidacion, diasMora } = currentSelection;
-    const clientName = modoSuperAdminReal ? cliente.nombre : obtenerNombreAnonimizado(cliente);
+    const clientGreeting = modoSuperAdminReal ? cliente.nombre : obtenerPrimerNombrePila(cliente);
     const cbu = configuracion.cbuOficial || '0170099220000049281729';
     const alias = configuracion.aliasOficial || 'FINANCIERA.COBROS.OFICIAL';
 
@@ -431,18 +444,18 @@ export const WhatsAppDesk: React.FC<WhatsAppDeskProps> = ({
     if (templateType === 'RECORDATORIO') {
       const cuotaNum = selectedOp ? selectedOp.cuotasPagadas + 1 : 1;
       const monto = selectedOp ? selectedOp.valorCuota : 0;
-      text = `Hola ${clientName}, te recordamos desde CrediCash que hoy vence tu cuota #${cuotaNum} de $${monto.toLocaleString('es-AR')}.\n\nPodés transferir a:\n• Alias: ${alias}\n• CBU: ${cbu}\n\nPor favor, envianos el comprobante por acá una vez realizado. ¡Muchas gracias!`;
+      text = `Hola ${clientGreeting}, te recordamos desde CrediCash que hoy vence tu cuota #${cuotaNum} de $${monto.toLocaleString('es-AR')}.\n\nPodés transferir a:\n• Alias: ${alias}\n• CBU: ${cbu}\n\nPor favor, envianos el comprobante por acá una vez realizado. ¡Muchas gracias!`;
     } else if (templateType === 'MORA') {
       const moraAcumulada = consolidacion?.totalMoraAcumulada || 0;
       const total = consolidacion?.totalConsolidado || 0;
-      text = `⚠️ *AVISO IMPORTANTE DE MORA - CREDICASH*\nEstimado/a ${clientName}, su crédito ${selectedOp?.id} registra ${diasMora} días hábiles de atraso.\n\n• Capital pendiente: $${(consolidacion?.totalCapitalImpago || 0).toLocaleString('es-AR')}\n• Interés de mora acumulado: $${moraAcumulada.toLocaleString('es-AR')}\n• *Total a liquidar:* $${total.toLocaleString('es-AR')}\n\nEvite recargos adicionales transfiriendo hoy a:\nAlias: ${alias}\nCBU: ${cbu}\n\nEnvíe el comprobante a la brevedad.`;
+      text = `⚠️ *AVISO IMPORTANTE DE MORA - CREDICASH*\nEstimado/a ${clientGreeting}, su crédito ${selectedOp?.id} registra ${diasMora} días hábiles de atraso.\n\n• Capital pendiente: $${(consolidacion?.totalCapitalImpago || 0).toLocaleString('es-AR')}\n• Interés de mora acumulado: $${moraAcumulada.toLocaleString('es-AR')}\n• *Total a liquidar:* $${total.toLocaleString('es-AR')}\n\nEvite recargos adicionales transfiriendo hoy a:\nAlias: ${alias}\nCBU: ${cbu}\n\nEnvíe el comprobante a la brevedad.`;
     } else if (templateType === 'CBU') {
       text = `🏛️ *DATOS OFICIALES PARA TRANSFERENCIA (CREDICASH)*\n• Titular: CrediCash Cobranzas Oficial\n• CBU: *${cbu}*\n• Alias: *${alias}*\n\nUna vez efectuada la transferencia, responda este mensaje adjuntando el comprobante para acreditar su pago en el sistema de inmediato.`;
     } else if (templateType === 'RENOVACION') {
       const cuotasRestantes = selectedOp ? selectedOp.cantidadCuotas - selectedOp.cuotasPagadas : 0;
-      text = `⭐ *ESTADO DE CRÉDITO Y RENOVACIÓN - CREDICASH*\nHola ${clientName}, tu estado de cuenta es excelente. Te restan solo ${cuotasRestantes} cuotas para finalizar tu préstamo ${selectedOp?.id}.\n\nAl completar el saldo pendiente o cancelar anticipadamente, tu perfil califica automáticamente para una ampliación de capital con tasa preferencial. ¿Querés que simulemos tu nuevo cupo?`;
+      text = `⭐ *ESTADO DE CRÉDITO Y RENOVACIÓN - CREDICASH*\nHola ${clientGreeting}, tu estado de cuenta es excelente. Te restan solo ${cuotasRestantes} cuotas para finalizar tu préstamo ${selectedOp?.id}.\n\nAl completar el saldo pendiente o cancelar anticipadamente, tu perfil califica automáticamente para una ampliación de capital con tasa preferencial. ¿Querés que simulemos tu nuevo cupo?`;
     } else if (templateType === 'COMPROMISO') {
-      text = `🤝 *CONFIRMACIÓN DE COMPROMISO DE PAGO*\nHola ${clientName}, registramos en nuestro sistema tu compromiso de pago para el día acordado. Esperamos tu comprobante en esa fecha para mantener tu cuenta regularizada.`;
+      text = `🤝 *CONFIRMACIÓN DE COMPROMISO DE PAGO*\nHola ${clientGreeting}, registramos en nuestro sistema tu compromiso de pago para el día acordado. Esperamos tu comprobante en esa fecha para mantener tu cuenta regularizada.`;
     }
 
     setInputText(text);
@@ -543,7 +556,7 @@ export const WhatsAppDesk: React.FC<WhatsAppDeskProps> = ({
 
       onAddCompromisoPago(nuevoCompromiso);
 
-      const clientDisplayName = modoSuperAdminReal ? currentSelection?.cliente.nombre : obtenerNombreAnonimizado(currentSelection?.cliente || { id: selectedOp.idCliente, nombre: selectedOp.nombreCliente } as any);
+      const clientDisplayName = modoSuperAdminReal ? currentSelection?.cliente.nombre : obtenerPrimerNombrePila(currentSelection?.cliente || { id: selectedOp.idCliente, nombre: selectedOp.nombreCliente } as any);
       const confirmMessageText = `🤝 *COMPROMISO DE PAGO AGENDADO*\nHola ${clientDisplayName}, dejamos agendado en el sistema tu compromiso para abonar el día *${promesaFecha}*.\n\nPor favor, apenas realices la transferencia envianos el comprobante por acá para mantener tu cuenta al día. ¡Muchas gracias!`;
 
       const chatConfirmMsg: WhatsAppMessage = {
@@ -909,8 +922,32 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
           </div>
         </div>
 
-        {/* Superadmin View Switcher */}
+        {/* Connection status badge & Superadmin View Switcher */}
         <div className="flex items-center gap-2.5">
+          {/* WhatsApp Connection status indicator */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#202c33] border border-[#2a3942] text-xs">
+            <div className={`w-2 h-2 rounded-full ${waConnected ? 'bg-[#25d366] animate-pulse' : 'bg-rose-500'}`} />
+            <span className="text-[11px] font-semibold">
+              {waConnected ? (
+                <span className="text-[#25d366]">WhatsApp Conectado</span>
+              ) : (
+                <span className="text-rose-400">WhatsApp Desconectado</span>
+              )}
+            </span>
+          </div>
+
+          {/* Link QR button - Strictly for Superadmin */}
+          {isAdmin && !simularVistaOperador && (
+            <button
+              onClick={() => onNavigateTo?.('vincular-whatsapp')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-xs font-bold text-emerald-300 border border-emerald-600/60 hover:border-emerald-400 transition-all cursor-pointer shadow-xs"
+              title="Configurar y vincular WhatsApp oficial de la empresa por código QR"
+            >
+              <QrCode className="w-3.5 h-3.5 text-[#25d366]" />
+              <span>Vincular WhatsApp (QR)</span>
+            </button>
+          )}
+
           {isAdmin && (
             <div className="flex items-center gap-2 bg-[#202c33] px-2.5 py-1 rounded-lg border border-[#2a3942]">
               <span className="text-[11px] font-semibold text-slate-300">Modo de Vista:</span>
@@ -1059,7 +1096,10 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
               const isSelected = selectedClienteId === cliente.id;
               const displayName = modoSuperAdminReal
                 ? `${cliente.nombre} ${cliente.apellido || ''}`.trim()
-                : obtenerNombreAnonimizado(cliente);
+                : `${cliente.id} · ${obtenerPrimerNombrePila(cliente)}`;
+              const dniDisplay = modoSuperAdminReal
+                ? (cliente.dni || 'Sin DNI')
+                : `DNI ${obtenerDniParcial(cliente.dni)}`;
 
               return (
                 <button
@@ -1088,14 +1128,17 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                       <span className="text-xs font-bold text-slate-100 truncate">
                         {displayName}
                       </span>
-                      <span className="text-[10px] text-slate-400 ml-1 shrink-0">
-                        {activeOp ? `Cuota ${activeOp.cuotasPagadas + 1}/${activeOp.cantidadCuotas}` : 'Sin op.'}
+                      <span className="text-[10px] text-slate-400 ml-1 shrink-0 font-mono">
+                        {dniDisplay}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-[11px] text-slate-400 truncate">
                         {activeOp ? `${activeOp.id} • $${saldoTotal.toLocaleString('es-AR')}` : 'Histórico'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        {activeOp ? `Cuota ${activeOp.cuotasPagadas + 1}/${activeOp.cantidadCuotas}` : 'Sin op.'}
                       </span>
                     </div>
 
@@ -1126,7 +1169,7 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                     <div className="w-10 h-10 rounded-full bg-emerald-800 border border-emerald-600/40 flex items-center justify-center text-white font-bold text-sm shrink-0">
                       {(modoSuperAdminReal
                         ? currentSelection.cliente.nombre
-                        : obtenerNombreAnonimizado(currentSelection.cliente)
+                        : `${currentSelection.cliente.id} · ${obtenerPrimerNombrePila(currentSelection.cliente)}`
                       ).slice(0, 2).toUpperCase()}
                     </div>
 
@@ -1135,7 +1178,7 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                         <h3 className="font-bold text-sm text-slate-100 truncate">
                           {modoSuperAdminReal
                             ? `${currentSelection.cliente.nombre} ${currentSelection.cliente.apellido || ''}`.trim()
-                            : obtenerNombreAnonimizado(currentSelection.cliente)}
+                            : `${currentSelection.cliente.id} · ${obtenerPrimerNombrePila(currentSelection.cliente)}`}
                         </h3>
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#111b21] text-emerald-400 border border-[#2a3942]">
                           {currentSelection.cliente.id}
@@ -1143,9 +1186,11 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                       </div>
                       <div className="text-[11px] text-slate-400 flex items-center gap-2">
                         {modoSuperAdminReal ? (
-                          <span>📞 {currentSelection.cliente.telefono || 'Sin teléfono'}</span>
+                          <span>📞 {currentSelection.cliente.telefono || 'Sin teléfono'} • DNI: {currentSelection.cliente.dni || 'Sin DNI'}</span>
                         ) : (
-                          <span className="text-slate-400">🔒 Teléfono protegido</span>
+                          <span className="text-slate-400">
+                            🔒 DNI: {obtenerDniParcial(currentSelection.cliente.dni)} • Teléfono y domicilio protegidos
+                          </span>
                         )}
                         {selectedOp && <span>• Préstamo: {selectedOp.id}</span>}
                       </div>
@@ -1740,7 +1785,7 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                   <h3 className="text-base font-extrabold text-white tracking-tight">
                     {modoSuperAdminReal
                       ? `${currentSelection.cliente.nombre} ${currentSelection.cliente.apellido || ''}`.trim()
-                      : obtenerNombreAnonimizado(currentSelection.cliente)}
+                      : `${currentSelection.cliente.id} · ${obtenerPrimerNombrePila(currentSelection.cliente)}`}
                   </h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-emerald-200/90 font-mono">
@@ -1748,6 +1793,9 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                     </span>
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-900 text-emerald-200 border border-emerald-600">
                       {selectedOp.frecuencia}
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-300 bg-amber-950/80 px-1.5 py-0.2 rounded border border-amber-600/50">
+                      {modoSuperAdminReal ? `DNI: ${currentSelection.cliente.dni || 'Sin DNI'}` : `DNI ${obtenerDniParcial(currentSelection.cliente.dni)}`}
                     </span>
                   </div>
                 </div>
@@ -2080,7 +2128,7 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                 <span className="font-extrabold text-white">
                   {modoSuperAdminReal
                     ? selectedOp.nombreCliente
-                    : obtenerNombreAnonimizado(currentSelection?.cliente || { id: selectedOp.idCliente, nombre: selectedOp.nombreCliente } as any)}
+                    : `${currentSelection?.cliente.id || selectedOp.idCliente} · ${obtenerPrimerNombrePila(currentSelection?.cliente || { id: selectedOp.idCliente, nombre: selectedOp.nombreCliente } as any)}`}
                 </span>
               </div>
               <div className="flex justify-between border-b border-emerald-800/60 pb-1.5">

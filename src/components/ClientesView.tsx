@@ -14,6 +14,7 @@ import {
 import { jsPDF } from 'jspdf';
 import { parseClientesCSV } from '../utils/importHelper';
 import { normalizeDateToISO, parseDateToTimestamp, sortCuotasByPaymentPriority, generarPlanCuotas } from '../utils/cuotasGenerator';
+import { obtenerNombreAnonimizado, obtenerPrimerNombrePila, obtenerDniParcial } from '../utils/moraCalculator';
 import AsignacionClientesView from './AsignacionClientesView';
 
 interface ClientesViewProps {
@@ -30,6 +31,7 @@ interface ClientesViewProps {
   onDeleteOperacion?: (idOperacion: string) => void;
   canManage?: boolean;
   isAdmin?: boolean;
+  simularVistaOperador?: boolean;
   verTelefonoCliente?: boolean;
   verDniCliente?: boolean;
   verDireccionCliente?: boolean;
@@ -51,12 +53,15 @@ export default function ClientesView({
   onDeleteOperacion,
   canManage = true,
   isAdmin = false,
+  simularVistaOperador = false,
   verTelefonoCliente = true,
   verDniCliente = true,
   verDireccionCliente = true,
   verIngresosCliente = true,
   onNavigateTo
 }: ClientesViewProps) {
+  const isOperatorMode = !isAdmin || simularVistaOperador || activeUser?.rolId === 'OPERADOR';
+
   const [mainTab, setMainTab] = useState<'directorio' | 'asignacion_cartera'>('directorio');
 
   // Operator Portfolio Assignment States
@@ -794,9 +799,27 @@ export default function ClientesView({
   };
 
   const filteredClientes = clientes.filter((c) => {
+    const searchLower = searchTerm.toLowerCase().trim();
+    if (!searchLower) return filterEstado === 'TODOS' || c.estado === filterEstado;
+
+    if (isOperatorMode) {
+      // In operator mode, search strictly by first name, last 4 digits of DNI, client ID, or alias
+      const primerNombre = obtenerPrimerNombrePila(c).toLowerCase();
+      const dniClean = (c.dni || '').replace(/\D/g, '');
+      const dniLast4 = dniClean.slice(-4);
+      const idMatch = c.id.toLowerCase().includes(searchLower);
+      const nombreMatch = primerNombre.includes(searchLower);
+      const dniMatch = dniLast4.includes(searchLower) || dniClean.includes(searchLower);
+      const aliasMatch = (c.aliasAnonimo || '').toLowerCase().includes(searchLower);
+
+      const matchesSearch = idMatch || nombreMatch || dniMatch || aliasMatch;
+      const matchesEstado = filterEstado === 'TODOS' || c.estado === filterEstado;
+      return matchesSearch && matchesEstado;
+    }
+
+    // Superadmin: full unrestricted search
     const fullName = `${c.nombre} ${c.apellido}`.toLowerCase();
     const reverseFullName = `${c.apellido} ${c.nombre}`.toLowerCase();
-    const searchLower = searchTerm.toLowerCase().trim();
 
     const matchesSearch =
       c.nombre.toLowerCase().includes(searchLower) ||
@@ -807,7 +830,6 @@ export default function ClientesView({
       reverseFullName.includes(searchLower);
 
     const matchesEstado = filterEstado === 'TODOS' || c.estado === filterEstado;
-
     return matchesSearch && matchesEstado;
   });
 
@@ -1759,9 +1781,13 @@ export default function ClientesView({
               <Search className="w-6 h-6" />
             </div>
             <div className="space-y-1.5">
-              <h3 className="text-base font-bold text-white">Búsqueda Unificada de Legajos</h3>
+              <h3 className="text-base font-bold text-white">
+                {isOperatorMode ? 'Búsqueda Segura de Clientes' : 'Búsqueda Unificada de Legajos'}
+              </h3>
               <p className="text-[11px] text-emerald-200/80 max-w-md mx-auto leading-relaxed">
-                Ingrese el DNI o nombre del cliente para auditar su legajo digital, consultar su último crédito activo/presente, analizar historial de mora o exportar reportes en PDF.
+                {isOperatorMode
+                  ? 'Ingrese el primer nombre del cliente o los últimos 4 dígitos del DNI para consultar sus créditos activos y estado de cuenta.'
+                  : 'Ingrese el DNI o nombre del cliente para auditar su legajo digital, consultar su último crédito activo/presente, analizar historial de mora o exportar reportes en PDF.'}
               </p>
             </div>
             
@@ -1769,7 +1795,11 @@ export default function ClientesView({
               <Search className="absolute left-4 top-5.5 h-4.5 w-4.5 text-emerald-400" />
               <input
                 type="text"
-                placeholder="Ingrese DNI o Nombre para buscar"
+                placeholder={
+                  isOperatorMode
+                    ? 'Buscar por nombre o últimos 4 dígitos del DNI (ej: María o 4829)...'
+                    : 'Ingrese DNI o Nombre para buscar'
+                }
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 bg-slate-900 text-white border border-emerald-700 rounded-xl text-sm focus:outline-hidden focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/50 transition-all text-center placeholder-emerald-300/60 font-bold"
@@ -1789,6 +1819,13 @@ export default function ClientesView({
                   filteredClientes.map((c) => {
                     const clientOps = operaciones.filter(o => o.idCliente === c.id);
                     const activeOp = clientOps.find(o => o.estado === 'ACTIVA' || o.estado === 'VENCIDA');
+                    const displayName = isOperatorMode
+                      ? `${c.id} · ${obtenerPrimerNombrePila(c)}`
+                      : `${c.nombre} ${c.apellido}`;
+                    const dniDisplay = isOperatorMode
+                      ? `DNI: ${obtenerDniParcial(c.dni)}`
+                      : `DNI: ${c.dni}`;
+
                     return (
                       <button
                         key={c.id}
@@ -1800,19 +1837,19 @@ export default function ClientesView({
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 bg-emerald-900 text-emerald-200 rounded-lg flex items-center justify-center font-extrabold text-xs font-mono border border-emerald-700">
-                            {c.nombre[0]}{c.apellido[0]}
+                            {isOperatorMode ? c.id.replace('CLI-', '#') : `${c.nombre[0]}${c.apellido[0]}`}
                           </div>
                           <div className="min-w-0 text-left">
                             <div className="font-bold text-white text-sm group-hover:text-emerald-300 transition-colors flex items-center gap-2">
-                              {c.nombre} {c.apellido}
-                              {(!c.documentosSimulados?.dniFrente || !c.documentosSimulados?.dniDorso || !c.documentosSimulados?.comprobanteDomicilio || c.documentosSimulados?.dniFrente.includes('unsplash.com') || c.documentosSimulados?.dniDorso.includes('unsplash.com') || c.documentosSimulados?.comprobanteDomicilio.includes('unsplash.com')) && (
+                              {displayName}
+                              {!isOperatorMode && (!c.documentosSimulados?.dniFrente || !c.documentosSimulados?.dniDorso || !c.documentosSimulados?.comprobanteDomicilio || c.documentosSimulados?.dniFrente.includes('unsplash.com') || c.documentosSimulados?.dniDorso.includes('unsplash.com') || c.documentosSimulados?.comprobanteDomicilio.includes('unsplash.com')) && (
                                 <span className="inline-flex px-1 rounded text-[8px] font-bold uppercase bg-amber-950 text-amber-300 border border-amber-800">
                                   Legajo Pte.
                                 </span>
                               )}
                             </div>
                             <div className="text-[10px] text-emerald-300/70 mt-0.5">
-                              DNI: {c.dni} • ID: {c.id} • {clientOps.length} crédito(s)
+                              {dniDisplay} • ID: {c.id} • {clientOps.length} crédito(s)
                             </div>
                           </div>
                         </div>
@@ -2154,7 +2191,7 @@ export default function ClientesView({
                 <span>Ingresar Pago / Cobrar</span>
               </button>
 
-              {canManage && (
+              {canManage && !isOperatorMode && (
                 <button
                   onClick={() => handleOpenEdit(selectedClient)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-xs transition-colors cursor-pointer border border-emerald-700/80 shadow-xs"
@@ -2164,7 +2201,7 @@ export default function ClientesView({
                 </button>
               )}
 
-              {isAdmin && (
+              {isAdmin && !isOperatorMode && (
                 <button
                   onClick={() => {
                     const newEstado = selectedClient.estado === 'CONGELADO' ? 'ACTIVO' : 'CONGELADO';
@@ -2184,7 +2221,7 @@ export default function ClientesView({
                 </button>
               )}
 
-              {isAdmin && (
+              {isAdmin && !isOperatorMode && (
                 <div className="flex items-center gap-2 bg-slate-900 p-1.5 px-3 rounded-lg border border-emerald-700/80 text-xs">
                   <label className="flex items-center gap-1.5 font-medium text-emerald-200/90 cursor-pointer select-none">
                     <input
@@ -2216,17 +2253,26 @@ export default function ClientesView({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white leading-none">
-                    {selectedClient.nombre} {selectedClient.apellido}
+                    {isOperatorMode
+                      ? `${selectedClient.id} · ${obtenerPrimerNombrePila(selectedClient)}`
+                      : `${selectedClient.nombre} ${selectedClient.apellido}`}
                   </h3>
-                  <span className={`inline-block px-2 py-0.5 mt-1.5 rounded-full text-[9px] font-bold ${
-                    selectedClient.estado === 'ACTIVO' 
-                      ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' 
-                      : selectedClient.estado === 'EN_MORA'
-                      ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                      : 'bg-slate-900 text-slate-300 border border-slate-700'
-                  }`}>
-                    {selectedClient.estado}
-                  </span>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                      selectedClient.estado === 'ACTIVO' 
+                        ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' 
+                        : selectedClient.estado === 'EN_MORA'
+                        ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                        : 'bg-slate-900 text-slate-300 border border-slate-700'
+                    }`}>
+                      {selectedClient.estado}
+                    </span>
+                    {isOperatorMode && (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-950 text-amber-300 border border-amber-800">
+                        🔒 Vista Operador
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -2235,7 +2281,9 @@ export default function ClientesView({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">DNI</span>
-                    <strong className="text-white font-mono text-[13px]">{selectedClient.dni}</strong>
+                    <strong className="text-white font-mono text-[13px]">
+                      {isOperatorMode ? obtenerDniParcial(selectedClient.dni) : selectedClient.dni}
+                    </strong>
                   </div>
                   <div>
                     <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Alta Registro</span>
@@ -2245,10 +2293,12 @@ export default function ClientesView({
 
                 <div>
                   <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Teléfono Celular</span>
-                  <strong className="text-white text-[13px]">{selectedClient.telefono || 'No registrado'}</strong>
+                  <strong className="text-white text-[13px]">
+                    {isOperatorMode ? '🔒 Teléfono protegido (Sólo Superadmin)' : (selectedClient.telefono || 'No registrado')}
+                  </strong>
                 </div>
 
-                {selectedClient.whatsapp && (
+                {selectedClient.whatsapp && !isOperatorMode && (
                   <div>
                     <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">WhatsApp Directo</span>
                     <a
@@ -2263,52 +2313,66 @@ export default function ClientesView({
                   </div>
                 )}
 
-                {verDireccionCliente && (
-                  <div>
-                    <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Dirección Formateada</span>
-                    <strong className="text-white block mt-0.5 leading-relaxed">{selectedClient.direccion || 'No especificada'}</strong>
+                <div>
+                  <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Dirección</span>
+                  <strong className="text-white block mt-0.5 leading-relaxed">
+                    {isOperatorMode ? '🔒 Domicilio restringido (Sólo Superadmin)' : (selectedClient.direccion || 'No especificada')}
+                  </strong>
+                </div>
+
+                {isOperatorMode ? (
+                  <div className="p-3 bg-slate-900/80 rounded-xl border border-emerald-800/60 text-[11px] text-emerald-300 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Datos Personales Protegidos</span>
+                    </div>
+                    <p className="text-[10px] text-slate-300 leading-relaxed">
+                      Los datos sensibles (contacto, domicilio y documentación) están protegidos para el operador. El estado de cuotas y saldos de créditos se visualizan en la columna derecha.
+                    </p>
                   </div>
+                ) : (
+                  <>
+                    <div className={`grid ${verIngresosCliente ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-1 border-t border-emerald-800/60`}>
+                      <div>
+                        <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Actividad</span>
+                        <strong className="text-white truncate block">{selectedClient.trabajo || 'No especificado'}</strong>
+                      </div>
+                      {verIngresosCliente && (
+                        <div>
+                          <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Ingresos Netos</span>
+                          <strong className="text-white block text-[13px]">${selectedClient.ingresos?.toLocaleString('es-AR') || '0'}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-emerald-800/60">
+                      <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider mb-2">Legajo Digital Cargado</span>
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60">
+                          {selectedClient.documentosSimulados?.dniFrente && !selectedClient.documentosSimulados?.dniFrente.includes('unsplash.com') ? (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1">✔ DNI Frente</span>
+                          ) : (
+                            <span className="text-amber-400 flex items-center gap-1">❌ Frente (Falta)</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60">
+                          {selectedClient.documentosSimulados?.dniDorso && !selectedClient.documentosSimulados?.dniDorso.includes('unsplash.com') ? (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1">✔ DNI Dorso</span>
+                          ) : (
+                            <span className="text-amber-400 flex items-center gap-1">❌ Dorso (Falta)</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60 col-span-2">
+                          {selectedClient.documentosSimulados?.comprobanteDomicilio && !selectedClient.documentosSimulados?.comprobanteDomicilio.includes('unsplash.com') ? (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1">✔ Comprobante de Domicilio</span>
+                          ) : (
+                            <span className="text-amber-400 flex items-center gap-1">❌ Comp. Domicilio (Falta)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
-
-                <div className={`grid ${verIngresosCliente ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-1 border-t border-emerald-800/60`}>
-                  <div>
-                    <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Actividad</span>
-                    <strong className="text-white truncate block">{selectedClient.trabajo || 'No especificado'}</strong>
-                  </div>
-                  {verIngresosCliente && (
-                    <div>
-                      <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider">Ingresos Netos</span>
-                      <strong className="text-white block text-[13px]">${selectedClient.ingresos?.toLocaleString('es-AR') || '0'}</strong>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t border-emerald-800/60">
-                  <span className="text-emerald-300/70 block text-[10px] uppercase font-bold tracking-wider mb-2">Legajo Digital Cargado</span>
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60">
-                      {selectedClient.documentosSimulados?.dniFrente && !selectedClient.documentosSimulados?.dniFrente.includes('unsplash.com') ? (
-                        <span className="text-emerald-400 font-bold flex items-center gap-1">✔ DNI Frente</span>
-                      ) : (
-                        <span className="text-amber-400 flex items-center gap-1">❌ Frente (Falta)</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60">
-                      {selectedClient.documentosSimulados?.dniDorso && !selectedClient.documentosSimulados?.dniDorso.includes('unsplash.com') ? (
-                        <span className="text-emerald-400 font-bold flex items-center gap-1">✔ DNI Dorso</span>
-                      ) : (
-                        <span className="text-amber-400 flex items-center gap-1">❌ Dorso (Falta)</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 border border-emerald-800/60 col-span-2">
-                      {selectedClient.documentosSimulados?.comprobanteDomicilio && !selectedClient.documentosSimulados?.comprobanteDomicilio.includes('unsplash.com') ? (
-                        <span className="text-emerald-400 font-bold flex items-center gap-1">✔ Comprobante de Domicilio</span>
-                      ) : (
-                        <span className="text-amber-400 flex items-center gap-1">❌ Comp. Domicilio (Falta)</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 

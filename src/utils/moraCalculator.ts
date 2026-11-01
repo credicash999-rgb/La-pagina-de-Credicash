@@ -242,11 +242,33 @@ _Una vez transferido, responda enviando el comprobante por este medio para su im
 
 /**
  * Obtiene el nombre seguro y anonimizado para operadores de WhatsApp (privacidad de datos).
+ * Muestra únicamente código de cliente + nombre de pila (ej: "CLI-001 · María").
+ * NUNCA expone el apellido ni datos sensibles.
  */
 export function obtenerNombreAnonimizado(cliente: Cliente): string {
   if (cliente.aliasAnonimo && cliente.aliasAnonimo.trim() !== '') {
     return cliente.aliasAnonimo;
   }
   const primerNombre = (cliente.nombre || '').trim().split(' ')[0] || 'Cliente';
-  return `${primerNombre} (${cliente.id})`;
+  return `${cliente.id} · ${primerNombre}`;
 }
+
+/**
+ * Obtiene exclusivamente el primer nombre de pila del cliente para saludos naturales
+ * (ej: "Hola María,").
+ */
+export function obtenerPrimerNombrePila(cliente: Cliente): string {
+  return (cliente.nombre || '').trim().split(' ')[0] || 'Cliente';
+}
+
+/**
+ * Enmascara el DNI mostrando únicamente los últimos 4 dígitos para comprobaciones seguras
+ * (ej: "•••4829").
+ */
+export function obtenerDniParcial(dni?: string): string {
+  if (!dni) return '••••';
+  const clean = dni.replace(/\D/g, '');
+  if (clean.length <= 4) return clean;
+  return `•••${clean.slice(-4)}`;
+}
+
