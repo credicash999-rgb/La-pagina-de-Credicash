@@ -983,48 +983,26 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
             </div>
           )}
 
-          {/* Segmented Toggle between Chat and Ficha on mobile and tablets */}
-          <div className="flex 2xl:hidden bg-[#202c33] p-0.5 rounded-lg border border-[#2a3942]">
-            <button
-              onClick={() => setMobileActivePane('CHAT')}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-all ${
-                mobileActivePane === 'CHAT' ? 'bg-[#00a884] text-slate-950 font-black shadow-xs' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              <span>Chat</span>
-            </button>
-            <button
-              onClick={() => setMobileActivePane('FICHA')}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-all ${
-                mobileActivePane === 'FICHA' ? 'bg-emerald-600 text-white font-black shadow-xs' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Ficha</span>
-            </button>
-          </div>
-
-          {/* Toggle right Ficha panel on ultra-wide desktop only */}
+          {/* Toggle right Ficha panel on tablets and desktops */}
           <button
-            onClick={() => setShowRightPanel(!showRightPanel)}
-            className={`hidden 2xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+            onClick={() => setShowRightPanel(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
               showRightPanel
-                ? 'bg-emerald-700 text-white border-emerald-500'
+                ? 'bg-emerald-600 text-white border-emerald-400 shadow-xs'
                 : 'bg-[#202c33] text-slate-300 border-[#2a3942] hover:text-white'
             }`}
             title="Mostrar / Ocultar Ficha del Cliente"
           >
             <FileText className="w-3.5 h-3.5 text-emerald-300" />
-            <span>Ficha del Cliente</span>
+            <span>{showRightPanel ? 'Ficha Activa' : 'Ver Ficha del Cliente'}</span>
           </button>
         </div>
       </div>
 
       {/* MAIN CONTAINER: 3 COLUMNS */}
       <div className="flex-1 flex overflow-hidden">
-        {/* COLUMN 1: CLIENT LIST (LEFT) - Sleek & responsive for iPads */}
-        <div className={`w-full md:w-64 lg:w-72 2xl:w-80 bg-[#111b21] border-r border-[#222d34] flex-col shrink-0 ${
+        {/* COLUMN 1: CLIENT LIST (LEFT) - Thinner & compact as requested */}
+        <div className={`w-full md:w-56 lg:w-60 xl:w-64 bg-[#111b21] border-r border-[#222d34] flex-col shrink-0 ${
           selectedClienteId ? 'hidden md:flex' : 'flex'
         }`}>
           {/* Search box */}
@@ -1109,21 +1087,21 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                 <button
                   key={cliente.id}
                   onClick={() => setSelectedClienteId(cliente.id)}
-                  className={`w-full text-left p-3 flex items-start gap-3 transition-colors cursor-pointer ${
+                  className={`w-full text-left p-2.5 flex items-start gap-2.5 transition-colors cursor-pointer ${
                     isSelected
                       ? 'bg-[#2a3942] border-l-4 border-[#00a884]'
                       : 'hover:bg-[#202c33] bg-[#111b21]'
                   }`}
                 >
                   <div className="relative shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-800 to-teal-900 border border-emerald-600/40 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-800 to-teal-900 border border-emerald-600/40 flex items-center justify-center text-white font-bold text-xs shadow-sm">
                       {displayName.slice(0, 2).toUpperCase()}
                     </div>
                     {estado === 'EN_MORA' && (
-                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border-2 border-[#111b21] rounded-full" />
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 border-2 border-[#111b21] rounded-full" />
                     )}
                     {estado === 'VENCE_HOY' && (
-                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-400 border-2 border-[#111b21] rounded-full" />
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 border-2 border-[#111b21] rounded-full" />
                     )}
                   </div>
 
@@ -1132,22 +1110,22 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                       <span className="text-xs font-bold text-slate-100 truncate">
                         {displayName}
                       </span>
-                      <span className="text-[10px] text-slate-400 ml-1 shrink-0 font-mono">
+                      <span className="text-[9px] text-slate-400 ml-1 shrink-0 font-mono">
                         {dniDisplay}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[11px] text-slate-400 truncate">
-                        {activeOp ? `${activeOp.id} • $${saldoTotal.toLocaleString('es-AR')}` : 'Histórico'}
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-[10px] text-emerald-300 font-mono truncate">
+                        {activeOp ? `${activeOp.id} · $${saldoTotal.toLocaleString('es-AR')}` : 'Sin crédito'}
                       </span>
-                      <span className="text-[10px] text-slate-400 shrink-0">
-                        {activeOp ? `Cuota ${activeOp.cuotasPagadas + 1}/${activeOp.cantidadCuotas}` : 'Sin op.'}
+                      <span className="text-[9px] text-slate-400 shrink-0">
+                        {activeOp ? `${activeOp.cuotasPagadas}/${activeOp.cantidadCuotas}` : ''}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${badgeColor}`}>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${badgeColor}`}>
                         {estadoLabel}
                       </span>
                     </div>
@@ -1158,12 +1136,8 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
           </div>
         </div>
 
-        {/* COLUMN 2: CENTER WHATSAPP CHAT */}
-        <div
-          className={`flex-1 bg-[#0b141a] flex-col min-w-0 relative ${
-            mobileActivePane === 'CHAT' ? 'flex' : 'hidden 2xl:flex'
-          }`}
-        >
+        {/* COLUMN 2: CENTER WHATSAPP CHAT (GRANDE) */}
+        <div className="flex-1 bg-[#0b141a] flex flex-col min-w-0 relative">
           {currentSelection ? (
             <>
               {/* CHAT HEADER WITH LOAN SELECTOR AND ACTION BUTTONS */}
@@ -1232,14 +1206,18 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
                       <span>Mora</span>
                     </button>
 
-                    {/* View Ficha on tablets/iPads right from chat header */}
+                    {/* View/Hide Ficha button right in chat header */}
                     <button
-                      onClick={() => setMobileActivePane('FICHA')}
-                      className="flex 2xl:hidden items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#111b21] hover:bg-[#2a3942] text-emerald-300 border border-emerald-600/40 text-xs font-bold cursor-pointer transition-all active:scale-95"
-                      title="Ver Ficha y Amortizaciones del Cliente"
+                      onClick={() => setShowRightPanel(prev => !prev)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all active:scale-95 ${
+                        showRightPanel
+                          ? 'bg-emerald-600 text-white border-emerald-400 shadow-xs'
+                          : 'bg-[#111b21] hover:bg-[#2a3942] text-emerald-300 border border-emerald-600/40'
+                      }`}
+                      title={showRightPanel ? 'Ocultar Ficha para maximizar chat' : 'Ver Ficha y Amortizaciones del Cliente'}
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      <span>Ficha</span>
+                      <span>{showRightPanel ? 'Ficha Activa' : 'Ver Ficha'}</span>
                     </button>
                   </div>
                 </div>
@@ -1772,36 +1750,21 @@ _Operador: ${loggedInUserName} | Sistema Maestro CrediCash_`;
           )}
         </div>
 
-        {/* COLUMN 3: RIGHT PANEL - THE EXACT PREVIOUS "FICHA DEL CLIENTE" FROM PAGOS VIEW */}
-        {(showRightPanel || mobileActivePane === 'FICHA') && currentSelection && (
-          <div
-            className={`w-full 2xl:w-96 bg-[#111b21] border-l border-[#222d34] flex-col shrink-0 overflow-y-auto p-4 space-y-4 ${
-              mobileActivePane === 'FICHA' ? 'flex' : 'hidden 2xl:flex'
-            }`}
-          >
+        {/* COLUMN 3: RIGHT PANEL - THE EXACT PREVIOUS "FICHA DEL CLIENTE" FROM PAGOS VIEW (Visible simultaneously on tablets) */}
+        {showRightPanel && currentSelection && (
+          <div className="w-full md:w-72 lg:w-80 xl:w-84 2xl:w-96 bg-[#111b21] border-l border-[#222d34] flex flex-col shrink-0 overflow-y-auto p-3.5 space-y-3">
             {/* Header info */}
             <div className="flex items-center justify-between pb-2 border-b border-[#222d34]">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setMobileActivePane('CHAT')}
-                  className="2xl:hidden px-3 py-1.5 rounded-lg bg-[#00a884] hover:bg-[#008f72] text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer mr-1 shadow-md transition-all active:scale-95"
-                  title="Regresar a la conversación del cliente"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  <span>Volver al Chat</span>
-                </button>
+              <div className="flex items-center gap-2 min-w-0">
                 <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
                 <h4 className="font-extrabold text-xs text-slate-200 uppercase tracking-wider truncate">
-                  Ficha de Resumen del Cliente
+                  Ficha del Cliente
                 </h4>
               </div>
               <button
-                onClick={() => {
-                  setShowRightPanel(false);
-                  setMobileActivePane('CHAT');
-                }}
+                onClick={() => setShowRightPanel(false)}
                 className="text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-[#202c33]"
-                title="Cerrar Ficha"
+                title="Ocultar Ficha para maximizar chat"
               >
                 <X className="w-4 h-4" />
               </button>

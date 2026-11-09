@@ -2745,6 +2745,34 @@ export default function App() {
           <CrediCashLogo size="md" showSubtitle={true} />
         </div>
 
+        {/* Operator Quick Switcher Tabs */}
+        {(normalizedActiveRolId === 'OPERADOR' || simularVistaOperador || activeTab === 'gestion-whatsapp') && (
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
+            <button
+              onClick={() => setActiveTab('gestion-whatsapp')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                activeTab === 'gestion-whatsapp'
+                  ? 'bg-gradient-to-r from-[#00a884] to-[#005c4b] text-white border border-[#25d366]'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-[#25d366]" />
+              <span>1. Gestión WhatsApp</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('clientes')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                activeTab === 'clientes'
+                  ? 'bg-emerald-600 text-white border border-emerald-400'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5 text-teal-400" />
+              <span>2. Buscar Cliente</span>
+            </button>
+          </div>
+        )}
+
         <div className="flex gap-4 sm:gap-6 items-center">
           <div className="hidden md:flex gap-2 text-[13px] font-medium text-slate-300">
             <span className="hover:text-emerald-400 cursor-pointer font-semibold transition-colors" onClick={() => {
@@ -2848,10 +2876,11 @@ export default function App() {
       </nav>
 
       {/* Main Container */}
-      <div className={`w-full ${activeTab === 'gestion-whatsapp' ? 'px-2 md:px-4 py-2 md:py-3' : 'px-4 md:px-8 py-4 md:py-6'} flex-1 flex flex-col md:flex-row gap-4 md:gap-6`}>
+      <div className={`w-full ${activeTab === 'gestion-whatsapp' ? 'p-1 md:p-2' : 'px-4 md:px-8 py-4 md:py-6'} flex-1 flex flex-col md:flex-row gap-4 md:gap-6`}>
         
-        {/* Navigation Sidebar */}
-        <aside className={`${isSidebarCollapsed ? 'hidden' : 'flex'} md:w-64 shrink-0 flex-col gap-2 transition-all`}>
+        {/* Navigation Sidebar: REMOVED when on WhatsApp Station to give full width to the 3 columns as requested */}
+        {activeTab !== 'gestion-whatsapp' && (
+          <aside className={`${isSidebarCollapsed ? 'hidden' : 'flex'} md:w-64 shrink-0 flex-col gap-2 transition-all`}>
           {/* Cloud Error / Offline Notice */}
           {cloudError && (
             <div className="p-3 bg-rose-950/80 border border-rose-600/80 rounded-xl text-rose-200 text-xs shadow-md mb-1 relative">
@@ -3360,6 +3389,7 @@ export default function App() {
             </div>
           </div>
         </aside>
+        )}
 
         {/* Content Pane */}
         <main className="flex-1 min-w-0 overflow-x-auto">
